@@ -1,10 +1,9 @@
 use std::sync::Arc;
 
+use crate::graphics::camera::Camera;
 use eframe::egui_glow;
 use egui::{mutex::Mutex, Vec2};
-
-use crate::camera::Camera;
-
+use nalgebra::Matrix4;
 pub struct App {
     // Example stuff:
     label: String,
@@ -244,7 +243,7 @@ impl WorldRenderer {
         self.camera.pan(pan);
         self.camera.zoom(scroll);
         self.camera.update();
-        let mvp = self.camera.get_mvp();
+        let mvp: Matrix4<f32> = self.camera.get_mvp();
 
         unsafe {
             gl.use_program(Some(self.program));

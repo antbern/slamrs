@@ -1,4 +1,4 @@
-use nalgebra::{Isometry3, Matrix4, Vector2, Vector3};
+use nalgebra::{Isometry3, Matrix4, Orthographic3, Vector2, Vector3};
 
 pub struct Camera {
     position: Vector2<f32>,
@@ -8,8 +8,6 @@ pub struct Camera {
     has_changed: bool,
     current_screen_size: egui::Vec2,
     // matrices for the Camera projection
-    view: Matrix4<f32>,
-    projection: Matrix4<f32>,
     combined: Matrix4<f32>,
 }
 
@@ -22,8 +20,7 @@ impl Camera {
             viewport_height: 1.0,
             has_changed: true,
             current_screen_size: egui::Vec2::new(1.0, 1.0),
-            view: Matrix4::zeros(),
-            projection: Matrix4::zeros(),
+
             combined: Matrix4::zeros(),
         }
     }
@@ -80,7 +77,7 @@ impl Camera {
         self.has_changed = true;
 
         // recreate the projection matrix
-        self.projection = Matrix4::new_orthographic(
+        let projection = Orthographic3::new(
             self.zoom * -self.viewport_width / 2.0,
             self.zoom * self.viewport_width / 2.0,
             self.zoom * -self.viewport_height / 2.0,
@@ -90,14 +87,13 @@ impl Camera {
         );
 
         // recreate the view matrix containing the camera translation
-        self.view = Isometry3::new(
+        let view = Isometry3::new(
             Vector3::new(self.position.x, self.position.y, 0.0),
             nalgebra::zero(),
-        )
-        .to_homogeneous();
+        );
 
         // calculate the combined transformation
-        self.combined = self.projection * self.view;
+        self.combined = projection.as_matrix() * view.to_homogeneous();
     }
 
     pub fn get_mvp(&self) -> Matrix4<f32> {
