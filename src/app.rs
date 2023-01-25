@@ -1,7 +1,9 @@
 use std::sync::Arc;
 
 use eframe::egui_glow;
-use egui::{mutex::Mutex, Visuals};
+use egui::{mutex::Mutex, Vec2};
+
+use crate::camera::Camera;
 
 pub struct App {
     // Example stuff:
@@ -11,7 +13,6 @@ pub struct App {
 
     /// Behind an `Arc<Mutex<…>>` so we can pass it to [`egui::PaintCallback`] and paint later.
     world_renderer: Arc<Mutex<WorldRenderer>>,
-    angle: f32,
 }
 
 impl App {
@@ -29,7 +30,6 @@ impl App {
             label: "Hello World!".to_owned(),
             value: 2.7,
             world_renderer: Arc::new(Mutex::new(WorldRenderer::new(gl))),
-            angle: 0.0,
         }
     }
 }
@@ -108,20 +108,27 @@ impl App {
             ui.available_size(), //egui::Vec2::splat(300.0)
             egui::Sense::drag(),
         );
-        if ui.rect_contains_pointer(rect) {
-            println!("Scroll: {:?}", ui.ctx().input().scroll_delta);
-        }
 
-        self.angle += response.drag_delta().x * 0.01;
+        let scroll = if ui.rect_contains_pointer(rect) {
+            ui.ctx().input().scroll_delta.y / 50.0
+        } else {
+            0.0
+        };
 
         // Clone locals so we can move them into the paint callback:
-        let angle = self.angle;
+
+        let mut drag_delta = response.drag_delta();
+        drag_delta.y *= -1.0;
+
+        let size = rect.size();
         let world_renderer = self.world_renderer.clone();
 
         let callback = egui::PaintCallback {
             rect,
             callback: std::sync::Arc::new(egui_glow::CallbackFn::new(move |_info, painter| {
-                world_renderer.lock().paint(painter.gl(), angle);
+                world_renderer
+                    .lock()
+                    .paint(painter.gl(), size, drag_delta, scroll);
             })),
         };
         ui.painter().add(callback);
@@ -131,6 +138,7 @@ impl App {
 struct WorldRenderer {
     program: glow::Program,
     vertex_array: glow::VertexArray,
+    camera: Camera,
 }
 
 impl WorldRenderer {
@@ -159,11 +167,10 @@ impl WorldRenderer {
                         vec4(0.0, 0.0, 1.0, 1.0)
                     );
                     out vec4 v_color;
-                    uniform float u_angle;
+                    uniform mat4 u_projModelView;
                     void main() {
                         v_color = colors[gl_VertexID];
-                        gl_Position = vec4(verts[gl_VertexID], 0.0, 1.0);
-                        gl_Position.x *= cos(u_angle);
+                        gl_Position = u_projModelView * vec4(verts[gl_VertexID], 0.0, 1.0);
                     }
                 "#,
                 r#"
@@ -216,6 +223,7 @@ impl WorldRenderer {
             Self {
                 program,
                 vertex_array,
+                camera: Camera::new(),
             }
         }
     }
@@ -228,14 +236,25 @@ impl WorldRenderer {
         }
     }
 
-    fn paint(&self, gl: &glow::Context, angle: f32) {
+    fn paint(&mut self, gl: &glow::Context, size: Vec2, pan: Vec2, scroll: f32) {
         use glow::HasContext as _;
+
+        // first update the camera with any zoom and resize change
+        self.camera.resize(size);
+        self.camera.pan(pan);
+        self.camera.zoom(scroll);
+        self.camera.update();
+        let mvp = self.camera.get_mvp();
+
         unsafe {
             gl.use_program(Some(self.program));
-            gl.uniform_1_f32(
-                gl.get_uniform_location(self.program, "u_angle").as_ref(),
-                angle,
+            gl.uniform_matrix_4_f32_slice(
+                gl.get_uniform_location(self.program, "u_projModelView")
+                    .as_ref(),
+                false,
+                mvp.as_slice(),
             );
+
             gl.bind_vertex_array(Some(self.vertex_array));
             gl.draw_arrays(glow::TRIANGLES, 0, 3);
         }
