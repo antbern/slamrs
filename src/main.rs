@@ -5,10 +5,13 @@
 #[cfg(not(target_arch = "wasm32"))]
 fn main() {
     // Log to stdout (if you run with `RUST_LOG=debug`).
+
+    use egui::{Style, Visuals};
     tracing_subscriber::fmt::init();
 
     let native_options = eframe::NativeOptions {
-        // initial_window_size: Some(egui::vec2(350.0, 380.0)),
+        initial_window_size: Some(egui::vec2(1280.0, 720.0)),
+        resizable: true,
         multisampling: 8,
         renderer: eframe::Renderer::Glow,
         ..Default::default()
@@ -17,7 +20,14 @@ fn main() {
     eframe::run_native(
         "Base UI",
         native_options,
-        Box::new(|cc| Box::new(baseui::App::new(cc))),
+        Box::new(|cc| {
+            let style = Style {
+                visuals: Visuals::light(),
+                ..Style::default()
+            };
+            cc.egui_ctx.set_style(style);
+            Box::new(baseui::App::new(cc))
+        }),
     );
 }
 

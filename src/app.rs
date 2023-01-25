@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use eframe::egui_glow;
-use egui::mutex::Mutex;
+use egui::{mutex::Mutex, Visuals};
 
 pub struct App {
     // Example stuff:
@@ -10,7 +10,7 @@ pub struct App {
     value: f32,
 
     /// Behind an `Arc<Mutex<…>>` so we can pass it to [`egui::PaintCallback`] and paint later.
-    rotating_triangle: Arc<Mutex<RotatingTriangle>>,
+    world_renderer: Arc<Mutex<WorldRenderer>>,
     angle: f32,
 }
 
@@ -28,7 +28,7 @@ impl App {
         Self {
             label: "Hello World!".to_owned(),
             value: 2.7,
-            rotating_triangle: Arc::new(Mutex::new(RotatingTriangle::new(gl))),
+            world_renderer: Arc::new(Mutex::new(WorldRenderer::new(gl))),
             angle: 0.0,
         }
     }
@@ -57,7 +57,12 @@ impl eframe::App for App {
             });
         });
 
-        egui::SidePanel::left("side_panel").show(ctx, |ui| {
+        egui::Window::new("Window").show(ctx, |ui| {
+            ui.label("Windows can be moved by dragging them.");
+            ui.label("They are automatically sized based on contents.");
+            ui.label("You can turn on resizing and scrolling if you like.");
+            ui.label("You would normally choose either panels OR windows.");
+
             ui.heading("Side Panel");
 
             ui.horizontal(|ui| {
@@ -87,34 +92,12 @@ impl eframe::App for App {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             // The central panel the region left after adding TopPanel's and SidePanel's
-
-            // ui.heading("eframe template");
-            // ui.hyperlink("https://github.com/emilk/eframe_template");
-            // ui.add(egui::github_link_file!(
-            //     "https://github.com/emilk/eframe_template/blob/master/",
-            //     "Source code."
-            // ));
-            // egui::warn_if_debug_build(ui);
-
             self.custom_painting(ui);
-
-            // egui::Frame::canvas(ui.style()).show(ui, |ui| {
-            //     self.custom_painting(ui);
-            // });
         });
-
-        if true {
-            egui::Window::new("Window").show(ctx, |ui| {
-                ui.label("Windows can be moved by dragging them.");
-                ui.label("They are automatically sized based on contents.");
-                ui.label("You can turn on resizing and scrolling if you like.");
-                ui.label("You would normally choose either panels OR windows.");
-            });
-        }
     }
     fn on_exit(&mut self, gl: Option<&glow::Context>) {
         if let Some(gl) = gl {
-            self.rotating_triangle.lock().destroy(gl);
+            self.world_renderer.lock().destroy(gl);
         }
     }
 }
@@ -133,24 +116,24 @@ impl App {
 
         // Clone locals so we can move them into the paint callback:
         let angle = self.angle;
-        let rotating_triangle = self.rotating_triangle.clone();
+        let world_renderer = self.world_renderer.clone();
 
         let callback = egui::PaintCallback {
             rect,
             callback: std::sync::Arc::new(egui_glow::CallbackFn::new(move |_info, painter| {
-                rotating_triangle.lock().paint(painter.gl(), angle);
+                world_renderer.lock().paint(painter.gl(), angle);
             })),
         };
         ui.painter().add(callback);
     }
 }
 
-struct RotatingTriangle {
+struct WorldRenderer {
     program: glow::Program,
     vertex_array: glow::VertexArray,
 }
 
-impl RotatingTriangle {
+impl WorldRenderer {
     fn new(gl: &glow::Context) -> Self {
         use glow::HasContext as _;
 
