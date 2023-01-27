@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::graphics::camera::Camera;
+use crate::graphics::{camera::Camera, shader};
 use eframe::egui_glow;
 use egui::{mutex::Mutex, Vec2};
 use nalgebra::Matrix4;
@@ -135,7 +135,7 @@ impl App {
 }
 
 struct WorldRenderer {
-    program: glow::Program,
+    program: shader::Program,
     vertex_array: glow::VertexArray,
     camera: Camera,
 }
@@ -144,95 +144,49 @@ impl WorldRenderer {
     fn new(gl: &glow::Context) -> Self {
         use glow::HasContext as _;
 
-        let shader_version = if cfg!(target_arch = "wasm32") {
-            "#version 300 es"
-        } else {
-            "#version 330"
+        let program = shader::Program::new(
+            gl,
+            r#"
+                const vec2 verts[3] = vec2[3](
+                    vec2(0.0, 1.0),
+                    vec2(-1.0, -1.0),
+                    vec2(1.0, -1.0)
+                );
+                const vec4 colors[3] = vec4[3](
+                    vec4(1.0, 0.0, 0.0, 1.0),
+                    vec4(0.0, 1.0, 0.0, 1.0),
+                    vec4(0.0, 0.0, 1.0, 1.0)
+                );
+                out vec4 v_color;
+                uniform mat4 u_projModelView;
+                void main() {
+                    v_color = colors[gl_VertexID];
+                    gl_Position = u_projModelView * vec4(verts[gl_VertexID], 0.0, 1.0);
+                }
+            "#,
+            r#"
+                precision mediump float;
+                in vec4 v_color;
+                out vec4 out_color;
+                void main() {
+                    out_color = v_color;
+                }
+            "#,
+        );
+
+        let vertex_array = unsafe {
+            gl.create_vertex_array()
+                .expect("Cannot create vertex array")
         };
-
-        unsafe {
-            let program = gl.create_program().expect("Cannot create program");
-
-            let (vertex_shader_source, fragment_shader_source) = (
-                r#"
-                    const vec2 verts[3] = vec2[3](
-                        vec2(0.0, 1.0),
-                        vec2(-1.0, -1.0),
-                        vec2(1.0, -1.0)
-                    );
-                    const vec4 colors[3] = vec4[3](
-                        vec4(1.0, 0.0, 0.0, 1.0),
-                        vec4(0.0, 1.0, 0.0, 1.0),
-                        vec4(0.0, 0.0, 1.0, 1.0)
-                    );
-                    out vec4 v_color;
-                    uniform mat4 u_projModelView;
-                    void main() {
-                        v_color = colors[gl_VertexID];
-                        gl_Position = u_projModelView * vec4(verts[gl_VertexID], 0.0, 1.0);
-                    }
-                "#,
-                r#"
-                    precision mediump float;
-                    in vec4 v_color;
-                    out vec4 out_color;
-                    void main() {
-                        out_color = v_color;
-                    }
-                "#,
-            );
-
-            let shader_sources = [
-                (glow::VERTEX_SHADER, vertex_shader_source),
-                (glow::FRAGMENT_SHADER, fragment_shader_source),
-            ];
-
-            let shaders: Vec<_> = shader_sources
-                .iter()
-                .map(|(shader_type, shader_source)| {
-                    let shader = gl
-                        .create_shader(*shader_type)
-                        .expect("Cannot create shader");
-                    gl.shader_source(shader, &format!("{}\n{}", shader_version, shader_source));
-                    gl.compile_shader(shader);
-                    assert!(
-                        gl.get_shader_compile_status(shader),
-                        "Failed to compile {shader_type}: {}",
-                        gl.get_shader_info_log(shader)
-                    );
-                    gl.attach_shader(program, shader);
-                    shader
-                })
-                .collect();
-
-            gl.link_program(program);
-            if !gl.get_program_link_status(program) {
-                panic!("{}", gl.get_program_info_log(program));
-            }
-
-            for shader in shaders {
-                gl.detach_shader(program, shader);
-                gl.delete_shader(shader);
-            }
-
-            let vertex_array = gl
-                .create_vertex_array()
-                .expect("Cannot create vertex array");
-
-            Self {
-                program,
-                vertex_array,
-                camera: Camera::new(),
-            }
+        Self {
+            program,
+            vertex_array,
+            camera: Camera::new(),
         }
     }
 
     fn destroy(&self, gl: &glow::Context) {
-        use glow::HasContext as _;
-        unsafe {
-            gl.delete_program(self.program);
-            gl.delete_vertex_array(self.vertex_array);
-        }
+        self.program.destroy(gl);
     }
 
     fn paint(&mut self, gl: &glow::Context, size: Vec2, pan: Vec2, scroll: f32) {
@@ -245,15 +199,11 @@ impl WorldRenderer {
         self.camera.update();
         let mvp: Matrix4<f32> = self.camera.get_mvp();
 
-        unsafe {
-            gl.use_program(Some(self.program));
-            gl.uniform_matrix_4_f32_slice(
-                gl.get_uniform_location(self.program, "u_projModelView")
-                    .as_ref(),
-                false,
-                mvp.as_slice(),
-            );
+        self.program.bind(gl);
+        self.program
+            .set_uniform_matrix_4_f32(gl, "u_projModelView", mvp);
 
+        unsafe {
             gl.bind_vertex_array(Some(self.vertex_array));
             gl.draw_arrays(glow::TRIANGLES, 0, 3);
         }
