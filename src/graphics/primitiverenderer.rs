@@ -93,7 +93,31 @@ impl PrimitiveRenderer {
         self.proj_model_view = mvp;
     }
 
-    pub fn vertex(&mut self, x: f32, y: f32, z: f32) {
+    pub fn v2(&mut self, v: nalgebra::Vector2<f32>) {
+        self.v2c(v, Color::BLACK);
+    }
+    pub fn v2c(&mut self, v: nalgebra::Vector2<f32>, color: Color) {
+        self.xyzc(v.x, v.y, 0.0, color);
+    }
+
+    pub fn v3(&mut self, v: nalgebra::Vector3<f32>) {
+        self.v3c(v, Color::BLACK);
+    }
+    pub fn v3c(&mut self, v: nalgebra::Vector3<f32>, color: Color) {
+        self.xyzc(v.x, v.y, v.z, color);
+    }
+
+    pub fn xy(&mut self, x: f32, y: f32) {
+        self.xyzc(x, y, 0.0, Color::BLACK);
+    }
+    pub fn xyc(&mut self, x: f32, y: f32, color: Color) {
+        self.xyzc(x, y, 0.0, color);
+    }
+    pub fn xyz(&mut self, x: f32, y: f32, z: f32) {
+        self.xyzc(x, y, z, Color::BLACK);
+    }
+
+    pub fn xyzc(&mut self, x: f32, y: f32, z: f32, color: Color) {
         assert!(
             self.active_drawcall.is_some(),
             "must call begin() before vertex"
@@ -107,17 +131,10 @@ impl PrimitiveRenderer {
         self.vertices[self.index + 0] = x;
         self.vertices[self.index + 1] = y;
         self.vertices[self.index + 2] = z;
+        self.vertices[self.index + 3] = color.bits;
 
         self.index += 4; // 3 position + 1 u32 for color
         self.vertex_count += 1;
-    }
-
-    pub fn color_rgba(&mut self, r: f32, g: f32, b: f32, a: f32) {
-        self.color(Color::rgba(r, g, b, a));
-    }
-
-    pub fn color(&mut self, color: Color) {
-        self.vertices[self.index + 3] = color.bits;
     }
 
     pub fn begin(&mut self, primitive_type: PrimitiveType) {
@@ -145,7 +162,9 @@ impl PrimitiveRenderer {
         self.active_drawcall = None;
     }
 
-    pub fn draw(&mut self, gl: &glow::Context) {
+    // TODO: add function for ensuring space for X more vertices. That could actually take in the GL context and perform a `draw` if necessary...
+
+    pub fn flush(&mut self, gl: &glow::Context) {
         use glow::HasContext as _;
 
         assert!(
@@ -177,7 +196,6 @@ impl PrimitiveRenderer {
         // reset state
         self.vertex_count = 0;
         self.index = 0;
-
         self.draw_calls.clear();
     }
 
@@ -196,18 +214,27 @@ pub struct Color {
 }
 
 impl Color {
+    pub const BLACK: Color = Color::rgba_u8(0x00, 0x00, 0x00, 0xff);
+    pub const WHITE: Color = Color::rgba_u8(0xff, 0xff, 0xff, 0xff);
+
     pub fn rgb(r: f32, g: f32, b: f32) -> Self {
         Self::rgba(r, g, b, 1.0)
     }
     pub fn rgba(r: f32, g: f32, b: f32, a: f32) -> Self {
-        let colori = (((255.0 * a) as u32) << 24)
-            | (((255.0 * b) as u32) << 16)
-            | (((255.0 * g) as u32) << 8)
-            | ((255.0 * r) as u32);
+        Self::rgba_u8(
+            (255.0 * r) as u8,
+            (255.0 * g) as u8,
+            (255.0 * b) as u8,
+            (255.0 * a) as u8,
+        )
+    }
 
-        // unsafe { core::mem::transmute::<u32, f32>(colori) }
+    pub const fn rgba_u8(r: u8, g: u8, b: u8, a: u8) -> Self {
+        let colori = ((a as u32) << 24) | ((b as u32) << 16) | ((g as u32) << 8) | (r as u32);
+
+        // bits: f32::from_bits(colori), // (not const yet...)
         Self {
-            bits: f32::from_bits(colori),
+            bits: unsafe { core::mem::transmute::<u32, f32>(colori) },
         }
     }
 }

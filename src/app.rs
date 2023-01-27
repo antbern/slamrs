@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::graphics::{
     camera::Camera,
-    primitiverenderer::{PrimitiveRenderer, PrimitiveType},
+    primitiverenderer::{Color, PrimitiveRenderer, PrimitiveType},
 };
 use eframe::egui_glow;
 use egui::{mutex::Mutex, Vec2};
@@ -167,41 +167,31 @@ impl WorldRenderer {
         self.pr.set_mvp(mvp);
 
         // draw!
+        let c1 = Color::rgba(1.0, 0.0, 0.0, 1.0);
+        let c2 = Color::rgba(0.0, 1.0, 0.0, 1.0);
+        let c3 = Color::rgba(0.0, 0.0, 1.0, 1.0);
+
         self.pr.begin(PrimitiveType::Filled);
 
-        self.pr.color_rgba(1.0, 0.0, 0.0, 1.0);
-        self.pr.vertex(0.0, 1.0, 0.0);
-
-        self.pr.color_rgba(0.0, 1.0, 0.0, 1.0);
-        self.pr.vertex(-1.0, -1.0, 0.0);
-
-        self.pr.color_rgba(0.0, 0.0, 1.0, 1.0);
-        self.pr.vertex(1.0, -1.0, 0.0);
+        self.pr.xyc(0.0, 1.0, c1);
+        self.pr.xyc(-1.0, -1.0, c2);
+        self.pr.xyc(1.0, -1.0, c3);
 
         self.pr.end();
 
         self.pr.begin(PrimitiveType::Line);
 
-        self.pr.color_rgba(1.0, 0.0, 0.0, 1.0);
-        self.pr.vertex(0.0, 1.0 + 0.1, 0.0);
+        self.pr.xyc(0.0, 1.0 + 0.1, c1);
+        self.pr.xyc(-1.0 - 0.1, -1.0 - 0.1, c2);
 
-        self.pr.color_rgba(0.0, 1.0, 0.0, 1.0);
-        self.pr.vertex(-1.0 - 0.1, -1.0 - 0.1, 0.0);
+        self.pr.xyc(-1.0 - 0.1, -1.0 - 0.1, c2);
+        self.pr.xyc(1.0 + 0.1, -1.0 - 0.1, c3);
 
-        self.pr.color_rgba(0.0, 1.0, 0.0, 1.0);
-        self.pr.vertex(-1.0 - 0.1, -1.0 - 0.1, 0.0);
-
-        self.pr.color_rgba(0.0, 0.0, 1.0, 1.0);
-        self.pr.vertex(1.0 + 0.1, -1.0 - 0.1, 0.0);
-
-        self.pr.color_rgba(0.0, 0.0, 1.0, 1.0);
-        self.pr.vertex(1.0 + 0.1, -1.0 - 0.1, 0.0);
-
-        self.pr.color_rgba(1.0, 0.0, 0.0, 1.0);
-        self.pr.vertex(0.0, 1.0 + 0.1, 0.0);
+        self.pr.xyc(1.0 + 0.1, -1.0 - 0.1, c3);
+        self.pr.xyc(0.0, 1.0 + 0.1, c1);
 
         self.pr.end();
 
-        self.pr.draw(gl);
+        self.pr.flush(gl);
     }
 }
