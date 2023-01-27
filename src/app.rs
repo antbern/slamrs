@@ -147,7 +147,7 @@ impl WorldRenderer {
         // use glow::HasContext as _;
 
         Self {
-            pr: PrimitiveRenderer::new(gl, 10000),
+            pr: PrimitiveRenderer::new(gl, 1000),
             camera: Camera::new(),
         }
     }
@@ -167,39 +167,41 @@ impl WorldRenderer {
         self.pr.set_mvp(mvp);
 
         // draw!
-        self.pr.begin(gl, PrimitiveType::Filled);
+        self.pr.begin(PrimitiveType::Filled);
 
         self.pr.color_rgba(1.0, 0.0, 0.0, 1.0);
-        self.pr.vertex(gl, 0.0, 1.0, 0.0);
+        self.pr.vertex(0.0, 1.0, 0.0);
 
         self.pr.color_rgba(0.0, 1.0, 0.0, 1.0);
-        self.pr.vertex(gl, -1.0, -1.0, 0.0);
+        self.pr.vertex(-1.0, -1.0, 0.0);
 
         self.pr.color_rgba(0.0, 0.0, 1.0, 1.0);
-        self.pr.vertex(gl, 1.0, -1.0, 0.0);
+        self.pr.vertex(1.0, -1.0, 0.0);
 
-        self.pr.end(gl);
+        self.pr.end();
 
-        self.pr.begin(gl, PrimitiveType::Line);
+        self.pr.begin(PrimitiveType::Line);
 
         self.pr.color_rgba(1.0, 0.0, 0.0, 1.0);
-        self.pr.vertex(gl, 0.0, 1.0 + 0.1, 0.0);
+        self.pr.vertex(0.0, 1.0 + 0.1, 0.0);
 
         self.pr.color_rgba(0.0, 1.0, 0.0, 1.0);
-        self.pr.vertex(gl, -1.0 - 0.1, -1.0 - 0.1, 0.0);
+        self.pr.vertex(-1.0 - 0.1, -1.0 - 0.1, 0.0);
 
         self.pr.color_rgba(0.0, 1.0, 0.0, 1.0);
-        self.pr.vertex(gl, -1.0 - 0.1, -1.0 - 0.1, 0.0);
+        self.pr.vertex(-1.0 - 0.1, -1.0 - 0.1, 0.0);
 
         self.pr.color_rgba(0.0, 0.0, 1.0, 1.0);
-        self.pr.vertex(gl, 1.0 + 0.1, -1.0 - 0.1, 0.0);
+        self.pr.vertex(1.0 + 0.1, -1.0 - 0.1, 0.0);
 
         self.pr.color_rgba(0.0, 0.0, 1.0, 1.0);
-        self.pr.vertex(gl, 1.0 + 0.1, -1.0 - 0.1, 0.0);
+        self.pr.vertex(1.0 + 0.1, -1.0 - 0.1, 0.0);
 
         self.pr.color_rgba(1.0, 0.0, 0.0, 1.0);
-        self.pr.vertex(gl, 0.0, 1.0 + 0.1, 0.0);
+        self.pr.vertex(0.0, 1.0 + 0.1, 0.0);
 
-        self.pr.end(gl);
+        self.pr.end();
+
+        self.pr.draw(gl);
     }
 }
