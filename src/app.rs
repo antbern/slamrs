@@ -169,14 +169,36 @@ impl WorldRenderer {
         // draw!
         self.pr.begin(gl, PrimitiveType::Filled);
 
-        self.pr.color(1.0, 0.0, 0.0, 1.0);
+        self.pr.color_rgba(1.0, 0.0, 0.0, 1.0);
         self.pr.vertex(gl, 0.0, 1.0, 0.0);
 
-        self.pr.color(0.0, 1.0, 0.0, 1.0);
+        self.pr.color_rgba(0.0, 1.0, 0.0, 1.0);
         self.pr.vertex(gl, -1.0, -1.0, 0.0);
 
-        self.pr.color(0.0, 0.0, 1.0, 1.0);
+        self.pr.color_rgba(0.0, 0.0, 1.0, 1.0);
         self.pr.vertex(gl, 1.0, -1.0, 0.0);
+
+        self.pr.end(gl);
+
+        self.pr.begin(gl, PrimitiveType::Line);
+
+        self.pr.color_rgba(1.0, 0.0, 0.0, 1.0);
+        self.pr.vertex(gl, 0.0, 1.0 + 0.1, 0.0);
+
+        self.pr.color_rgba(0.0, 1.0, 0.0, 1.0);
+        self.pr.vertex(gl, -1.0 - 0.1, -1.0 - 0.1, 0.0);
+
+        self.pr.color_rgba(0.0, 1.0, 0.0, 1.0);
+        self.pr.vertex(gl, -1.0 - 0.1, -1.0 - 0.1, 0.0);
+
+        self.pr.color_rgba(0.0, 0.0, 1.0, 1.0);
+        self.pr.vertex(gl, 1.0 + 0.1, -1.0 - 0.1, 0.0);
+
+        self.pr.color_rgba(0.0, 0.0, 1.0, 1.0);
+        self.pr.vertex(gl, 1.0 + 0.1, -1.0 - 0.1, 0.0);
+
+        self.pr.color_rgba(1.0, 0.0, 0.0, 1.0);
+        self.pr.vertex(gl, 0.0, 1.0 + 0.1, 0.0);
 
         self.pr.end(gl);
     }

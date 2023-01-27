@@ -105,8 +105,12 @@ impl PrimitiveRenderer {
         self.vertex_count += 1;
     }
 
-    pub fn color(&mut self, r: f32, g: f32, b: f32, a: f32) {
-        self.vertices[self.index + 3] = rgba_to_float_bits(r, g, b, a);
+    pub fn color_rgba(&mut self, r: f32, g: f32, b: f32, a: f32) {
+        self.color(Color::rgba(r, g, b, a));
+    }
+
+    pub fn color(&mut self, color: Color) {
+        self.vertices[self.index + 3] = color.bits;
     }
 
     pub fn begin(&mut self, gl: &glow::Context, primitive_type: PrimitiveType) {
@@ -158,13 +162,26 @@ impl PrimitiveRenderer {
     }
 }
 
-/// packs a RGBA color ([0,1])  into the 4 bytes of a normal float value
-fn rgba_to_float_bits(r: f32, g: f32, b: f32, a: f32) -> f32 {
-    let colori = (((255.0 * a) as u32) << 24)
-        | (((255.0 * b) as u32) << 16)
-        | (((255.0 * g) as u32) << 8)
-        | ((255.0 * r) as u32);
+/// An RGBA color.
+/// Internally, the color is packed into 4 bytes, one for each of RGBA, instead of as 4 floats to save memory
+#[derive(Clone, Copy)]
+pub struct Color {
+    bits: f32,
+}
 
-    // unsafe { core::mem::transmute::<u32, f32>(colori) }
-    f32::from_bits(colori)
+impl Color {
+    pub fn rgb(r: f32, g: f32, b: f32) -> Self {
+        Self::rgba(r, g, b, 1.0)
+    }
+    pub fn rgba(r: f32, g: f32, b: f32, a: f32) -> Self {
+        let colori = (((255.0 * a) as u32) << 24)
+            | (((255.0 * b) as u32) << 16)
+            | (((255.0 * g) as u32) << 8)
+            | ((255.0 * r) as u32);
+
+        // unsafe { core::mem::transmute::<u32, f32>(colori) }
+        Self {
+            bits: f32::from_bits(colori),
+        }
+    }
 }
