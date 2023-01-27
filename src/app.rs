@@ -1,6 +1,9 @@
 use std::sync::Arc;
 
-use crate::graphics::{camera::Camera, shader};
+use crate::graphics::{
+    camera::Camera,
+    primitiverenderer::{PrimitiveRenderer, PrimitiveType},
+};
 use eframe::egui_glow;
 use egui::{mutex::Mutex, Vec2};
 use nalgebra::Matrix4;
@@ -135,63 +138,25 @@ impl App {
 }
 
 struct WorldRenderer {
-    program: shader::Program,
-    vertex_array: glow::VertexArray,
+    pr: PrimitiveRenderer,
     camera: Camera,
 }
 
 impl WorldRenderer {
     fn new(gl: &glow::Context) -> Self {
-        use glow::HasContext as _;
+        // use glow::HasContext as _;
 
-        let program = shader::Program::new(
-            gl,
-            r#"
-                const vec2 verts[3] = vec2[3](
-                    vec2(0.0, 1.0),
-                    vec2(-1.0, -1.0),
-                    vec2(1.0, -1.0)
-                );
-                const vec4 colors[3] = vec4[3](
-                    vec4(1.0, 0.0, 0.0, 1.0),
-                    vec4(0.0, 1.0, 0.0, 1.0),
-                    vec4(0.0, 0.0, 1.0, 1.0)
-                );
-                out vec4 v_color;
-                uniform mat4 u_projModelView;
-                void main() {
-                    v_color = colors[gl_VertexID];
-                    gl_Position = u_projModelView * vec4(verts[gl_VertexID], 0.0, 1.0);
-                }
-            "#,
-            r#"
-                precision mediump float;
-                in vec4 v_color;
-                out vec4 out_color;
-                void main() {
-                    out_color = v_color;
-                }
-            "#,
-        );
-
-        let vertex_array = unsafe {
-            gl.create_vertex_array()
-                .expect("Cannot create vertex array")
-        };
         Self {
-            program,
-            vertex_array,
+            pr: PrimitiveRenderer::new(gl, 10000),
             camera: Camera::new(),
         }
     }
 
     fn destroy(&self, gl: &glow::Context) {
-        self.program.destroy(gl);
+        self.pr.destroy(gl);
     }
 
     fn paint(&mut self, gl: &glow::Context, size: Vec2, pan: Vec2, scroll: f32) {
-        use glow::HasContext as _;
-
         // first update the camera with any zoom and resize change
         self.camera.resize(size);
         self.camera.pan(pan);
@@ -199,13 +164,20 @@ impl WorldRenderer {
         self.camera.update();
         let mvp: Matrix4<f32> = self.camera.get_mvp();
 
-        self.program.bind(gl);
-        self.program
-            .set_uniform_matrix_4_f32(gl, "u_projModelView", mvp);
+        self.pr.set_mvp(mvp);
 
-        unsafe {
-            gl.bind_vertex_array(Some(self.vertex_array));
-            gl.draw_arrays(glow::TRIANGLES, 0, 3);
-        }
+        // draw!
+        self.pr.begin(gl, PrimitiveType::Filled);
+
+        self.pr.color(1.0, 0.0, 0.0, 1.0);
+        self.pr.vertex(gl, 0.0, 1.0, 0.0);
+
+        self.pr.color(0.0, 1.0, 0.0, 1.0);
+        self.pr.vertex(gl, -1.0, -1.0, 0.0);
+
+        self.pr.color(0.0, 0.0, 1.0, 1.0);
+        self.pr.vertex(gl, 1.0, -1.0, 0.0);
+
+        self.pr.end(gl);
     }
 }
