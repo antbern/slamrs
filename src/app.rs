@@ -2,7 +2,8 @@ use std::sync::Arc;
 
 use crate::graphics::{
     camera::Camera,
-    primitiverenderer::{Color, PrimitiveRenderer, PrimitiveType},
+    primitiverenderer::{Color, PrimitiveType},
+    shaperenderer::ShapeRenderer,
 };
 use eframe::egui_glow;
 use egui::{mutex::Mutex, Vec2};
@@ -138,7 +139,7 @@ impl App {
 }
 
 struct WorldRenderer {
-    pr: PrimitiveRenderer,
+    sr: ShapeRenderer,
     camera: Camera,
 }
 
@@ -147,13 +148,13 @@ impl WorldRenderer {
         // use glow::HasContext as _;
 
         Self {
-            pr: PrimitiveRenderer::new(gl, 1000),
+            sr: ShapeRenderer::new(gl),
             camera: Camera::new(),
         }
     }
 
-    fn destroy(&self, gl: &glow::Context) {
-        self.pr.destroy(gl);
+    fn destroy(&mut self, gl: &glow::Context) {
+        self.sr.destroy(gl);
     }
 
     fn paint(&mut self, gl: &glow::Context, size: Vec2, pan: Vec2, scroll: f32) {
@@ -164,34 +165,50 @@ impl WorldRenderer {
         self.camera.update();
         let mvp: Matrix4<f32> = self.camera.get_mvp();
 
-        self.pr.set_mvp(mvp);
+        self.sr.set_mvp(mvp);
 
         // draw!
         let c1 = Color::rgba(1.0, 0.0, 0.0, 1.0);
         let c2 = Color::rgba(0.0, 1.0, 0.0, 1.0);
         let c3 = Color::rgba(0.0, 0.0, 1.0, 1.0);
 
-        self.pr.begin(PrimitiveType::Filled);
+        self.sr.begin(PrimitiveType::Filled);
+        for x in 0..255 {
+            for y in 0..255 {
+                let c = Color::rgba_u8(x, y, 128, 0xff);
+                self.sr.rect(
+                    x as f32 / 255.0,
+                    y as f32 / 255.0,
+                    1.0 / 255.0,
+                    1.0 / 255.0,
+                    c,
+                );
+            }
+        }
 
-        self.pr.xyc(0.0, 1.0, c1);
-        self.pr.xyc(-1.0, -1.0, c2);
-        self.pr.xyc(1.0, -1.0, c3);
+        self.sr.end();
 
-        self.pr.end();
+        // self.pr.begin(PrimitiveType::Filled);
 
-        self.pr.begin(PrimitiveType::Line);
+        // self.pr.xyc(0.0, 1.0, c1);
+        // self.pr.xyc(-1.0, -1.0, c2);
+        // self.pr.xyc(1.0, -1.0, c3);
 
-        self.pr.xyc(0.0, 1.0 + 0.1, c1);
-        self.pr.xyc(-1.0 - 0.1, -1.0 - 0.1, c2);
+        // self.pr.end();
 
-        self.pr.xyc(-1.0 - 0.1, -1.0 - 0.1, c2);
-        self.pr.xyc(1.0 + 0.1, -1.0 - 0.1, c3);
+        // self.pr.begin(PrimitiveType::Line);
 
-        self.pr.xyc(1.0 + 0.1, -1.0 - 0.1, c3);
-        self.pr.xyc(0.0, 1.0 + 0.1, c1);
+        // self.pr.xyc(0.0, 1.0 + 0.1, c1);
+        // self.pr.xyc(-1.0 - 0.1, -1.0 - 0.1, c2);
 
-        self.pr.end();
+        // self.pr.xyc(-1.0 - 0.1, -1.0 - 0.1, c2);
+        // self.pr.xyc(1.0 + 0.1, -1.0 - 0.1, c3);
 
-        self.pr.flush(gl);
+        // self.pr.xyc(1.0 + 0.1, -1.0 - 0.1, c3);
+        // self.pr.xyc(0.0, 1.0 + 0.1, c1);
+
+        // self.pr.end();
+
+        self.sr.flush(gl);
     }
 }

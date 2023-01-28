@@ -1,6 +1,6 @@
 use super::{gl, shader};
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(u32)]
 pub enum PrimitiveType {
     Point = glow::POINTS,
@@ -128,10 +128,17 @@ impl PrimitiveRenderer {
             panic!("no more space for vertices");
         }
 
-        self.vertices[self.index + 0] = x;
-        self.vertices[self.index + 1] = y;
-        self.vertices[self.index + 2] = z;
-        self.vertices[self.index + 3] = color.bits;
+        // SAFETY: we keep track and make sure we have enough space using index and vertex_count variables
+        unsafe {
+            *self.vertices.get_unchecked_mut(self.index + 0) = x;
+            *self.vertices.get_unchecked_mut(self.index + 1) = y;
+            *self.vertices.get_unchecked_mut(self.index + 2) = z;
+            *self.vertices.get_unchecked_mut(self.index + 3) = color.bits;
+        }
+        // self.vertices[self.index + 0] = x;
+        // self.vertices[self.index + 1] = y;
+        // self.vertices[self.index + 2] = z;
+        // self.vertices[self.index + 3] = color.bits;
 
         self.index += 4; // 3 position + 1 u32 for color
         self.vertex_count += 1;
