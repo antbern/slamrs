@@ -29,6 +29,48 @@ struct DrawCall {
     vertex_count: usize,
 }
 
+/* /// Test for using a "RenderGuard" to make sure state of the renderer is correctly managed
+pub struct RenderGuard<'a> {
+    pr: &'a mut PrimitiveRenderer,
+    pt: PrimitiveType,
+    start_index: usize,
+}
+
+impl RenderGuard<'_> {
+    pub fn end(self) {
+        // the end of this method will drop self
+
+        // self.pr.draw_calls.push(DrawCall {
+        //     pt: self.pt,
+        //     start_index: self.start_index,
+        //     vertex_count: self.pr.vertex_count - self.start_index,
+        // });
+
+        // // TODO: remove
+        // self.pr.active_drawcall = None;
+    }
+}
+
+impl Vertex3C for RenderGuard<'_> {
+    fn xyzc(&mut self, x: f32, y: f32, z: f32, color: Color) {
+        self.pr.xyzc(x, y, z, color);
+    }
+}
+
+impl Drop for RenderGuard<'_> {
+    fn drop(&mut self) {
+        self.pr.draw_calls.push(DrawCall {
+            pt: self.pt,
+            start_index: self.start_index,
+            vertex_count: self.pr.vertex_count - self.start_index,
+        });
+
+        // TODO: remove
+        self.pr.active_drawcall = None;
+    }
+}
+ */
+
 pub trait Vertex3C {
     /// Adds a vertex at a 3D position with a specific color
     fn xyzc(&mut self, x: f32, y: f32, z: f32, color: Color);
@@ -151,6 +193,22 @@ impl PrimitiveRenderer {
         });
     }
 
+    /*
+    pub fn begin2(&mut self, primitive_type: PrimitiveType) -> RenderGuard<'_> {
+        // todo: remove me later
+        self.active_drawcall = Some(DrawCall {
+            pt: primitive_type,
+            start_index: self.vertex_count,
+            vertex_count: 0,
+        });
+
+        RenderGuard {
+            start_index: self.vertex_count,
+            pr: self,
+            pt: primitive_type,
+        }
+    }*/
+
     pub fn end(&mut self) {
         // mark the current position in the buffer
         if let Some(mut dc) = self.active_drawcall {
@@ -173,6 +231,14 @@ impl PrimitiveRenderer {
             "end() must be called before draw()"
         );
 
+        // println!(
+        //     "Flushing {} vertices in {} draw calls => {:.2} vertices / call. Cap = {} ~= {} MB",
+        //     self.vertex_count,
+        //     self.draw_calls.len(),
+        //     self.vertex_count as f32 / self.draw_calls.len() as f32,
+        //     self.vertices.capacity(),
+        //     (self.vertices.capacity() * std::mem::size_of::<f32>()) / 1024 / 1024
+        // );
         // use the shader
         self.program.bind(gl);
         self.program

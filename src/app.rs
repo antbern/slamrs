@@ -188,6 +188,8 @@ impl WorldRenderer {
 
         self.sr.end();
 
+        // self.sr.test();
+
         // self.pr.begin(PrimitiveType::Filled);
 
         // self.pr.xyc(0.0, 1.0, c1);

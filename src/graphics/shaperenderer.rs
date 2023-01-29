@@ -1,6 +1,6 @@
 use crate::graphics::primitiverenderer::Color;
 
-use super::primitiverenderer::{PrimitiveRenderer, PrimitiveType};
+use super::primitiverenderer::{PrimitiveRenderer, PrimitiveType, Vertex2C};
 
 pub struct ShapeRenderer {
     pr: PrimitiveRenderer,
@@ -88,6 +88,36 @@ impl ShapeRenderer {
             _ => {}
         }
     }
+
+    /*
+    pub fn test(&mut self) {
+        let c1 = Color::rgba(1.0, 0.0, 0.0, 1.0);
+        let c2 = Color::rgba(0.0, 1.0, 0.0, 1.0);
+        let c3 = Color::rgba(0.0, 0.0, 1.0, 1.0);
+
+        let mut g = self.pr.begin2(PrimitiveType::Filled);
+
+        g.xyc(0.0, 1.0, c1);
+        g.xyc(-1.0, -1.0, c2);
+        g.xyc(1.0, -1.0, c3);
+
+        g.end();
+        let mut g2 = self.pr.begin2(PrimitiveType::Line);
+
+        // let g = self.pr.begin2(PrimitiveType::Line);
+
+        // self.pr.xyc(0.0, 1.0 + 0.1, c1);
+        // self.pr.xyc(-1.0 - 0.1, -1.0 - 0.1, c2);
+
+        // self.pr.xyc(-1.0 - 0.1, -1.0 - 0.1, c2);
+        // self.pr.xyc(1.0 + 0.1, -1.0 - 0.1, c3);
+
+        // self.pr.xyc(1.0 + 0.1, -1.0 - 0.1, c3);
+        // self.pr.xyc(0.0, 1.0 + 0.1, c1);
+
+        // self.pr.end();
+    }
+    */
 
     pub fn destroy(&self, gl: &glow::Context) {
         self.pr.destroy(gl);
