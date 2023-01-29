@@ -29,6 +29,51 @@ struct DrawCall {
     vertex_count: usize,
 }
 
+pub trait Vertex3C {
+    /// Adds a vertex at a 3D position with a specific color
+    fn xyzc(&mut self, x: f32, y: f32, z: f32, color: Color);
+
+    #[inline]
+    fn xyz(&mut self, x: f32, y: f32, z: f32) {
+        self.xyzc(x, y, z, Color::BLACK);
+    }
+
+    #[inline]
+    fn v3(&mut self, v: nalgebra::Vector3<f32>) {
+        self.v3c(v, Color::BLACK);
+    }
+    #[inline]
+    fn v3c(&mut self, v: nalgebra::Vector3<f32>, color: Color) {
+        self.xyzc(v.x, v.y, v.z, color);
+    }
+}
+
+pub trait Vertex2C {
+    /// Adds a vertex at a 3D position with a specific color
+    fn xyc(&mut self, x: f32, y: f32, color: Color);
+
+    #[inline]
+    fn xy(&mut self, x: f32, y: f32) {
+        self.xyc(x, y, Color::BLACK);
+    }
+
+    #[inline]
+    fn v2(&mut self, v: nalgebra::Vector2<f32>) {
+        self.v2c(v, Color::BLACK);
+    }
+    #[inline]
+    fn v2c(&mut self, v: nalgebra::Vector2<f32>, color: Color) {
+        self.xyc(v.x, v.y, color);
+    }
+}
+
+/// Automatically implement Vertex2C for any Vertex3C by setting z=0.0
+impl<T: Vertex3C> Vertex2C for T {
+    fn xyc(&mut self, x: f32, y: f32, color: Color) {
+        self.xyzc(x, y, 0.0, color);
+    }
+}
+
 impl PrimitiveRenderer {
     pub fn new(gl: &glow::Context, max_vertices: u32) -> Self {
         //load our shader
@@ -91,57 +136,6 @@ impl PrimitiveRenderer {
 
     pub fn set_mvp(&mut self, mvp: nalgebra::Matrix4<f32>) {
         self.proj_model_view = mvp;
-    }
-
-    pub fn v2(&mut self, v: nalgebra::Vector2<f32>) {
-        self.v2c(v, Color::BLACK);
-    }
-    pub fn v2c(&mut self, v: nalgebra::Vector2<f32>, color: Color) {
-        self.xyzc(v.x, v.y, 0.0, color);
-    }
-
-    pub fn v3(&mut self, v: nalgebra::Vector3<f32>) {
-        self.v3c(v, Color::BLACK);
-    }
-    pub fn v3c(&mut self, v: nalgebra::Vector3<f32>, color: Color) {
-        self.xyzc(v.x, v.y, v.z, color);
-    }
-
-    pub fn xy(&mut self, x: f32, y: f32) {
-        self.xyzc(x, y, 0.0, Color::BLACK);
-    }
-    pub fn xyc(&mut self, x: f32, y: f32, color: Color) {
-        self.xyzc(x, y, 0.0, color);
-    }
-    pub fn xyz(&mut self, x: f32, y: f32, z: f32) {
-        self.xyzc(x, y, z, Color::BLACK);
-    }
-
-    pub fn xyzc(&mut self, x: f32, y: f32, z: f32, color: Color) {
-        assert!(
-            self.active_drawcall.is_some(),
-            "must call begin() before vertex"
-        );
-
-        // if the buffer is full, do a "flush"
-        if self.vertex_count >= self.max_vertices - 1 {
-            panic!("no more space for vertices");
-        }
-
-        // SAFETY: we keep track and make sure we have enough space using index and vertex_count variables
-        unsafe {
-            *self.vertices.get_unchecked_mut(self.index + 0) = x;
-            *self.vertices.get_unchecked_mut(self.index + 1) = y;
-            *self.vertices.get_unchecked_mut(self.index + 2) = z;
-            *self.vertices.get_unchecked_mut(self.index + 3) = color.bits;
-        }
-        // self.vertices[self.index + 0] = x;
-        // self.vertices[self.index + 1] = y;
-        // self.vertices[self.index + 2] = z;
-        // self.vertices[self.index + 3] = color.bits;
-
-        self.index += 4; // 3 position + 1 u32 for color
-        self.vertex_count += 1;
     }
 
     pub fn begin(&mut self, primitive_type: PrimitiveType) {
@@ -210,6 +204,35 @@ impl PrimitiveRenderer {
         self.vertex_array.destroy(gl);
         self.vertex_buffer.destroy(gl);
         self.program.destroy(gl);
+    }
+}
+
+impl Vertex3C for PrimitiveRenderer {
+    fn xyzc(&mut self, x: f32, y: f32, z: f32, color: Color) {
+        assert!(
+            self.active_drawcall.is_some(),
+            "must call begin() before vertex"
+        );
+
+        // if the buffer is full, do a "flush"
+        if self.vertex_count >= self.max_vertices - 1 {
+            panic!("no more space for vertices");
+        }
+
+        // SAFETY: we keep track and make sure we have enough space using index and vertex_count variables
+        unsafe {
+            *self.vertices.get_unchecked_mut(self.index + 0) = x;
+            *self.vertices.get_unchecked_mut(self.index + 1) = y;
+            *self.vertices.get_unchecked_mut(self.index + 2) = z;
+            *self.vertices.get_unchecked_mut(self.index + 3) = color.bits;
+        }
+        // self.vertices[self.index + 0] = x;
+        // self.vertices[self.index + 1] = y;
+        // self.vertices[self.index + 2] = z;
+        // self.vertices[self.index + 3] = color.bits;
+
+        self.index += 4; // 3 position + 1 u32 for color
+        self.vertex_count += 1;
     }
 }
 
