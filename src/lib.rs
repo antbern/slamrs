@@ -3,3 +3,5 @@
 mod app;
 mod graphics;
 pub use app::App;
+
+mod pubsub;
