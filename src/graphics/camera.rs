@@ -1,4 +1,4 @@
-use nalgebra::{Isometry3, Matrix4, Orthographic3, Vector2, Vector3};
+use nalgebra::{Isometry3, Matrix4, Orthographic3, Point2, Vector2, Vector3};
 
 pub struct Camera {
     position: Vector2<f32>,
@@ -66,8 +66,33 @@ impl Camera {
         self.has_changed = true;
     }
 
-    pub fn unproject(&self, screen_coord: egui::Vec2) -> Vector2<f32> {
-        todo!()
+    pub fn unproject(&self, screen_coord: egui::Pos2) -> Point2<f32> {
+        // let r = self
+        //     .combined
+        //     .try_inverse()
+        //     .unwrap()
+        //     .transform_point(&Point3::new(screen_coord.x, screen_coord.y, 0.0));
+
+        // dbg!(r);
+        // r.xy()
+
+        let mut v = Vector2::new(
+            screen_coord.x / self.current_screen_size.x * self.viewport_width * self.zoom,
+            (self.current_screen_size.y - screen_coord.y - 1.0) / self.current_screen_size.y
+                * self.viewport_height
+                * self.zoom,
+        );
+
+        // adjust for the viewport size
+        v -= Vector2::new(
+            self.viewport_width * self.zoom / 2.0,
+            self.viewport_height * self.zoom / 2.0,
+        );
+
+        // adjust for the fact that the center of the screen is at "position"
+        v -= self.position;
+
+        Point2::new(v.x, v.y)
     }
 
     pub fn update(&mut self) {

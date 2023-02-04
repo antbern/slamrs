@@ -6,8 +6,8 @@ use crate::graphics::{
     shaperenderer::ShapeRenderer,
 };
 use eframe::egui_glow;
-use egui::{mutex::Mutex, Vec2};
-use nalgebra::Matrix4;
+use egui::{mutex::Mutex, Pos2, Vec2};
+use nalgebra::{Matrix4, Point2};
 pub struct App {
     // Example stuff:
     label: String,
@@ -95,6 +95,12 @@ impl eframe::App for App {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             // The central panel the region left after adding TopPanel's and SidePanel's
+            // do some custom drawing in the world before displaying it
+            {
+                let mut world = self.world_renderer.lock();
+                draw_world(ui, &mut world);
+            }
+
             self.custom_painting(ui);
         });
     }
@@ -103,6 +109,59 @@ impl eframe::App for App {
             self.world_renderer.lock().destroy(gl);
         }
     }
+}
+
+fn draw_world(ui: &mut egui::Ui, w: &mut WorldRenderer) {
+    egui::Window::new("World").show(ui.ctx(), |ui| {
+        ui.label(format!(
+            "Mouse Position: [{:.2},{:.2}]",
+            w.last_mouse_pos.x, w.last_mouse_pos.y
+        ));
+    });
+
+    // draw!
+    let c1 = Color::rgba(1.0, 0.0, 0.0, 1.0);
+    let c2 = Color::rgba(0.0, 1.0, 0.0, 1.0);
+    let c3 = Color::rgba(0.0, 0.0, 1.0, 1.0);
+
+    w.sr.begin(PrimitiveType::Filled);
+    for x in 0..255 {
+        for y in 0..255 {
+            let c = Color::rgba_u8(x, y, 128, 0xff);
+            w.sr.rect(
+                x as f32 / 255.0,
+                y as f32 / 255.0,
+                1.0 / 255.0,
+                1.0 / 255.0,
+                c,
+            );
+        }
+    }
+
+    w.sr.end();
+
+    // self.sr.test();
+
+    // self.pr.begin(PrimitiveType::Filled);
+
+    // self.pr.xyc(0.0, 1.0, c1);
+    // self.pr.xyc(-1.0, -1.0, c2);
+    // self.pr.xyc(1.0, -1.0, c3);
+
+    // self.pr.end();
+
+    // self.pr.begin(PrimitiveType::Line);
+
+    // self.pr.xyc(0.0, 1.0 + 0.1, c1);
+    // self.pr.xyc(-1.0 - 0.1, -1.0 - 0.1, c2);
+
+    // self.pr.xyc(-1.0 - 0.1, -1.0 - 0.1, c2);
+    // self.pr.xyc(1.0 + 0.1, -1.0 - 0.1, c3);
+
+    // self.pr.xyc(1.0 + 0.1, -1.0 - 0.1, c3);
+    // self.pr.xyc(0.0, 1.0 + 0.1, c1);
+
+    // self.pr.end();
 }
 
 impl App {
@@ -118,6 +177,16 @@ impl App {
             0.0
         };
 
+        let pos = if ui.rect_contains_pointer(rect) {
+            let mut pos = ui.ctx().pointer_hover_pos().unwrap_or(Pos2::default());
+            // adjust for the position of the allocated space
+            pos.x -= rect.left();
+            pos.y -= rect.top();
+            Some(pos)
+        } else {
+            None
+        };
+
         // Clone locals so we can move them into the paint callback:
 
         let mut drag_delta = response.drag_delta();
@@ -131,7 +200,7 @@ impl App {
             callback: std::sync::Arc::new(egui_glow::CallbackFn::new(move |_info, painter| {
                 world_renderer
                     .lock()
-                    .paint(painter.gl(), size, drag_delta, scroll);
+                    .paint(painter.gl(), pos, size, drag_delta, scroll);
             })),
         };
         ui.painter().add(callback);
@@ -141,6 +210,7 @@ impl App {
 struct WorldRenderer {
     sr: ShapeRenderer,
     camera: Camera,
+    last_mouse_pos: Point2<f32>,
 }
 
 impl WorldRenderer {
@@ -150,6 +220,7 @@ impl WorldRenderer {
         Self {
             sr: ShapeRenderer::new(gl),
             camera: Camera::new(),
+            last_mouse_pos: Point2::new(0.0, 0.0),
         }
     }
 
@@ -157,60 +228,23 @@ impl WorldRenderer {
         self.sr.destroy(gl);
     }
 
-    fn paint(&mut self, gl: &glow::Context, size: Vec2, pan: Vec2, scroll: f32) {
+    fn paint(&mut self, gl: &glow::Context, pos: Option<Pos2>, size: Vec2, pan: Vec2, scroll: f32) {
         // first update the camera with any zoom and resize change
         self.camera.resize(size);
         self.camera.pan(pan);
         self.camera.zoom(scroll);
         self.camera.update();
-        let mvp: Matrix4<f32> = self.camera.get_mvp();
 
+        // set the correct MVP matrix for the shape renderer
+        let mvp: Matrix4<f32> = self.camera.get_mvp();
         self.sr.set_mvp(mvp);
 
-        // draw!
-        let c1 = Color::rgba(1.0, 0.0, 0.0, 1.0);
-        let c2 = Color::rgba(0.0, 1.0, 0.0, 1.0);
-        let c3 = Color::rgba(0.0, 0.0, 1.0, 1.0);
-
-        self.sr.begin(PrimitiveType::Filled);
-        for x in 0..255 {
-            for y in 0..255 {
-                let c = Color::rgba_u8(x, y, 128, 0xff);
-                self.sr.rect(
-                    x as f32 / 255.0,
-                    y as f32 / 255.0,
-                    1.0 / 255.0,
-                    1.0 / 255.0,
-                    c,
-                );
-            }
+        // unproject mouse position to
+        if let Some(pos) = pos {
+            self.last_mouse_pos = self.camera.unproject(pos).into();
         }
 
-        self.sr.end();
-
-        // self.sr.test();
-
-        // self.pr.begin(PrimitiveType::Filled);
-
-        // self.pr.xyc(0.0, 1.0, c1);
-        // self.pr.xyc(-1.0, -1.0, c2);
-        // self.pr.xyc(1.0, -1.0, c3);
-
-        // self.pr.end();
-
-        // self.pr.begin(PrimitiveType::Line);
-
-        // self.pr.xyc(0.0, 1.0 + 0.1, c1);
-        // self.pr.xyc(-1.0 - 0.1, -1.0 - 0.1, c2);
-
-        // self.pr.xyc(-1.0 - 0.1, -1.0 - 0.1, c2);
-        // self.pr.xyc(1.0 + 0.1, -1.0 - 0.1, c3);
-
-        // self.pr.xyc(1.0 + 0.1, -1.0 - 0.1, c3);
-        // self.pr.xyc(0.0, 1.0 + 0.1, c1);
-
-        // self.pr.end();
-
+        // do the actual drawing of already cached vertices
         self.sr.flush(gl);
     }
 }
