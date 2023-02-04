@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
-use crate::graphics::{
-    camera::Camera,
-    primitiverenderer::{Color, PrimitiveType},
-    shaperenderer::ShapeRenderer,
+use crate::{
+    graphics::{camera::Camera, shaperenderer::ShapeRenderer},
+    node::{mouse_position::MousePosition, shape_rendering::ShapeRendering, Node},
+    pubsub::PubSub,
 };
 use eframe::egui_glow;
 use egui::{mutex::Mutex, Pos2, Vec2};
@@ -13,6 +13,9 @@ pub struct App {
     label: String,
 
     value: f32,
+
+    pubsub: PubSub,
+    nodes: Vec<Box<dyn Node>>,
 
     /// Behind an `Arc<Mutex<…>>` so we can pass it to [`egui::PaintCallback`] and paint later.
     world_renderer: Arc<Mutex<WorldRenderer>>,
@@ -29,9 +32,16 @@ impl App {
             .as_ref()
             .expect("You need to run eframe with the glow backend");
 
+        let mut pubsub = PubSub::new();
+
         Self {
             label: "Hello World!".to_owned(),
             value: 2.7,
+            nodes: vec![
+                Box::new(MousePosition::new(&mut pubsub)),
+                Box::new(ShapeRendering::new(&mut pubsub)),
+            ],
+            pubsub,
             world_renderer: Arc::new(Mutex::new(WorldRenderer::new(gl))),
         }
     }
@@ -95,73 +105,26 @@ impl eframe::App for App {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             // The central panel the region left after adding TopPanel's and SidePanel's
-            // do some custom drawing in the world before displaying it
+
+            // Let all nodes do their drawing. Explicit scope for MutexGuard lifetime.
             {
                 let mut world = self.world_renderer.lock();
-                draw_world(ui, &mut world);
+
+                for n in self.nodes.iter_mut() {
+                    n.draw(ui, &mut world);
+                }
             }
 
             self.custom_painting(ui);
         });
+
+        self.pubsub.tick();
     }
     fn on_exit(&mut self, gl: Option<&glow::Context>) {
         if let Some(gl) = gl {
             self.world_renderer.lock().destroy(gl);
         }
     }
-}
-
-fn draw_world(ui: &mut egui::Ui, w: &mut WorldRenderer) {
-    egui::Window::new("World").show(ui.ctx(), |ui| {
-        ui.label(format!(
-            "Mouse Position: [{:.2},{:.2}]",
-            w.last_mouse_pos.x, w.last_mouse_pos.y
-        ));
-    });
-
-    // draw!
-    let c1 = Color::rgba(1.0, 0.0, 0.0, 1.0);
-    let c2 = Color::rgba(0.0, 1.0, 0.0, 1.0);
-    let c3 = Color::rgba(0.0, 0.0, 1.0, 1.0);
-
-    w.sr.begin(PrimitiveType::Filled);
-    for x in 0..255 {
-        for y in 0..255 {
-            let c = Color::rgba_u8(x, y, 128, 0xff);
-            w.sr.rect(
-                x as f32 / 255.0,
-                y as f32 / 255.0,
-                1.0 / 255.0,
-                1.0 / 255.0,
-                c,
-            );
-        }
-    }
-
-    w.sr.end();
-
-    // self.sr.test();
-
-    // self.pr.begin(PrimitiveType::Filled);
-
-    // self.pr.xyc(0.0, 1.0, c1);
-    // self.pr.xyc(-1.0, -1.0, c2);
-    // self.pr.xyc(1.0, -1.0, c3);
-
-    // self.pr.end();
-
-    // self.pr.begin(PrimitiveType::Line);
-
-    // self.pr.xyc(0.0, 1.0 + 0.1, c1);
-    // self.pr.xyc(-1.0 - 0.1, -1.0 - 0.1, c2);
-
-    // self.pr.xyc(-1.0 - 0.1, -1.0 - 0.1, c2);
-    // self.pr.xyc(1.0 + 0.1, -1.0 - 0.1, c3);
-
-    // self.pr.xyc(1.0 + 0.1, -1.0 - 0.1, c3);
-    // self.pr.xyc(0.0, 1.0 + 0.1, c1);
-
-    // self.pr.end();
 }
 
 impl App {
@@ -207,10 +170,10 @@ impl App {
     }
 }
 
-struct WorldRenderer {
-    sr: ShapeRenderer,
+pub struct WorldRenderer {
+    pub sr: ShapeRenderer,
     camera: Camera,
-    last_mouse_pos: Point2<f32>,
+    pub last_mouse_pos: Point2<f32>,
 }
 
 impl WorldRenderer {
@@ -241,7 +204,7 @@ impl WorldRenderer {
 
         // unproject mouse position to
         if let Some(pos) = pos {
-            self.last_mouse_pos = self.camera.unproject(pos).into();
+            self.last_mouse_pos = self.camera.unproject(pos);
         }
 
         // do the actual drawing of already cached vertices

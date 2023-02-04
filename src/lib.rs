@@ -4,4 +4,5 @@ mod app;
 mod graphics;
 pub use app::App;
 
+mod node;
 mod pubsub;
