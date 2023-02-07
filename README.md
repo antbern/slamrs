@@ -41,6 +41,8 @@ On Linux you need to first run:
 
 `sudo apt-get install libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libspeechd-dev libxkbcommon-dev libssl-dev`
 
+For `rfd` file dialogues, you need to install `libgtk-3-dev`, i.e. using `apt install libgtk-3-dev`.
+
 On Fedora Rawhide you need to run:
 
 `dnf install clang clang-devel clang-tools-extra speech-dispatcher-devel libxkbcommon-devel pkg-config openssl-devel libxcb-devel fontconfig-devel`

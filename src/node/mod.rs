@@ -1,6 +1,7 @@
 use crate::{app::WorldRenderer, pubsub::PubSub};
 
 pub mod mouse_position;
+pub mod neato;
 pub mod shape_rendering;
 
 /// A Node is an entity that can publish and react to subscibed messages as well as draw itself.

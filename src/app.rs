@@ -2,7 +2,12 @@ use std::sync::Arc;
 
 use crate::{
     graphics::{camera::Camera, shaperenderer::ShapeRenderer},
-    node::{mouse_position::MousePosition, shape_rendering::ShapeRendering, Node},
+    node::{
+        mouse_position::MousePosition,
+        neato::{fileloader::FileLoader, frame_viz::FrameVizualizer, serial::SerialConnection},
+        shape_rendering::ShapeRendering,
+        Node,
+    },
     pubsub::PubSub,
 };
 use eframe::egui_glow;
@@ -40,6 +45,9 @@ impl App {
             nodes: vec![
                 Box::new(MousePosition::new(&mut pubsub)),
                 Box::new(ShapeRendering::new(&mut pubsub)),
+                Box::new(FileLoader::new(&mut pubsub)),
+                Box::new(FrameVizualizer::new(&mut pubsub)),
+                Box::new(SerialConnection::new(&mut pubsub)),
             ],
             pubsub,
             world_renderer: Arc::new(Mutex::new(WorldRenderer::new(gl))),
