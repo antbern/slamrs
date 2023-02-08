@@ -1,13 +1,20 @@
 [workspace]
 members = [
     "baseui",
-    "pubsub"
+    "pubsub",
+    "graphics",
 ]
 default_members = ["baseui"]
 
 
 [workspace.dependencies]
 pubsub = {path = "./pubsub"}
+graphics = {path = "./graphics"}
+
+
+egui = "0.20.0"
+glow = "0.11"
+nalgebra = "0.32.1"
 
 # [profile.release]
 # opt-level = 2 # fast and small wasm

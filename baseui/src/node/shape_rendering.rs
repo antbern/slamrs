@@ -1,4 +1,4 @@
-use crate::graphics::primitiverenderer::{Color, PrimitiveType};
+use graphics::primitiverenderer::{Color, PrimitiveType};
 
 use super::Node;
 use pubsub::PubSub;

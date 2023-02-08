@@ -113,6 +113,7 @@ dependencies = [
  "eframe",
  "egui",
  "glow",
+ "graphics",
  "nalgebra",
  "pubsub",
  "rfd",
@@ -817,6 +818,15 @@ dependencies = [
  "glib-sys",
  "libc",
  "system-deps",
+]
+
+[[package]]
+name = "graphics"
+version = "0.1.0"
+dependencies = [
+ "egui",
+ "glow",
+ "nalgebra",
 ]
 
 [[package]]

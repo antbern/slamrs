@@ -1,4 +1,4 @@
-use crate::graphics::primitiverenderer::Color;
+use crate::primitiverenderer::Color;
 
 use super::primitiverenderer::{PrimitiveRenderer, PrimitiveType, Vertex2C};
 

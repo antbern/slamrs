@@ -6,7 +6,7 @@ rust-version = "1.65"
 
 
 [dependencies]
-egui = "0.20.0"
+egui = {workspace = true}
 eframe = { version = "0.20.0", default-features = false, features = [
     #"accesskit",     # Make egui comptaible with screen readers. NOTE: adds a lot of dependencies.
     "default_fonts", # Embed the default egui fonts.
@@ -14,16 +14,17 @@ eframe = { version = "0.20.0", default-features = false, features = [
     # "persistence",   # Enable restoring app state when restarting the app.
 ] }
 
-glow = "0.11"
+glow = {workspace = true}
 
 # You only need serde if you want app persistence:
 # serde = { version = "1", features = ["derive"] }
-nalgebra = "0.32.1"
+nalgebra = {workspace = true}
 rfd = "0.11.0"
 anyhow = "1.0.68"
 serial2 = "0.1.7"
 
 pubsub = {workspace = true}
+graphics = {workspace = true}
 
 # native:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

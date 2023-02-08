@@ -2,10 +2,8 @@ use std::sync::Arc;
 
 use pubsub::{PubSub, Subscription};
 
-use crate::{
-    graphics::primitiverenderer::{Color, PrimitiveType},
-    node::Node,
-};
+use crate::node::Node;
+use graphics::primitiverenderer::{Color, PrimitiveType};
 
 use super::frame::NeatoFrame;
 

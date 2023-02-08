@@ -1,16 +1,14 @@
 use std::sync::Arc;
 
-use crate::{
-    graphics::{camera::Camera, shaperenderer::ShapeRenderer},
-    node::{
-        mouse_position::MousePosition,
-        neato::{fileloader::FileLoader, frame_viz::FrameVizualizer, serial::SerialConnection},
-        shape_rendering::ShapeRendering,
-        Node,
-    },
+use crate::node::{
+    mouse_position::MousePosition,
+    neato::{fileloader::FileLoader, frame_viz::FrameVizualizer, serial::SerialConnection},
+    shape_rendering::ShapeRendering,
+    Node,
 };
 use eframe::egui_glow;
 use egui::{mutex::Mutex, Pos2, Vec2};
+use graphics::{camera::Camera, shaperenderer::ShapeRenderer};
 use nalgebra::{Matrix4, Point2};
 use pubsub::PubSub;
 pub struct App {
