@@ -3,7 +3,7 @@ members = [
     "baseui",
     "pubsub"
 ]
-default_member = "baseui"
+default_members = ["baseui"]
 
 
 [workspace.dependencies]
