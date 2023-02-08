@@ -1,3 +1,4 @@
+use pubsub::PubSub;
 use std::{
     path::PathBuf,
     sync::{
@@ -25,7 +26,7 @@ enum State {
 }
 
 impl Node for SerialConnection {
-    fn new(pubsub: &mut crate::pubsub::PubSub) -> Self
+    fn new(pubsub: &mut PubSub) -> Self
     where
         Self: Sized,
     {

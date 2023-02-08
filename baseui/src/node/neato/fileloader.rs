@@ -1,6 +1,7 @@
+use pubsub::{PubSub, Publisher};
 use std::sync::Arc;
 
-use crate::{node::Node, pubsub::Publisher};
+use crate::node::Node;
 
 use super::frame::{self, NeatoFrame};
 
@@ -12,7 +13,7 @@ pub struct FileLoader {
 }
 
 impl Node for FileLoader {
-    fn new(pubsub: &mut crate::pubsub::PubSub) -> Self
+    fn new(pubsub: &mut PubSub) -> Self
     where
         Self: Sized,
     {

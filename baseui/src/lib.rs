@@ -5,4 +5,3 @@ mod graphics;
 pub use app::App;
 
 mod node;
-mod pubsub;

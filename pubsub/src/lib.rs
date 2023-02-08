@@ -140,3 +140,32 @@ impl PubSub {
         }
     }
 }
+
+// #[derive(Debug)]
+// struct Data {
+//     d: Vec<u32>,
+// }
+
+// pub fn test() {
+//     // test pubsub quickly
+//     let mut ps = PubSub::new();
+//     let mut s = ps.subscribe::<Data>("test");
+//     let mut s2 = ps.subscribe::<Data>("test");
+//     let mut p = ps.publish::<Data>("test");
+
+//     p.publish(Data {
+//         d: vec![1, 2, 3, 4],
+//     });
+
+//     ps.tick();
+
+//     if let Some(d) = s.try_recv() {
+//         dbg!(&d);
+//         println!("{d:p}");
+//     }
+
+//     if let Some(d2) = s2.try_recv() {
+//         dbg!(&d2);
+//         println!("{d2:p}");
+//     }
+// }

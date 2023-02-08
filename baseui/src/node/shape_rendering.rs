@@ -1,11 +1,11 @@
 use crate::graphics::primitiverenderer::{Color, PrimitiveType};
 
 use super::Node;
-
+use pubsub::PubSub;
 pub struct ShapeRendering {}
 
 impl Node for ShapeRendering {
-    fn new(_pubsub: &mut crate::pubsub::PubSub) -> Self {
+    fn new(_pubsub: &mut PubSub) -> Self {
         ShapeRendering {}
     }
 

@@ -1,9 +1,9 @@
 use super::Node;
-
+use pubsub::PubSub;
 pub struct MousePosition {}
 
 impl Node for MousePosition {
-    fn new(_pubsub: &mut crate::pubsub::PubSub) -> Self {
+    fn new(_pubsub: &mut PubSub) -> Self {
         MousePosition {}
     }
 

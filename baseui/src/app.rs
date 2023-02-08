@@ -8,11 +8,11 @@ use crate::{
         shape_rendering::ShapeRendering,
         Node,
     },
-    pubsub::PubSub,
 };
 use eframe::egui_glow;
 use egui::{mutex::Mutex, Pos2, Vec2};
 use nalgebra::{Matrix4, Point2};
+use pubsub::PubSub;
 pub struct App {
     // Example stuff:
     label: String,

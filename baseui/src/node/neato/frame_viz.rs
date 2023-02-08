@@ -1,9 +1,10 @@
 use std::sync::Arc;
 
+use pubsub::{PubSub, Subscription};
+
 use crate::{
     graphics::primitiverenderer::{Color, PrimitiveType},
     node::Node,
-    pubsub::Subscription,
 };
 
 use super::frame::NeatoFrame;
@@ -14,7 +15,7 @@ pub struct FrameVizualizer {
 }
 
 impl Node for FrameVizualizer {
-    fn new(pubsub: &mut crate::pubsub::PubSub) -> Self
+    fn new(pubsub: &mut PubSub) -> Self
     where
         Self: Sized,
     {

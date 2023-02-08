@@ -1,11 +1,13 @@
 [workspace]
 members = [
-    "baseui"
+    "baseui",
+    "pubsub"
 ]
 default_member = "baseui"
 
 
 [workspace.dependencies]
+pubsub = {path = "./pubsub"}
 
 # [profile.release]
 # opt-level = 2 # fast and small wasm
