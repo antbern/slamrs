@@ -1,4 +1,4 @@
-use super::Node;
+use common::{node::Node, world::WorldObj};
 use pubsub::PubSub;
 pub struct MousePosition {}
 
@@ -7,7 +7,7 @@ impl Node for MousePosition {
         MousePosition {}
     }
 
-    fn draw(&mut self, ui: &egui::Ui, world: &mut crate::app::WorldRenderer) {
+    fn draw(&mut self, ui: &egui::Ui, world: &mut WorldObj<'_>) {
         egui::Window::new("World").show(ui.ctx(), |ui| {
             ui.label(format!(
                 "Mouse Position: [{:.2},{:.2}]",

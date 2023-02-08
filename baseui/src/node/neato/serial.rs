@@ -1,3 +1,4 @@
+use common::{node::Node, world::WorldObj};
 use pubsub::PubSub;
 use std::{
     path::PathBuf,
@@ -9,8 +10,6 @@ use std::{
 };
 
 use serial2::SerialPort;
-
-use crate::node::Node;
 
 pub struct SerialConnection {
     state: State,
@@ -36,7 +35,7 @@ impl Node for SerialConnection {
         }
     }
 
-    fn draw(&mut self, ui: &egui::Ui, _world: &mut crate::app::WorldRenderer) {
+    fn draw(&mut self, ui: &egui::Ui, _world: &mut WorldObj<'_>) {
         egui::Window::new("Serial Connection").show(ui.ctx(), |ui| {
             let ports = SerialPort::available_ports().unwrap();
 

@@ -1,0 +1,17 @@
+[package]
+name = "common"
+version = "0.1.0"
+edition = "2021"
+description = "Contains common definitions of Traits and Types used across the project."
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+# local dependencies
+pubsub = {workspace = true}
+graphics = {workspace = true}
+
+# inherited dependencies
+egui = {workspace = true}
+nalgebra = {workspace = true}
+
+# special dependencies for this crate

@@ -25,6 +25,7 @@ serial2 = "0.1.7"
 
 pubsub = {workspace = true}
 graphics = {workspace = true}
+common = {workspace = true}
 
 # native:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

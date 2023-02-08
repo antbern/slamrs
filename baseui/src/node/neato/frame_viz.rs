@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
+use common::{node::Node, world::WorldObj};
 use pubsub::{PubSub, Subscription};
 
-use crate::node::Node;
 use graphics::primitiverenderer::{Color, PrimitiveType};
 
 use super::frame::NeatoFrame;
@@ -23,7 +23,7 @@ impl Node for FrameVizualizer {
         }
     }
 
-    fn draw(&mut self, _ui: &egui::Ui, world: &mut crate::app::WorldRenderer) {
+    fn draw(&mut self, _ui: &egui::Ui, world: &mut WorldObj<'_>) {
         if let Some(v) = self.sub.try_recv() {
             self.last_frame = Some(v);
         }

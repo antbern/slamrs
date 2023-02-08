@@ -1,6 +1,6 @@
+use common::{node::Node, world::WorldObj};
 use graphics::primitiverenderer::{Color, PrimitiveType};
 
-use super::Node;
 use pubsub::PubSub;
 pub struct ShapeRendering {}
 
@@ -9,7 +9,7 @@ impl Node for ShapeRendering {
         ShapeRendering {}
     }
 
-    fn draw(&mut self, ui: &egui::Ui, w: &mut crate::app::WorldRenderer) {
+    fn draw(&mut self, ui: &egui::Ui, w: &mut WorldObj<'_>) {
         let c1 = Color::rgba(1.0, 0.0, 0.0, 1.0);
         let c2 = Color::rgba(0.0, 1.0, 0.0, 1.0);
         let c3 = Color::rgba(0.0, 0.0, 1.0, 1.0);

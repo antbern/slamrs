@@ -4,8 +4,8 @@ use crate::node::{
     mouse_position::MousePosition,
     neato::{fileloader::FileLoader, frame_viz::FrameVizualizer, serial::SerialConnection},
     shape_rendering::ShapeRendering,
-    Node,
 };
+use common::{node::Node, world::WorldObj};
 use eframe::egui_glow;
 use egui::{mutex::Mutex, Pos2, Vec2};
 use graphics::{camera::Camera, shaperenderer::ShapeRenderer};
@@ -116,8 +116,10 @@ impl eframe::App for App {
             {
                 let mut world = self.world_renderer.lock();
 
+                let mut world_obj = world.as_world_object();
+
                 for n in self.nodes.iter_mut() {
-                    n.draw(ui, &mut world);
+                    n.draw(ui, &mut world_obj);
                 }
             }
 
@@ -195,6 +197,13 @@ impl WorldRenderer {
 
     fn destroy(&mut self, gl: &glow::Context) {
         self.sr.destroy(gl);
+    }
+
+    fn as_world_object(&mut self) -> WorldObj<'_> {
+        WorldObj {
+            sr: &mut self.sr,
+            last_mouse_pos: self.last_mouse_pos,
+        }
     }
 
     fn paint(&mut self, gl: &glow::Context, pos: Option<Pos2>, size: Vec2, pan: Vec2, scroll: f32) {

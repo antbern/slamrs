@@ -3,6 +3,7 @@ members = [
     "baseui",
     "pubsub",
     "graphics",
+    "common",
 ]
 default_members = ["baseui"]
 
@@ -10,6 +11,7 @@ default_members = ["baseui"]
 [workspace.dependencies]
 pubsub = {path = "./pubsub"}
 graphics = {path = "./graphics"}
+common = {path = "./common"}
 
 
 egui = "0.20.0"

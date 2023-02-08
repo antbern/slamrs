@@ -1,7 +1,6 @@
+use common::{node::Node, world::WorldObj};
 use pubsub::{PubSub, Publisher};
 use std::sync::Arc;
-
-use crate::node::Node;
 
 use super::frame::{self, NeatoFrame};
 
@@ -25,7 +24,7 @@ impl Node for FileLoader {
         }
     }
 
-    fn draw(&mut self, ui: &egui::Ui, _world: &mut crate::app::WorldRenderer) {
+    fn draw(&mut self, ui: &egui::Ui, _world: &mut WorldObj<'_>) {
         egui::Window::new("Neato File").show(ui.ctx(), |ui| {
             if ui.button("Open file…").clicked() {
                 if let Some(path) = rfd::FileDialog::new()
