@@ -20,12 +20,12 @@ glow = {workspace = true}
 # serde = { version = "1", features = ["derive"] }
 nalgebra = {workspace = true}
 rfd = "0.11.0"
-anyhow = "1.0.68"
-serial2 = "0.1.7"
+anyhow = {workspace = true}
 
 pubsub = {workspace = true}
 graphics = {workspace = true}
 common = {workspace = true}
+neato = {workspace = true}
 
 # native:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

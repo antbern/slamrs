@@ -25,7 +25,7 @@ enum State {
 }
 
 impl Node for SerialConnection {
-    fn new(pubsub: &mut PubSub) -> Self
+    fn new(_pubsub: &mut PubSub) -> Self
     where
         Self: Sized,
     {

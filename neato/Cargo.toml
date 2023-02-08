@@ -1,0 +1,19 @@
+[package]
+name = "neato"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+# local dependencies
+pubsub = {workspace = true}
+common = {workspace = true}
+
+# inherited dependencies
+# anyhow = {workspace = true}
+egui = {workspace = true}
+
+# special dependencies for this crate
+serial2 = "0.1.7"
+anyhow = "1.0.68"

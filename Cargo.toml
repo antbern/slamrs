@@ -12,11 +12,12 @@ default_members = ["baseui"]
 pubsub = {path = "./pubsub"}
 graphics = {path = "./graphics"}
 common = {path = "./common"}
-
+neato = {path = "./neato"}
 
 egui = "0.20.0"
 glow = "0.11"
 nalgebra = "0.32.1"
+anyhow = "1.0.68"
 
 # [profile.release]
 # opt-level = 2 # fast and small wasm
