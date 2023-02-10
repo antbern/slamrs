@@ -11,11 +11,11 @@ use egui::{mutex::Mutex, Pos2, Vec2};
 use graphics::{camera::Camera, shaperenderer::ShapeRenderer};
 use nalgebra::{Matrix4, Point2};
 use neato::serial::SerialConnection;
-use pubsub::PubSub;
+use pubsub::{PubSub, PubSubThreadHandle};
 use simulator::Simulator;
 
 pub struct App {
-    pubsub: PubSub,
+    pubsub: PubSubThreadHandle,
     nodes: Vec<Box<dyn Node>>,
 
     /// Behind an `Arc<Mutex<…>>` so we can pass it to [`egui::PaintCallback`] and paint later.
@@ -34,17 +34,18 @@ impl App {
             .expect("You need to run eframe with the glow backend");
 
         let mut pubsub = PubSub::new();
+        let nodes: Vec<Box<dyn Node>> = vec![
+            Box::new(MousePosition::new(&mut pubsub)),
+            Box::new(ShapeRendering::new(&mut pubsub)),
+            Box::new(FileLoader::new(&mut pubsub)),
+            Box::new(FrameVizualizer::new(&mut pubsub)),
+            Box::new(SerialConnection::new(&mut pubsub)),
+            Box::new(Simulator::new(&mut pubsub)),
+        ];
 
         Self {
-            nodes: vec![
-                Box::new(MousePosition::new(&mut pubsub)),
-                Box::new(ShapeRendering::new(&mut pubsub)),
-                Box::new(FileLoader::new(&mut pubsub)),
-                Box::new(FrameVizualizer::new(&mut pubsub)),
-                Box::new(SerialConnection::new(&mut pubsub)),
-                Box::new(Simulator::new(&mut pubsub)),
-            ],
-            pubsub,
+            nodes,
+            pubsub: pubsub.start_background_thread(),
             world_renderer: Arc::new(Mutex::new(WorldRenderer::new(gl))),
         }
     }
@@ -87,8 +88,6 @@ impl eframe::App for App {
 
             self.custom_painting(ui);
         });
-
-        self.pubsub.tick();
     }
     fn on_exit(&mut self, gl: Option<&glow::Context>) {
         if let Some(gl) = gl {

@@ -3,9 +3,11 @@ use std::{
     collections::HashMap,
     marker::PhantomData,
     sync::{
+        atomic::{AtomicBool, Ordering},
         mpsc::{self, channel, Receiver, Sender},
         Arc,
     },
+    thread::{self, JoinHandle},
 };
 
 /// A simple publish/subscribe system that allows sending and subscribing to values on different topics.
@@ -13,7 +15,11 @@ use std::{
 /// different types will panic!
 pub struct PubSub {
     topics: HashMap<String, Topic>,
+    signal: Receiver<Signal>,
+    signal_source: Sender<Signal>,
 }
+
+pub struct Signal {}
 
 struct Topic {
     value_type: TypeId,
@@ -67,6 +73,7 @@ impl<T: Any + Send + Sync + 'static> Subscription<T> {
 
 pub struct Publisher<T: Any + Send + Sync + 'static> {
     send: Sender<Arc<dyn Any + Send + Sync + 'static>>,
+    signal: Sender<Signal>,
     _p: PhantomData<T>,
 }
 
@@ -74,13 +81,17 @@ impl<T: Any + Send + Sync + 'static> Publisher<T> {
     /// Publishes a value wrapped in an `Arc` to the topic.
     pub fn publish(&mut self, value: Arc<T>) {
         self.send.send(value).unwrap();
+        self.signal.send(Signal {}).unwrap();
     }
 }
 
 impl PubSub {
     pub fn new() -> Self {
+        let (send, receive) = channel();
         Self {
             topics: HashMap::new(),
+            signal: receive,
+            signal_source: send,
         }
     }
 
@@ -107,6 +118,7 @@ impl PubSub {
 
         Publisher {
             send: t.incoming_sender.clone(),
+            signal: self.signal_source.clone(),
             _p: PhantomData,
         }
     }
@@ -137,7 +149,51 @@ impl PubSub {
                     s.send(v.clone()).unwrap();
                 }
             }
+
+            // empty all signals as well
         }
+        while self.signal.try_recv().is_ok() {}
+    }
+
+    /// Starts a separate thread continously calling tick()
+    pub fn start_background_thread(self) -> PubSubThreadHandle {
+        PubSubThreadHandle::new(self)
+    }
+}
+
+pub struct PubSubThreadHandle {
+    handle: JoinHandle<anyhow::Result<()>>,
+    running: Arc<AtomicBool>,
+}
+
+impl PubSubThreadHandle {
+    fn new(pubsub: PubSub) -> Self {
+        let running = Arc::new(AtomicBool::new(true));
+
+        let handle = thread::spawn({
+            let running = running.clone();
+            move || Self::tick_thread(pubsub, running)
+        });
+
+        Self { handle, running }
+    }
+
+    pub fn stop(self) {
+        self.running.store(false, Ordering::Relaxed);
+
+        self.handle.join().unwrap().unwrap();
+    }
+
+    fn tick_thread(mut pubsub: PubSub, running: Arc<AtomicBool>) -> anyhow::Result<()> {
+        while running.load(Ordering::Relaxed) {
+            // block on the signal
+            pubsub.signal.recv()?;
+
+            // process messages
+            pubsub.tick();
+        }
+
+        Ok(())
     }
 }
 
