@@ -4,6 +4,7 @@ members = [
     "pubsub",
     "graphics",
     "common",
+    "simulator",
 ]
 default_members = ["baseui"]
 
@@ -13,6 +14,7 @@ pubsub = {path = "./pubsub"}
 graphics = {path = "./graphics"}
 common = {path = "./common"}
 neato = {path = "./neato"}
+simulator = {path = "./simulator"}
 
 egui = "0.20.0"
 glow = "0.11"

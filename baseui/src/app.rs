@@ -12,6 +12,7 @@ use graphics::{camera::Camera, shaperenderer::ShapeRenderer};
 use nalgebra::{Matrix4, Point2};
 use neato::serial::SerialConnection;
 use pubsub::PubSub;
+use simulator::Simulator;
 
 pub struct App {
     // Example stuff:
@@ -48,6 +49,7 @@ impl App {
                 Box::new(FileLoader::new(&mut pubsub)),
                 Box::new(FrameVizualizer::new(&mut pubsub)),
                 Box::new(SerialConnection::new(&mut pubsub)),
+                Box::new(Simulator::new(&mut pubsub)),
             ],
             pubsub,
             world_renderer: Arc::new(Mutex::new(WorldRenderer::new(gl))),

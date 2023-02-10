@@ -119,6 +119,7 @@ dependencies = [
  "neato",
  "pubsub",
  "rfd",
+ "simulator",
  "tracing-subscriber",
  "tracing-wasm",
  "wasm-bindgen-futures",
@@ -1574,6 +1575,15 @@ dependencies = [
  "num-traits",
  "paste",
  "wide",
+]
+
+[[package]]
+name = "simulator"
+version = "0.1.0"
+dependencies = [
+ "common",
+ "egui",
+ "pubsub",
 ]
 
 [[package]]
