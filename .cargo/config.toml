@@ -1,0 +1,5 @@
+# From https://lesleylai.info/en/improve-rust-link-time-with-lld/
+[build]
+rustflags = [
+  "-C", "link-arg=-fuse-ld=lld",
+]
