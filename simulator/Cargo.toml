@@ -9,9 +9,11 @@ edition = "2021"
 # local dependencies
 pubsub = {workspace = true}
 common = {workspace = true}
+graphics = {workspace = true}
 
 # inherited dependencies
 # anyhow = {workspace = true}
 egui = {workspace = true}
+nalgebra = {workspace = true}
 
 # special dependencies for this crate
