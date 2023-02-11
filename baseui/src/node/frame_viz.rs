@@ -5,6 +5,7 @@ use common::{
     robot::{Observation, Pose},
     world::WorldObj,
 };
+use egui::plot::{Bar, BarChart, Plot, PlotBounds};
 use pubsub::{PubSub, Subscription};
 
 use graphics::primitiverenderer::{Color, PrimitiveType};
@@ -30,7 +31,7 @@ impl Node for FrameVizualizer {
         }
     }
 
-    fn draw(&mut self, _ui: &egui::Ui, world: &mut WorldObj<'_>) {
+    fn draw(&mut self, ui: &egui::Ui, world: &mut WorldObj<'_>) {
         while let Some(v) = self.sub.try_recv() {
             self.last_frame = Some(v);
         }
@@ -68,13 +69,40 @@ impl Node for FrameVizualizer {
                 let x = c * d;
                 let y = s * d;
 
-                let color = Color::rgb(m.strength as f32 / 1.0, 0.0, 0.0);
+                let color = Color::rgb(m.strength as f32 / 2000.0, 0.0, 0.0);
                 world
                     .sr
-                    .rect(ox + x - 0.01, oy + y - 0.01, 0.02, 0.02, color)
+                    .rect(ox + x - 0.005, oy + y - 0.005, 0.01, 0.01, color)
             }
 
             world.sr.end()
         }
+
+        // window that shows the strength vs angle
+        egui::Window::new("Frame Visualization").show(ui.ctx(), |ui| {
+            let mut bars = Vec::new();
+
+            if let Some(o) = &self.last_frame {
+                for m in &o.measurements {
+                    bars.push(Bar::new(m.angle.to_degrees(), m.strength))
+                }
+            };
+
+            let chart = BarChart::new(bars).width(0.1).name("Strenght");
+
+            Plot::new("Strenght")
+                .view_aspect(2.0)
+                .include_x(0.0)
+                .include_y(0.0)
+                .auto_bounds_x()
+                .auto_bounds_y()
+                .allow_scroll(false)
+                .allow_drag(false)
+                .allow_boxed_zoom(false)
+                .show(ui, |plot_ui| {
+                    plot_ui.bar_chart(chart);
+                    plot_ui.set_plot_bounds(PlotBounds::from_min_max([0.0, 0.0], [360.0, 2000.0]));
+                });
+        });
     }
 }
