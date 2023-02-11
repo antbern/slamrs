@@ -1,4 +1,8 @@
-use common::{node::Node, world::WorldObj};
+use common::{
+    node::Node,
+    robot::{Observation, Pose},
+    world::WorldObj,
+};
 use pubsub::{PubSub, Publisher};
 use std::sync::Arc;
 
@@ -6,9 +10,10 @@ use super::frame::{self, NeatoFrame};
 
 pub struct FileLoader {
     picked_path: Option<String>,
-    data: Option<Vec<NeatoFrame>>,
+    data: Option<Vec<Observation>>,
     selected_frame: usize,
-    pub_frame: Publisher<NeatoFrame>,
+    pub_frame: Publisher<Observation>,
+    pub_pose: Publisher<Pose>,
 }
 
 impl Node for FileLoader {
@@ -20,7 +25,8 @@ impl Node for FileLoader {
             picked_path: None,
             data: None,
             selected_frame: 0,
-            pub_frame: pubsub.publish("scan"),
+            pub_frame: pubsub.publish("robot/observation"),
+            pub_pose: pubsub.publish("robot/pose"),
         }
     }
 
@@ -34,7 +40,9 @@ impl Node for FileLoader {
                     self.picked_path = Some(path.display().to_string());
 
                     // do stuff here!
-                    self.data = frame::load_neato_binary(&path).ok();
+                    self.data = frame::load_neato_binary(&path)
+                        .ok()
+                        .map(|n| n.iter().map(|&o| o.into()).collect())
                 }
             }
 
@@ -58,7 +66,9 @@ impl Node for FileLoader {
                         .text("Scan"),
                 );
                 if r.changed() {
-                    self.pub_frame.publish(Arc::new(data[self.selected_frame]));
+                    self.pub_frame
+                        .publish(Arc::new(data[self.selected_frame].clone()));
+                    self.pub_pose.publish(Arc::new(Pose::default()));
                 }
             }
         });

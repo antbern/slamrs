@@ -1,16 +1,14 @@
 use std::sync::Arc;
 
 use crate::node::{
-    mouse_position::MousePosition,
-    neato::{fileloader::FileLoader, frame_viz::FrameVizualizer},
-    shape_rendering::ShapeRendering,
+    frame_viz::FrameVizualizer, mouse_position::MousePosition, shape_rendering::ShapeRendering,
 };
 use common::{node::Node, world::WorldObj};
 use eframe::egui_glow;
 use egui::{mutex::Mutex, Pos2, Vec2};
 use graphics::{camera::Camera, shaperenderer::ShapeRenderer};
 use nalgebra::{Matrix4, Point2};
-use neato::serial::SerialConnection;
+use neato::{FileLoader, SerialConnection};
 use pubsub::{PubSub, PubSubThreadHandle};
 use simulator::Simulator;
 

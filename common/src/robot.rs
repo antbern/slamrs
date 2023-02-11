@@ -18,10 +18,12 @@ impl From<Pose> for (f32, f32) {
 }
 
 /// Contains all data for a single lidar scan (a complete revolution)
+#[derive(Clone)]
 pub struct Observation {
     pub measurements: Vec<Measurement>,
 }
 
+#[derive(Clone, Copy)]
 pub struct Measurement {
     /// The angle this measurement was acquired at (relative to the sensor zero) in radians.
     pub angle: f64,

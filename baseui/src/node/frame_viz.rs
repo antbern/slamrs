@@ -31,11 +31,11 @@ impl Node for FrameVizualizer {
     }
 
     fn draw(&mut self, _ui: &egui::Ui, world: &mut WorldObj<'_>) {
-        if let Some(v) = self.sub.try_recv() {
+        while let Some(v) = self.sub.try_recv() {
             self.last_frame = Some(v);
         }
 
-        if let Some(v) = self.sub_pose.try_recv() {
+        while let Some(v) = self.sub_pose.try_recv() {
             self.last_pose = *v; // Copy the value into local storage
         }
 

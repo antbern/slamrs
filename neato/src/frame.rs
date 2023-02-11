@@ -1,5 +1,7 @@
 use std::{fs::File, io::Read, path::PathBuf};
 
+use common::robot::{Measurement, Observation};
+
 #[derive(Clone, Copy)]
 pub struct NeatoFrame {
     pub distance: [u16; 360],
@@ -191,4 +193,21 @@ pub fn load_neato_binary(path: &PathBuf) -> anyhow::Result<Vec<NeatoFrame>> {
     let p = parse_packets(&mut file)?;
 
     Ok(p)
+}
+
+impl From<NeatoFrame> for Observation {
+    fn from(value: NeatoFrame) -> Self {
+        let mut m: Vec<Measurement> = Vec::new();
+
+        for i in 0..value.distance.len() {
+            m.push(Measurement {
+                angle: (i as f64).to_radians(),
+                distance: value.distance[i] as f64 / 1000.0,
+                strength: value.strength[i] as f64,
+                valid: value.valid[i] != 0,
+            })
+        }
+
+        Observation { measurements: m }
+    }
 }

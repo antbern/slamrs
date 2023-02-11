@@ -16,3 +16,4 @@ egui = {workspace = true}
 
 # special dependencies for this crate
 serial2 = "0.1.7"
+rfd = "0.11.0"
