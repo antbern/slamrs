@@ -119,6 +119,18 @@ fn parse_packet(b: &[u8]) -> anyhow::Result<Packet> {
     })
 }
 
+pub fn parse_frame(buf: &[u8]) -> anyhow::Result<NeatoFrame> {
+    assert!(buf.len() == 22 * 90);
+
+    let mut r = Revolution::default();
+
+    for i in 0..90 {
+        r.packets[i] = parse_packet(&buf[i * 22..(i + 1) * 22]).ok();
+    }
+
+    Ok(r.to_readings())
+}
+
 fn parse_packets<R: Read>(reader: &mut R) -> anyhow::Result<Vec<NeatoFrame>> {
     // read all the bytes into a buffer for now
     let mut buf = Vec::new();

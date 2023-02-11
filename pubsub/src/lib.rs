@@ -71,6 +71,7 @@ impl<T: Any + Send + Sync + 'static> Subscription<T> {
     }
 }
 
+#[derive(Clone)]
 pub struct Publisher<T: Any + Send + Sync + 'static> {
     send: Sender<Arc<dyn Any + Send + Sync + 'static>>,
     signal: Sender<Signal>,
