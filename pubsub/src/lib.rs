@@ -157,8 +157,11 @@ impl PubSub {
     }
 
     /// Starts a separate thread continously calling tick()
-    pub fn start_background_thread(self) -> PubSubThreadHandle {
-        PubSubThreadHandle::new(self)
+    pub fn start_background_thread(
+        self,
+        waker: impl FnMut() + Send + 'static,
+    ) -> PubSubThreadHandle {
+        PubSubThreadHandle::new(self, waker)
     }
 }
 
@@ -168,12 +171,12 @@ pub struct PubSubThreadHandle {
 }
 
 impl PubSubThreadHandle {
-    fn new(pubsub: PubSub) -> Self {
+    fn new(pubsub: PubSub, waker: impl FnMut() + Send + 'static) -> Self {
         let running = Arc::new(AtomicBool::new(true));
 
         let handle = thread::spawn({
             let running = running.clone();
-            move || Self::tick_thread(pubsub, running)
+            move || Self::tick_thread(pubsub, running, waker)
         });
 
         Self { handle, running }
@@ -185,13 +188,20 @@ impl PubSubThreadHandle {
         self.handle.join().unwrap().unwrap();
     }
 
-    fn tick_thread(mut pubsub: PubSub, running: Arc<AtomicBool>) -> anyhow::Result<()> {
+    fn tick_thread(
+        mut pubsub: PubSub,
+        running: Arc<AtomicBool>,
+        mut waker: impl FnMut() + Send + 'static,
+    ) -> anyhow::Result<()> {
         while running.load(Ordering::Relaxed) {
             // block on the signal
             pubsub.signal.recv()?;
 
             // process messages
             pubsub.tick();
+
+            // call the waker to notify anyone listening about the newly available messages
+            waker();
         }
 
         Ok(())

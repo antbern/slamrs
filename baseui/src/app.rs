@@ -41,9 +41,12 @@ impl App {
             Box::new(Simulator::new(&mut pubsub)),
         ];
 
+        // TODO: remove this once we have processing that is not dependent on UI updates...
+        let ctx = cc.egui_ctx.clone();
+
         Self {
             nodes,
-            pubsub: pubsub.start_background_thread(),
+            pubsub: pubsub.start_background_thread(move || ctx.request_repaint()),
             world_renderer: Arc::new(Mutex::new(WorldRenderer::new(gl))),
         }
     }
