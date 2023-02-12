@@ -75,6 +75,14 @@ impl Node for FrameVizualizer {
                     .rect(ox + x - 0.005, oy + y - 0.005, 0.01, 0.01, color)
             }
 
+            world.sr.arrow(
+                self.last_pose.x,
+                self.last_pose.y,
+                self.last_pose.theta,
+                0.1,
+                Color::GREEN,
+            );
+
             world.sr.end()
         }
 

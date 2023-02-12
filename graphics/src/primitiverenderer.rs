@@ -91,7 +91,7 @@ pub trait Vertex3C {
 }
 
 pub trait Vertex2C {
-    /// Adds a vertex at a 3D position with a specific color
+    /// Adds a vertex at a 2D position with a specific color
     fn xyc(&mut self, x: f32, y: f32, color: Color);
 
     #[inline]
@@ -312,6 +312,9 @@ pub struct Color {
 impl Color {
     pub const BLACK: Color = Color::rgba_u8(0x00, 0x00, 0x00, 0xff);
     pub const WHITE: Color = Color::rgba_u8(0xff, 0xff, 0xff, 0xff);
+    pub const RED: Color = Color::rgba_u8(0xff, 0x00, 0x00, 0xff);
+    pub const GREEN: Color = Color::rgba_u8(0x00, 0xff, 0x00, 0xff);
+    pub const BLUE: Color = Color::rgba_u8(0x00, 0x00, 0xff, 0xff);
 
     pub fn rgb(r: f32, g: f32, b: f32) -> Self {
         Self::rgba(r, g, b, 1.0)

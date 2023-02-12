@@ -89,6 +89,141 @@ impl ShapeRenderer {
         }
     }
 
+    pub fn circle(&mut self, x: f32, y: f32, radius: f32, color: Color) {
+        // calculate the number of segments needed for a "good" circle
+        let number_of_segments = 1.max((4.0 * 12.0 * radius.cbrt()) as usize);
+        self._circle(x, y, radius, color, number_of_segments);
+    }
+
+    fn _circle(&mut self, x: f32, y: f32, radius: f32, color: Color, number_of_segments: usize) {
+        // the angle between each circle segment
+        let angle_per_segment = 2.0 * std::f32::consts::PI / number_of_segments as f32;
+
+        // precompute sin and cos
+        let (s, c) = angle_per_segment.sin_cos();
+
+        // starting point
+        let mut px: f32 = radius;
+        let mut py: f32 = 0.0;
+
+        match self.current_shape_type {
+            Some(PrimitiveType::Line) => {
+                // check(ShapeType.LINE, null, numberOfSegments * 2 + 2);
+
+                // place one vertex for each segment
+                for _ in 0..number_of_segments {
+                    self.pr.xyc(x + px, y + py, color);
+
+                    // rotate point using the "rotation matrix" multiplication to get to the next
+                    (px, py) = (c * px - s * py, s * px + c * py);
+
+                    self.pr.xyc(x + px, y + py, color);
+                }
+            }
+            Some(PrimitiveType::Filled) => {
+                // check(ShapeType.LINE, ShapeType.FILLED, numberOfSegments * 3 + 3);
+
+                // place one vertex for each segment
+                for _ in 0..number_of_segments {
+                    self.pr.xyc(x, y, color);
+                    self.pr.xyc(x + px, y + py, color);
+
+                    // rotate point using the "rotation matrix" multiplication to get to the next
+                    (px, py) = (c * px - s * py, s * px + c * py);
+
+                    self.pr.xyc(x + px, y + py, color);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    // pre-computed sine and cosine values for the "back-wing" of the arrow
+    // const arrowAngle: f32 = 45f32.to_radians();
+    // const aSin: f32 = arrowAngle.sin();
+    // const aCos: f32 = arrowAngle.cos();
+
+    pub fn arrow(&mut self, x: f32, y: f32, angle_rad: f32, radius: f32, color: Color) {
+        // pre compute sin and cos for the rotation
+        let (s, c) = angle_rad.sin_cos();
+
+        let (aSin, aCos) = 45f32.sin_cos();
+
+        // Used Wolfram Alpha for the following trigonometric identities for the corner points:
+        // cos(t+pi-a) = -sin(a)sin(t)-cos(a)cos(t)
+        // sin(t+pi-a) = sin(a)cos(t)-cos(a)sin(t)
+        // cos(t+pi+a) = sin(a)sin(t)-cos(a)cos(t)
+        // sin(t+pi+a) = sin(a)-cos(t)-cos(a)sin(t)
+
+        // pre compute the factors above for the position of the corner points
+        let leftCos = -aSin * s - aCos * c;
+        let leftSin = aSin * c - aCos * s;
+        let rightCos = aSin * s - aCos * c;
+        let rightSin = aSin * -c - aCos * s;
+
+        match self.current_shape_type {
+            Some(PrimitiveType::Filled) => {
+                // check(ShapeType.FILLED, null, 3 * 2);
+
+                // front
+                self.pr.xyc(x + c * radius, y + s * radius, color);
+
+                // back left
+                self.pr
+                    .xyc(x + leftCos * radius, y + leftSin * radius, color);
+
+                // back middle
+                self.pr
+                    .xyc(x - c * (radius / 3.0), y - s * (radius / 3.0), color);
+
+                // back middle (again, starting a new triangle)
+                self.pr
+                    .xyc(x - c * (radius / 3.0), y - s * (radius / 3.0), color);
+
+                // back right
+                self.pr
+                    .xyc(x + rightCos * radius, y + rightSin * radius, color);
+
+                // front
+                self.pr.xyc(x + c * radius, y + s * radius, color);
+            }
+            Some(PrimitiveType::Line) => {
+                // check(ShapeType.LINE, ShapeType.POINT, 4 * 2);
+
+                // front
+                self.pr.xyc(x + c * radius, y + s * radius, color);
+
+                // back left
+                self.pr
+                    .xyc(x + leftCos * radius, y + leftSin * radius, color);
+
+                // back left (again, starting a new line)
+                self.pr
+                    .xyc(x + leftCos * radius, y + leftSin * radius, color);
+
+                // back middle
+                self.pr
+                    .xyc(x - c * (radius / 3.0), y - s * (radius / 3.0), color);
+
+                // back middle (again, starting a new line)
+                self.pr
+                    .xyc(x - c * (radius / 3.0), y - s * (radius / 3.0), color);
+
+                // back right
+                self.pr
+                    .xyc(x + rightCos * radius, y + rightSin * radius, color);
+
+                // back right (again, starting a new line)
+                self.pr
+                    .xyc(x + rightCos * radius, y + rightSin * radius, color);
+
+                // front
+                self.pr.xyc(x + c * radius, y + s * radius, color);
+            }
+            _ => {}
+        }
+    }
+
     /*
     pub fn test(&mut self) {
         let c1 = Color::rgba(1.0, 0.0, 0.0, 1.0);

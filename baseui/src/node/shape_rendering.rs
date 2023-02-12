@@ -1,3 +1,5 @@
+use std::f32::consts::{FRAC_PI_3, FRAC_PI_6, PI};
+
 use common::{node::Node, world::WorldObj};
 use graphics::primitiverenderer::{Color, PrimitiveType};
 
@@ -28,6 +30,22 @@ impl Node for ShapeRendering {
             }
         }
 
+        w.sr.end();
+
+        w.sr.begin(PrimitiveType::Line);
+        w.sr.circle(0.1, -0.1, 0.05, Color::RED);
+        w.sr.end();
+
+        w.sr.begin(PrimitiveType::Filled);
+        w.sr.circle(-0.1, -0.1, 0.05, Color::GREEN);
+        w.sr.end();
+
+        w.sr.begin(PrimitiveType::Line);
+        w.sr.arrow(-0.1, 0.1, PI + FRAC_PI_3, 0.1, Color::RED);
+        w.sr.end();
+
+        w.sr.begin(PrimitiveType::Filled);
+        w.sr.arrow(0.1, 0.1, FRAC_PI_6, 0.1, Color::GREEN);
         w.sr.end();
 
         // self.sr.test();
