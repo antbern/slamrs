@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
 use crate::node::{
-    frame_viz::FrameVizualizer, mouse_position::MousePosition, shape_rendering::ShapeRendering,
+    controls::ControlsNode, frame_viz::FrameVizualizer, mouse_position::MousePosition,
+    shape_rendering::ShapeRendering,
 };
 use common::{node::Node, world::WorldObj};
 use eframe::egui_glow;
@@ -39,6 +40,7 @@ impl App {
             Box::new(FrameVizualizer::new(&mut pubsub)),
             Box::new(SerialConnection::new(&mut pubsub)),
             Box::new(Simulator::new(&mut pubsub)),
+            Box::new(ControlsNode::new(&mut pubsub)),
         ];
 
         // TODO: remove this once we have processing that is not dependent on UI updates...

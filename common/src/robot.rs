@@ -38,3 +38,22 @@ pub struct Measurement {
     pub valid: bool,
 }
 
+/// Observed (measured) motion of the left and right wheel
+#[derive(Debug, Clone, Copy, Default)]
+pub struct Odometry {
+    /// The distance in meters that the left wheel of the robot travelled since last odometry reading.
+    pub distance_left: f32,
+
+    /// The distance in meters that the right wheel of the robot travelled since last odometry reading.
+    pub distance_right: f32,
+}
+
+/// A Command to move the robot by setting the desired left and right wheel speed.
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct Command {
+    /// The target speed in meters/second that the left wheel of the robot should move.
+    pub speed_left: f32,
+
+    /// The target speed in meters/second that the right wheel of the robot should move.
+    pub speed_right: f32,
+}
