@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use common::robot::{Command, Measurement, Observation, Pose};
 use egui::mutex::RwLock;
-use nalgebra::Point2;
+use nalgebra::{Point2, Vector2};
 use pubsub::{Publisher, Subscription};
 
 use crate::scene::ray::{Intersect, Ray, Scene};
@@ -14,6 +14,7 @@ pub struct Simulator {
     scene: Arc<RwLock<Scene>>,
     parameters: SimParameters,
     pose: Pose,
+    wheel_velocity: Vector2<f32>,
     // robot pose, last command, wheel velocities etc that need to be shared between the background thread and the UI
     active: bool,
 }
@@ -44,6 +45,7 @@ impl Simulator {
             scene,
             parameters,
             pose: Pose::default(),
+            wheel_velocity: Vector2::zeros(),
             active: true,
         }
     }
@@ -52,13 +54,17 @@ impl Simulator {
         self.parameters = parameters;
     }
 
-    pub fn tick(&mut self, delta: f32) {
+    pub fn get_pose(&self) -> Pose {
+        self.pose
+    }
+
+    pub fn tick(&mut self, dt: f32) {
         // TODO: handle all incoming messages
 
         // TODO: simulation logic goes here
 
         while let Some(c) = self.sub_cmd.try_recv() {
-            dbg!(c);
+            self.wheel_velocity = Vector2::new(c.speed_left, c.speed_right);
         }
 
         if self.active {
@@ -88,11 +94,16 @@ impl Simulator {
             self.pub_obs
                 .publish(Arc::new(Observation { measurements: meas }));
 
-            self.pub_pose.publish(Arc::new(Pose {
-                x: origin.x,
-                y: origin.y,
-                theta: 0.0,
-            }));
+            // make the robot move
+            self.motion_model(self.wheel_velocity.x * dt, self.wheel_velocity.y * dt);
         }
+    }
+
+    fn motion_model(&mut self, sl: f32, sr: f32) {
+        // from https://rossum.sourceforge.net/papers/DiffSteer/DiffSteer.html
+        let sbar = (sr + sl) / 2.0;
+        self.pose.theta += (sr - sl) / self.parameters.wheel_base;
+        self.pose.x += sbar * self.pose.theta.cos();
+        self.pose.y += sbar * self.pose.theta.sin();
     }
 }

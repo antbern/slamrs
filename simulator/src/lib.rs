@@ -53,7 +53,7 @@ impl Node for SimulatorNode {
             ))),
             parameters: SimParameters::default(),
             handle: None,
-            running: false,
+            running: true,
         }
     }
 
@@ -79,6 +79,11 @@ impl Node for SimulatorNode {
         world.sr.begin(PrimitiveType::Line);
         self.scene.read().draw(world.sr, Color::BLACK);
         world.sr.end();
+
+        world.sr.begin(PrimitiveType::Filled);
+        let pose = self.sim.lock().get_pose();
+        world.sr.arrow(pose.x, pose.y, pose.theta, 0.1, Color::BLUE);
+        world.sr.end()
 
         // TODO: draw the robot position (if enabled)
     }
