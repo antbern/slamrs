@@ -91,7 +91,7 @@ impl Draw for LineSegment {
 pub trait SceneObject: Intersect + Draw {}
 impl<T: Intersect + Draw> SceneObject for T {}
 pub struct Scene {
-    objects: Vec<Box<dyn SceneObject>>,
+    objects: Vec<Box<dyn SceneObject + Send + Sync>>,
 }
 
 impl Scene {
@@ -101,7 +101,7 @@ impl Scene {
         }
     }
 
-    pub fn add(&mut self, obj: Box<dyn SceneObject>) -> &mut Self {
+    pub fn add(&mut self, obj: Box<dyn SceneObject + Send + Sync>) -> &mut Self {
         self.objects.push(obj);
         self
     }

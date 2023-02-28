@@ -1,22 +1,30 @@
-use std::sync::Arc;
-
-use common::{
-    node::Node,
-    robot::{Command, Measurement, Observation, Pose},
+use std::{
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+    thread::{self, JoinHandle},
+    time::{Duration, Instant},
 };
+
+use common::node::Node;
+use egui::mutex::{Mutex, RwLock};
 use graphics::primitiverenderer::{Color, PrimitiveType};
 use nalgebra::{Point2, Vector2};
-use pubsub::{Publisher, Subscription};
-use scene::ray::{Draw, Intersect, LineSegment, Ray, Scene};
+
+use scene::ray::{Draw, LineSegment, Scene};
+use sim::{SimParameters, Simulator};
 
 mod scene;
 mod sensor;
+mod sim;
 pub struct SimulatorNode {
-    scene: Scene,
-    pub_obs: Publisher<Observation>,
-    pub_pose: Publisher<Pose>,
-    sub_cmd: Subscription<Command>,
-    active: bool,
+    scene: Arc<RwLock<Scene>>,
+    parameters: SimParameters,
+    // parameter_channel: Sender<SimParameters>,
+    sim: Arc<Mutex<Simulator>>,
+    handle: Option<SimulatorThreadHandle>,
+    running: bool,
 }
 
 impl Node for SimulatorNode {
@@ -32,12 +40,20 @@ impl Node for SimulatorNode {
             .add_rect(Point2::new(-0.6, 0.4), Vector2::new(0.2, 0.5))
             .add(Box::new(LineSegment::new(-0.4, -0.4, 0.4, 0.4)));
 
+        let scene = Arc::new(RwLock::new(scene));
+
         Self {
-            scene,
-            pub_obs: pubsub.publish("robot/observation"),
-            pub_pose: pubsub.publish("robot/pose"),
-            sub_cmd: pubsub.subscribe("robot/command"),
-            active: false,
+            scene: scene.clone(),
+            sim: Arc::new(Mutex::new(Simulator::new(
+                pubsub.publish("robot/observation"),
+                pubsub.publish("robot/pose"),
+                pubsub.subscribe("robot/command"),
+                scene,
+                SimParameters::default(),
+            ))),
+            parameters: SimParameters::default(),
+            handle: None,
+            running: false,
         }
     }
 
@@ -45,50 +61,76 @@ impl Node for SimulatorNode {
         egui::Window::new("Simulator").show(ui.ctx(), |ui| {
             ui.label("Used to simulate different LIDAR sensors and environment shapes.");
 
-            ui.checkbox(&mut self.active, "Active");
-        });
+            // TODO: add controls for all the parameters and simulator controls here
+            ui.checkbox(&mut self.running, "Running");
 
-        // ui.ctx().input().stable_dt
-
-        while let Some(c) = self.sub_cmd.try_recv() {
-            dbg!(c);
-        }
-
-        if self.active {
-            // take a reading and send it to the drawing node
-            let mut meas: Vec<Measurement> = Vec::with_capacity(10);
-            let origin = world.last_mouse_pos;
-
-            for angle in 0..360 {
-                let angle = (angle as f32).to_radians();
-                // let angle = 0.0;
-                if let Some(v) = self.scene.intersect(&Ray::from_point_angle(origin, angle)) {
-                    if v < 1.0 {
-                        meas.push(Measurement {
-                            angle: angle as f64,
-                            distance: v as f64,
-                            strength: 1.0,
-                            valid: true,
-                        });
-                    }
-                }
+            if self.running && self.handle.is_none() {
+                self.handle = Some(SimulatorThreadHandle::new(self.sim.clone()))
             }
 
-            self.pub_obs
-                .publish(Arc::new(Observation { measurements: meas }));
-
-            self.pub_pose.publish(Arc::new(Pose {
-                x: origin.x,
-                y: origin.y,
-                theta: 0.0,
-            }));
-        }
+            if !self.running {
+                if let Some(h) = self.handle.take() {
+                    h.stop();
+                }
+            }
+        });
 
         // draw the scene itself
         world.sr.begin(PrimitiveType::Line);
-        self.scene.draw(world.sr, Color::BLACK);
+        self.scene.read().draw(world.sr, Color::BLACK);
         world.sr.end();
+
+        // TODO: draw the robot position (if enabled)
     }
 
     fn terminate(&mut self) {}
+}
+
+struct SimulatorThreadHandle {
+    handle: JoinHandle<()>,
+    running: Arc<AtomicBool>,
+}
+impl SimulatorThreadHandle {
+    pub fn new(sim: Arc<Mutex<Simulator>>) -> Self {
+        let running = Arc::new(AtomicBool::new(true));
+
+        let handle = thread::spawn({
+            let running = running.clone();
+            move || Self::thread(running, sim)
+        });
+
+        SimulatorThreadHandle { handle, running }
+    }
+
+    fn thread(running: Arc<AtomicBool>, sim: Arc<Mutex<Simulator>>) {
+        println!("[SimulatorThread] Started");
+
+        // loop taken from : https://www.gafferongames.com/post/fix_your_timestep/
+        let dt = 1.0 / 30.0;
+
+        let mut current_time = Instant::now();
+        let mut accumulator = 0.0;
+
+        while running.load(Ordering::Relaxed) {
+            let new_time = Instant::now();
+            let frame_time = new_time - current_time;
+            current_time = new_time;
+
+            accumulator += frame_time.as_secs_f64();
+
+            while accumulator >= dt {
+                sim.lock().tick(dt as f32);
+                accumulator -= dt;
+            }
+
+            thread::sleep(Duration::from_secs_f64(dt));
+        }
+
+        println!("[SimulatorThread] Ended");
+    }
+
+    pub fn stop(self) {
+        self.running.store(false, Ordering::Relaxed);
+        self.handle.join().unwrap();
+    }
 }
