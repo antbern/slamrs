@@ -50,13 +50,13 @@ pub struct Subscription<T: Any + Send + Sync + 'static> {
 }
 
 impl<T: Any + Send + Sync + 'static> Subscription<T> {
-    /// Tries to recieve a value from the subscribed topic.
+    /// Tries to receive a value from the subscribed topic, but will not block if no data is available.
     pub fn try_recv(&mut self) -> Option<Arc<T>> {
         match self.reciever.try_recv() {
             Ok(value) => Some(
                 value
                     .downcast::<T>()
-                    .expect("Recieved value was not of the expected type"),
+                    .expect("Received value was not of the expected type"),
             ),
             Err(e) => {
                 match e {
@@ -68,6 +68,14 @@ impl<T: Any + Send + Sync + 'static> Subscription<T> {
                 None
             }
         }
+    }
+    /// Receives a value from the subscribed topic, and will block if no data is available.
+    pub fn recv(&mut self) -> Arc<T> {
+        self.reciever
+            .recv()
+            .expect("Other end of channel was unexpectedly closed")
+            .downcast::<T>()
+            .expect("Received value was not of the expected type")
     }
 }
 

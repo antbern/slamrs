@@ -11,7 +11,7 @@ use graphics::{camera::Camera, shaperenderer::ShapeRenderer};
 use nalgebra::{Matrix4, Point2};
 use neato::{FileLoader, SerialConnection};
 use pubsub::{PubSub, PubSubThreadHandle};
-use simulator::Simulator;
+use simulator::SimulatorNode;
 
 pub struct App {
     pubsub: PubSubThreadHandle,
@@ -39,7 +39,7 @@ impl App {
             Box::new(FileLoader::new(&mut pubsub)),
             Box::new(FrameVizualizer::new(&mut pubsub)),
             Box::new(SerialConnection::new(&mut pubsub)),
-            Box::new(Simulator::new(&mut pubsub)),
+            Box::new(SimulatorNode::new(&mut pubsub)),
             Box::new(ControlsNode::new(&mut pubsub)),
         ];
 

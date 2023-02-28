@@ -2,23 +2,24 @@ use std::sync::Arc;
 
 use common::{
     node::Node,
-    robot::{Measurement, Observation, Pose},
+    robot::{Command, Measurement, Observation, Pose},
 };
 use graphics::primitiverenderer::{Color, PrimitiveType};
 use nalgebra::{Point2, Vector2};
-use pubsub::Publisher;
+use pubsub::{Publisher, Subscription};
 use scene::ray::{Draw, Intersect, LineSegment, Ray, Scene};
 
 mod scene;
 mod sensor;
-pub struct Simulator {
+pub struct SimulatorNode {
     scene: Scene,
     pub_obs: Publisher<Observation>,
     pub_pose: Publisher<Pose>,
+    sub_cmd: Subscription<Command>,
     active: bool,
 }
 
-impl Node for Simulator {
+impl Node for SimulatorNode {
     fn new(pubsub: &mut pubsub::PubSub) -> Self
     where
         Self: Sized,
@@ -35,6 +36,7 @@ impl Node for Simulator {
             scene,
             pub_obs: pubsub.publish("robot/observation"),
             pub_pose: pubsub.publish("robot/pose"),
+            sub_cmd: pubsub.subscribe("robot/command"),
             active: false,
         }
     }
@@ -45,6 +47,12 @@ impl Node for Simulator {
 
             ui.checkbox(&mut self.active, "Active");
         });
+
+        // ui.ctx().input().stable_dt
+
+        while let Some(c) = self.sub_cmd.try_recv() {
+            dbg!(c);
+        }
 
         if self.active {
             // take a reading and send it to the drawing node
