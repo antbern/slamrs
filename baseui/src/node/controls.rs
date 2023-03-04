@@ -15,7 +15,11 @@ pub struct ControlsNode {
 enum Control {
     Stop,
     Up,
+    UpLeft,
+    UpRight,
     Down,
+    DownLeft,
+    DownRight,
     Left,
     Right,
 }
@@ -41,14 +45,27 @@ impl Node for ControlsNode {
         if self.keyboard_enabled {
             let input = ui.ctx().input();
 
-            ctrl = if input.key_down(Key::W) {
+            let up = input.key_down(Key::W);
+            let left = input.key_down(Key::A);
+            let down = input.key_down(Key::S);
+            let right = input.key_down(Key::D);
+
+            ctrl = if up && left {
+                UpLeft
+            } else if up && right {
+                UpRight
+            } else if up {
                 Up
-            } else if input.key_down(Key::A) {
-                Left
-            } else if input.key_down(Key::S) {
+            } else if down && left {
+                DownLeft
+            } else if down && right {
+                DownRight
+            } else if down {
                 Down
-            } else if input.key_down(Key::D) {
+            } else if right {
                 Right
+            } else if left {
+                Left
             } else {
                 Stop
             }
@@ -97,9 +114,25 @@ impl Node for ControlsNode {
                 speed_left: self.target_speed,
                 speed_right: self.target_speed,
             },
+            UpLeft => Command {
+                speed_left: self.target_speed / 3.0,
+                speed_right: self.target_speed,
+            },
+            UpRight => Command {
+                speed_left: self.target_speed,
+                speed_right: self.target_speed / 3.0,
+            },
             Down => Command {
                 speed_left: -self.target_speed,
                 speed_right: -self.target_speed,
+            },
+            DownLeft => Command {
+                speed_left: -self.target_speed / 3.0,
+                speed_right: -self.target_speed,
+            },
+            DownRight => Command {
+                speed_left: -self.target_speed,
+                speed_right: -self.target_speed / 3.0,
             },
             Left => Command {
                 speed_left: -self.target_speed,
