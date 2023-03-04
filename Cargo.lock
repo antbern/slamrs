@@ -119,6 +119,7 @@ dependencies = [
  "neato",
  "pubsub",
  "simulator",
+ "slam",
  "tracing-subscriber",
  "tracing-wasm",
  "wasm-bindgen-futures",
@@ -1587,6 +1588,17 @@ dependencies = [
  "common",
  "egui",
  "graphics",
+ "nalgebra",
+ "pubsub",
+]
+
+[[package]]
+name = "slam"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "common",
+ "egui",
  "nalgebra",
  "pubsub",
 ]

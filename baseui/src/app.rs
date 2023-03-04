@@ -12,6 +12,7 @@ use nalgebra::{Matrix4, Point2};
 use neato::{FileLoader, SerialConnection};
 use pubsub::{PubSub, PubSubThreadHandle};
 use simulator::SimulatorNode;
+use slam::SlamNode;
 
 pub struct App {
     pubsub: PubSubThreadHandle,
@@ -41,6 +42,7 @@ impl App {
             Box::new(SerialConnection::new(&mut pubsub)),
             Box::new(SimulatorNode::new(&mut pubsub)),
             Box::new(ControlsNode::new(&mut pubsub)),
+            Box::new(SlamNode::new(&mut pubsub)),
         ];
 
         // TODO: remove this once we have processing that is not dependent on UI updates...

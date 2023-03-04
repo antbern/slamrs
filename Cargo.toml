@@ -5,6 +5,7 @@ members = [
     "graphics",
     "common",
     "simulator",
+    "slam",
 ]
 default_members = ["baseui"]
 
@@ -15,6 +16,7 @@ graphics = {path = "./graphics"}
 common = {path = "./common"}
 neato = {path = "./neato"}
 simulator = {path = "./simulator"}
+slam = {path = "./slam"}
 
 egui = "0.20.0"
 glow = "0.11"
