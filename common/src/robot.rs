@@ -1,3 +1,5 @@
+use nalgebra::Point2;
+
 /// The pose of a robot in the 2D plane.
 #[derive(Copy, Clone, Default)]
 pub struct Pose {
@@ -21,6 +23,21 @@ impl From<Pose> for (f32, f32) {
 #[derive(Clone)]
 pub struct Observation {
     pub measurements: Vec<Measurement>,
+}
+
+impl Observation {
+    pub fn to_points(&self, origin: Pose) -> Vec<Point2<f32>> {
+        self.measurements
+            .iter()
+            .filter(|&m| m.valid)
+            .map(|m| {
+                Point2::new(
+                    origin.x + (origin.theta + m.angle as f32).cos() * m.distance as f32,
+                    origin.y + (origin.theta + m.angle as f32).sin() * m.distance as f32,
+                )
+            })
+            .collect()
+    }
 }
 
 #[derive(Clone, Copy)]

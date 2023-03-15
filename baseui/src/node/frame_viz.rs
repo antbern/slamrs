@@ -5,7 +5,7 @@ use common::{
     robot::{Observation, Pose},
     world::WorldObj,
 };
-use egui::plot::{Bar, BarChart, Plot, PlotBounds};
+use egui::plot::{Bar, BarChart, Plot, PlotBounds, Points};
 use pubsub::{PubSub, Subscription};
 
 use graphics::primitiverenderer::{Color, PrimitiveType};
@@ -48,7 +48,7 @@ impl Node for FrameVizualizer {
             world.sr.begin(PrimitiveType::Line);
 
             for m in frame.measurements.iter() {
-                let (s, c) = (m.angle as f32).sin_cos();
+                let (s, c) = (m.angle as f32 + self.last_pose.theta).sin_cos();
                 let d = m.distance as f32;
                 let x = c * d;
                 let y = s * d;
@@ -64,7 +64,7 @@ impl Node for FrameVizualizer {
             world.sr.begin(PrimitiveType::Filled);
 
             for m in frame.measurements.iter() {
-                let (s, c) = (m.angle as f32).sin_cos();
+                let (s, c) = (m.angle as f32 + self.last_pose.theta).sin_cos();
                 let d = m.distance as f32;
                 let x = c * d;
                 let y = s * d;
@@ -74,6 +74,8 @@ impl Node for FrameVizualizer {
                     .sr
                     .rect(ox + x - 0.005, oy + y - 0.005, 0.01, 0.01, color)
             }
+
+            // dbg!(self.last_pose.theta);
 
             world.sr.arrow(
                 self.last_pose.x,
@@ -111,6 +113,21 @@ impl Node for FrameVizualizer {
                     plot_ui.bar_chart(chart);
                     plot_ui.set_plot_bounds(PlotBounds::from_min_max([0.0, 0.0], [360.0, 2000.0]));
                 });
+
+            // Draw a strength-distance scatter plot
+            let mut points = Vec::new();
+
+            if let Some(o) = &self.last_frame {
+                for m in &o.measurements {
+                    points.push([m.strength, m.distance])
+                }
+            }
+
+            // let line = Line::new(points);
+            let points = Points::new(points);
+            Plot::new("my_plot")
+                .view_aspect(2.0)
+                .show(ui, |plot_ui| plot_ui.points(points));
         });
     }
 }

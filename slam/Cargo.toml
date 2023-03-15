@@ -16,3 +16,4 @@ egui = {workspace = true}
 nalgebra = {workspace = true}
 
 # special dependencies for this crate
+lstsq = "0.5.0"
