@@ -18,6 +18,7 @@ pub struct Simulator {
     // robot pose, last command, wheel velocities etc that need to be shared between the background thread and the UI
     active: bool,
     scan_update_timer: f32,
+    scan_counter: usize,
 }
 
 #[derive(Clone, Copy)]
@@ -30,7 +31,7 @@ impl Default for SimParameters {
     fn default() -> Self {
         Self {
             wheel_base: 0.1,
-            update_period: 1.0,
+            update_period: 0.2,
         }
     }
 }
@@ -53,6 +54,7 @@ impl Simulator {
             wheel_velocity: Vector2::zeros(),
             active: true,
             scan_update_timer: 0.0,
+            scan_counter: 0,
         }
     }
 
@@ -103,8 +105,11 @@ impl Simulator {
                     }
                 }
 
-                self.pub_obs
-                    .publish(Arc::new(Observation { measurements: meas }));
+                self.pub_obs.publish(Arc::new(Observation {
+                    id: self.scan_counter,
+                    measurements: meas,
+                }));
+                self.scan_counter += 1;
             }
 
             // make the robot move

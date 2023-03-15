@@ -22,6 +22,7 @@ impl From<Pose> for (f32, f32) {
 /// Contains all data for a single lidar scan (a complete revolution)
 #[derive(Clone)]
 pub struct Observation {
+    pub id: usize,
     pub measurements: Vec<Measurement>,
 }
 

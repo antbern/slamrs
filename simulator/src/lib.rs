@@ -38,7 +38,7 @@ impl Node for SimulatorNode {
             .add_rect(Point2::new(-1.0, -1.0), Vector2::new(2.0, 2.0))
             .add_rect(Point2::new(-0.1, -0.4), Vector2::new(0.5, 0.1))
             .add_rect(Point2::new(-0.6, 0.4), Vector2::new(0.2, 0.5))
-            .add(Box::new(LineSegment::new(-0.4, -0.4, 0.4, 0.4)));
+            .add(Box::new(LineSegment::new(-0.6, -0.4, 0.2, 0.4)));
 
         let scene = Arc::new(RwLock::new(scene));
 

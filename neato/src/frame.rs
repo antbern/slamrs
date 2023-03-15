@@ -220,6 +220,9 @@ impl From<NeatoFrame> for Observation {
             })
         }
 
-        Observation { measurements: m }
+        Observation {
+            id: 0,
+            measurements: m,
+        }
     }
 }

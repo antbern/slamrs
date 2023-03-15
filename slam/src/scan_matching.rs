@@ -32,6 +32,8 @@ fn scan_match(a: Observation, b: Observation, start: Pose) -> Pose {
     // let pa = a.to_points(start);
     // let pb = b.to_points(start);
 
+    println!("Matching scan {} to {}", a.id, b.id);
+
     let pa = a.to_points(Pose::default());
     let pb = b.to_points(Pose::default());
 
@@ -43,13 +45,28 @@ fn scan_match(a: Observation, b: Observation, start: Pose) -> Pose {
     // perform scan matching algorithm
     // start
 
-    let r = icp_least_squares(&pb, &pa, None, 10);
+    let r = icp_least_squares(&pa, &pb, None, 5);
+
+    let rot = R(start.theta - r[2]);
+
+    let s = rot * r.xy();
 
     Pose {
-        x: start.x + r[0],
-        y: start.y + r[1],
-        theta: start.theta + r[2],
+        x: start.x - s.x,
+        y: start.y - s.y,
+        theta: start.theta - r[2],
     }
+    // Pose {
+    //     x: start.x + (start.theta - r[2]).cos() * r[0],
+    //     y: start.y + (start.theta - r[2]).sin() * r[1],
+    //     theta: start.theta - r[2],
+    // }
+
+    // Pose {
+    //     x: start.x + start.theta.cos() * r[0],
+    //     y: start.y + start.theta.sin() * r[1],
+    //     theta: start.theta + r[2],
+    // }
 }
 
 /// For each point in `p`, finds the closest point in `q` using euclidean distance. Returns tuples of (p,q) indices with the correspondences
@@ -173,11 +190,16 @@ fn icp_least_squares(
 
     let mut p_copy = p.to_owned(); // copy to modify along the way
 
+    let q_normals = compute_normals(q, 1);
+
     for _ in 0..iterations {
         let correspondences = find_correspondences(&p_copy, q);
         // dbg!(correspondences.len());
+        // dbg!(&correspondences);
 
-        let s = prepare_system(x, p, q, &correspondences);
+        // let s = prepare_system(x, p, q, &correspondences);
+
+        let s = prepare_system_normals(x, p, q, &correspondences, &q_normals);
 
         let r =
             lstsq::lstsq(&s.hessian, &(-s.gradient), 1e-8).expect("Could not solve least squares");
@@ -196,9 +218,9 @@ fn icp_least_squares(
         chi_values.push(s.chi);
     }
 
-    dbg!(&chi_values);
-    dbg!(&x);
-    dbg!(x[2].to_degrees());
+    // dbg!(&chi_values);
+    // dbg!(&x);
+    // dbg!(x[2].to_degrees());
     x
 }
 
@@ -226,6 +248,76 @@ fn icp_least_squares(
 //         P_values.append(P_copy)
 //     corresp_values.append(corresp_values[-1])
 //     return P_values, chi_values, corresp_values
+
+fn compute_normals(points: &[Point2<f32>], step: usize) -> Vec<Vector2<f32>> {
+    let mut normals = Vec::with_capacity(points.len());
+
+    normals.push(Vector2::zeros()); // no normal for the endpoints
+
+    for i in 1..points.len() - 1 {
+        let prev_point = points[i - step];
+        let next_point = points[i + step];
+
+        let diff = next_point - prev_point;
+
+        let normal = Vector2::new(-diff.y, diff.x).normalize();
+
+        normals.push(normal);
+    }
+
+    normals.push(Vector2::zeros()); // no normal for the endpoints
+
+    normals
+}
+
+// def compute_normals(points, step=1):
+//     normals = [np.array([[0, 0]])]
+//     normals_at_points = []
+//     for i in range(step, points.shape[1] - step):
+//         prev_point = points[:, i - step]
+//         next_point = points[:, i + step]
+//         curr_point = points[:, i]
+//         dx = next_point[0] - prev_point[0]
+//         dy = next_point[1] - prev_point[1]
+//         normal = np.array([[0, 0],[-dy, dx]])
+//         normal = normal / np.linalg.norm(normal)
+//         normals.append(normal[[1], :])
+//         normals_at_points.append(normal + curr_point)
+//     normals.append(np.array([[0, 0]]))
+//     return normals, normals_at_points
+
+fn prepare_system_normals(
+    x: Vector3<f32>,
+    p: &[Point2<f32>],
+    q: &[Point2<f32>],
+    c: &[(usize, usize)],
+    q_normals: &[Vector2<f32>],
+) -> PreparedSystem {
+    let mut H = Matrix3::zeros();
+    let mut g = Vector3::zeros();
+    let mut chi = 0f32;
+
+    for &(i, j) in c {
+        let p_point = p[i];
+        let q_point = q[j];
+        let q_normal = q_normals[j];
+
+        let e = q_normal.transpose() * error(x, p_point, q_point);
+        let weight = 1.0; // TODO
+        let J = q_normal.transpose() * jacobian(x, p_point);
+
+        H += weight * J.transpose() * J;
+        g += weight * J.transpose() * e;
+
+        chi += e.dot(&e);
+    }
+
+    PreparedSystem {
+        hessian: H,
+        gradient: g,
+        chi,
+    }
+}
 
 pub fn add(left: usize, right: usize) -> usize {
     left + right
