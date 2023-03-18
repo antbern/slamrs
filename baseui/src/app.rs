@@ -1,12 +1,12 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Instant};
 
 use crate::node::{
     controls::ControlsNode, frame_viz::FrameVizualizer, mouse_position::MousePosition,
     shape_rendering::ShapeRendering,
 };
-use common::{node::Node, world::WorldObj};
+use common::{node::Node, world::WorldObj, PerfStats};
 use eframe::egui_glow;
-use egui::{mutex::Mutex, Pos2, Vec2};
+use egui::{mutex::Mutex, Label, Pos2, RichText, Sense, Vec2};
 use graphics::{camera::Camera, shaperenderer::ShapeRenderer};
 use nalgebra::{Matrix4, Point2};
 use neato::{FileLoader, SerialConnection};
@@ -15,11 +15,13 @@ use simulator::SimulatorNode;
 use slam::SlamNode;
 
 pub struct App {
-    pubsub: PubSubThreadHandle,
+    _pubsub: PubSubThreadHandle,
     nodes: Vec<Box<dyn Node>>,
 
     /// Behind an `Arc<Mutex<…>>` so we can pass it to [`egui::PaintCallback`] and paint later.
     world_renderer: Arc<Mutex<WorldRenderer>>,
+
+    stats: PerfStats,
 }
 
 impl App {
@@ -50,8 +52,9 @@ impl App {
 
         Self {
             nodes,
-            pubsub: pubsub.start_background_thread(move || ctx.request_repaint()),
+            _pubsub: pubsub.start_background_thread(move || ctx.request_repaint()),
             world_renderer: Arc::new(Mutex::new(WorldRenderer::new(gl))),
+            stats: PerfStats::new(),
         }
     }
 }
@@ -60,6 +63,7 @@ impl eframe::App for App {
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        let start_time = Instant::now();
         // Examples of how to create different panels and windows.
         // Pick whichever suits you.
         // Tip: a good default choice is to just keep the `CentralPanel`.
@@ -69,11 +73,29 @@ impl eframe::App for App {
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             // The top panel is often a good place for a menu bar:
             egui::menu::bar(ui, |ui| {
-                ui.menu_button("File", |ui| {
-                    if ui.button("Quit").clicked() {
-                        _frame.close();
-                    }
-                });
+                // ui.menu_button("File", |ui| {
+                //     if ui.button("Quit").clicked() {
+                //         _frame.close();
+                //     }
+                // });
+
+                ui.label(
+                    RichText::new(format!(
+                        "Render: {:>5} fps",
+                        self.stats.latest_fps() as usize
+                    ))
+                    .monospace(),
+                );
+
+                if ui
+                    .add(
+                        Label::new(RichText::new(self.stats.to_string()).monospace())
+                            .sense(Sense::click()),
+                    )
+                    .clicked()
+                {
+                    self.stats.reset();
+                }
             });
         });
 
@@ -93,6 +115,8 @@ impl eframe::App for App {
 
             self.custom_painting(ui);
         });
+
+        self.stats.update(start_time.elapsed());
     }
     fn on_exit(&mut self, gl: Option<&glow::Context>) {
         if let Some(gl) = gl {

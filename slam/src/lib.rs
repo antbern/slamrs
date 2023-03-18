@@ -4,6 +4,7 @@ use common::{
     node::Node,
     robot::{Observation, Pose},
 };
+use egui::{Label, RichText, Sense};
 use pubsub::{Publisher, Subscription};
 use scan_matching::ScanMatcher;
 
@@ -32,6 +33,19 @@ impl Node for SlamNode {
     fn draw(&mut self, ui: &egui::Ui, _world: &mut common::world::WorldObj<'_>) {
         egui::Window::new("Slam").show(ui.ctx(), |ui| {
             ui.label("Slam Stuff");
+
+            ui.horizontal(|ui| {
+                ui.label("SM: ");
+                if ui
+                    .add(
+                        Label::new(RichText::new(self.matcher.stats().to_string()).monospace())
+                            .sense(Sense::click()),
+                    )
+                    .clicked()
+                {
+                    self.matcher.stats().reset();
+                }
+            })
         });
 
         // TODO: move all processing to separate thread later, do it here for now (but only one observation per frame)

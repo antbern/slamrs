@@ -4,26 +4,39 @@
 //! * https://nbviewer.org/github/niosus/notebooks/blob/master/icp.ipynb
 //!
 
-use common::robot::{Observation, Pose};
+use std::time::{Duration, Instant};
+
+use common::{
+    robot::{Observation, Pose},
+    PerfStats,
+};
 use nalgebra::{Matrix1, Matrix2, Matrix2x3, Matrix2xX, Matrix3, Point2, Vector2, Vector3};
 
 pub(crate) struct ScanMatcher {
     previous_scan: Option<Observation>,
+    stats: PerfStats,
 }
 
 impl ScanMatcher {
     pub(crate) fn new() -> Self {
         Self {
             previous_scan: None,
+            stats: PerfStats::new(),
         }
     }
 
     pub(crate) fn update(&mut self, scan: &Observation, pose: Pose) -> Pose {
         if let Some(prev) = self.previous_scan.replace(scan.clone()) {
-            scan_match(prev, scan.clone(), pose)
+            let (p, time) = scan_match(prev, scan.clone(), pose);
+            self.stats.update(time);
+            p
         } else {
             pose
         }
+    }
+
+    pub fn stats(&mut self) -> &mut PerfStats {
+        &mut self.stats
     }
 }
 
@@ -32,7 +45,7 @@ fn points_to_matrix(points: &[Point2<f32>]) -> Matrix2xX<f32> {
     Matrix2xX::from_columns(&vectors)
 }
 
-fn scan_match(previous: Observation, new: Observation, start: Pose) -> Pose {
+fn scan_match(previous: Observation, new: Observation, start: Pose) -> (Pose, Duration) {
     // convert the observations into two arrays of points for easier manipulation
 
     println!("Matching scan {} to {}", previous.id, new.id);
@@ -41,16 +54,19 @@ fn scan_match(previous: Observation, new: Observation, start: Pose) -> Pose {
     let new = points_to_matrix(&new.to_points(Pose::default()));
 
     // match the new scan with the previous to get an estimate of the movement
-    let m = icp_least_squares(&new, &previous, None, 20);
+    let result = icp_least_squares(&new, &previous, None, 20);
 
     // the translation need to be converted from local to global space before being applied
-    let s = R(start.theta) * m.xy();
+    let s = R(start.theta) * result.transformation.xy();
 
-    Pose {
-        x: start.x + s.x,
-        y: start.y + s.y,
-        theta: start.theta + m[2],
-    }
+    (
+        Pose {
+            x: start.x + s.x,
+            y: start.y + s.y,
+            theta: start.theta + result.transformation[2],
+        },
+        result.duration,
+    )
 }
 
 /// For each point in `p`, finds the closest point in `q` using euclidean distance. Returns tuples of (p,q) indices with the correspondences
@@ -174,13 +190,21 @@ fn prepare_system(
 //         chi += e.T * e
 //     return H, g, chi
 
+struct IcpResult {
+    transformation: Vector3<f32>,
+    chi_values: Vec<f32>,
+    duration: Duration,
+}
+
 /// Returns the pose required to translate points p to be as close to points q as possible.
 fn icp_least_squares(
     p: &Matrix2xX<f32>,
     q: &Matrix2xX<f32>,
     initial_transformation: Option<Vector3<f32>>,
     iterations: usize,
-) -> Vector3<f32> {
+) -> IcpResult {
+    let start_time = Instant::now();
+
     let mut x = initial_transformation.unwrap_or(Vector3::zeros());
 
     let q_normals = compute_normals(q);
@@ -212,7 +236,12 @@ fn icp_least_squares(
     // dbg!(&chi_values.last());
     // dbg!(&x);
     // dbg!(x[2].to_degrees());
-    x
+
+    IcpResult {
+        transformation: x,
+        chi_values,
+        duration: start_time.elapsed(),
+    }
 }
 
 // def icp_least_squares(P, Q, iterations=30, kernel=lambda distance: 1.0):
@@ -339,9 +368,6 @@ mod tests {
         ];
 
         let r = icp_least_squares(&points_to_matrix(&p), &points_to_matrix(&q), None, 10);
-        // relative_eq!(r.x, 1.0);
-        // relative_eq!(r.y, 0.0);
-        // relative_eq!(r.z, 0.0);
 
         relative_eq!(r, Vector3::new(1.0, 0.0, 0.0));
 
