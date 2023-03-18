@@ -7,7 +7,7 @@ members = [
     "simulator",
     "slam",
 ]
-default_members = ["baseui"]
+default-members = ["baseui"]
 
 
 [workspace.dependencies]
@@ -28,6 +28,13 @@ anyhow = "1.0.68"
 
 [profile.release]
 debug = true
+
+# slam crate needs serious optimization to work in debug builds (apparently this is not caught by the all-package options below...)
+[profile.dev.package.slam]
+opt-level = 3
+
+[profile.dev.package.graphics]
+opt-level = 3
 
 # Optimize all dependencies even in debug builds:
 [profile.dev.package."*"]

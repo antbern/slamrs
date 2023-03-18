@@ -1,5 +1,7 @@
 # From https://lesleylai.info/en/improve-rust-link-time-with-lld/
 [build]
 rustflags = [
-  "-C", "link-arg=-fuse-ld=lld",
+  "-C", "link-arg=-fuse-ld=lld", 
+  "-Clink-arg=-Wl,--no-rosegment" # needed so that flamegraph generates accurate informaiton
 ]
+
