@@ -5,7 +5,7 @@
 //!
 
 use common::robot::{Observation, Pose};
-use nalgebra::{Matrix2, Matrix2x3, Matrix3, Point2, Vector2, Vector3};
+use nalgebra::{Matrix1, Matrix2, Matrix2x3, Matrix3, Point2, Vector2, Vector3};
 
 pub(crate) struct ScanMatcher {
     previous_scan: Option<Observation>,
@@ -27,51 +27,36 @@ impl ScanMatcher {
     }
 }
 
-fn scan_match(a: Observation, b: Observation, start: Pose) -> Pose {
+fn scan_match(previous: Observation, new: Observation, start: Pose) -> Pose {
     // convert the observations into two arrays of points for easier manipulation
     // let pa = a.to_points(start);
     // let pb = b.to_points(start);
 
-    println!("Matching scan {} to {}", a.id, b.id);
+    println!("Matching scan {} to {}", previous.id, new.id);
 
-    let pa = a.to_points(Pose::default());
-    let pb = b.to_points(Pose::default());
+    let previous = previous.to_points(Pose::default());
+    let new = new.to_points(Pose::default());
 
-    // dbg!(&pa[0..2]);
-    // dbg!(&pb[0..2]);
+    // match the new scan with the previous to get an estimate of the movement
+    let m = icp_least_squares(&new, &previous, None, 20);
 
-    // let c = find_correspondences(&pa, &pb);
-
-    // perform scan matching algorithm
-    // start
-
-    let r = icp_least_squares(&pa, &pb, None, 5);
-
-    let rot = R(start.theta - r[2]);
-
-    let s = rot * r.xy();
+    // the translation need to be converted from local to global space before being applied
+    let s = R(start.theta) * m.xy();
 
     Pose {
-        x: start.x - s.x,
-        y: start.y - s.y,
-        theta: start.theta - r[2],
+        x: start.x + s.x,
+        y: start.y + s.y,
+        theta: start.theta + m[2],
     }
-    // Pose {
-    //     x: start.x + (start.theta - r[2]).cos() * r[0],
-    //     y: start.y + (start.theta - r[2]).sin() * r[1],
-    //     theta: start.theta - r[2],
-    // }
-
-    // Pose {
-    //     x: start.x + start.theta.cos() * r[0],
-    //     y: start.y + start.theta.sin() * r[1],
-    //     theta: start.theta + r[2],
-    // }
 }
 
 /// For each point in `p`, finds the closest point in `q` using euclidean distance. Returns tuples of (p,q) indices with the correspondences
 fn find_correspondences(p: &[Point2<f32>], q: &[Point2<f32>]) -> Vec<(usize, usize)> {
     let mut c = Vec::with_capacity(p.len());
+
+    if p.is_empty() || q.is_empty() {
+        return c;
+    }
 
     for (i_p, p_p) in p.iter().enumerate() {
         let mut min_dist = f32::INFINITY;
@@ -131,6 +116,14 @@ struct PreparedSystem {
     chi: f32,
 }
 
+fn weight(error: Matrix1<f32>) -> f32 {
+    if error.norm() < 10.0 {
+        1.0
+    } else {
+        0.0
+    }
+}
+
 // Computes the hessian and the gradient of the system based on the provided correspondences and the transformation (translation + rotation) x
 fn prepare_system(
     x: Vector3<f32>,
@@ -147,7 +140,7 @@ fn prepare_system(
         let q_point = q[j];
 
         let e = error(x, p_point, q_point);
-        let weight = 1.0; // TODO
+        let weight = weight(e.transpose() * e); // TODO
         let J = jacobian(x, p_point);
 
         H += weight * J.transpose() * J;
@@ -186,11 +179,11 @@ fn icp_least_squares(
     iterations: usize,
 ) -> Vector3<f32> {
     let mut x = initial_transformation.unwrap_or(Vector3::zeros());
-    let mut chi_values: Vec<f32> = Vec::new();
+    let mut chi_values: Vec<f32> = Vec::with_capacity(iterations);
 
     let mut p_copy = p.to_owned(); // copy to modify along the way
 
-    let q_normals = compute_normals(q, 1);
+    let q_normals = compute_normals(q);
 
     for _ in 0..iterations {
         let correspondences = find_correspondences(&p_copy, q);
@@ -249,14 +242,14 @@ fn icp_least_squares(
 //     corresp_values.append(corresp_values[-1])
 //     return P_values, chi_values, corresp_values
 
-fn compute_normals(points: &[Point2<f32>], step: usize) -> Vec<Vector2<f32>> {
+fn compute_normals(points: &[Point2<f32>]) -> Vec<Vector2<f32>> {
     let mut normals = Vec::with_capacity(points.len());
 
     normals.push(Vector2::zeros()); // no normal for the endpoints
 
-    for i in 1..points.len() - 1 {
-        let prev_point = points[i - step];
-        let next_point = points[i + step];
+    for w in points.windows(3) {
+        let prev_point = w[0]; //points[i - step];
+        let next_point = w[2]; //points[i + step];
 
         let diff = next_point - prev_point;
 
@@ -303,7 +296,7 @@ fn prepare_system_normals(
         let q_normal = q_normals[j];
 
         let e = q_normal.transpose() * error(x, p_point, q_point);
-        let weight = 1.0; // TODO
+        let weight = weight(e); // TODO
         let J = q_normal.transpose() * jacobian(x, p_point);
 
         H += weight * J.transpose() * J;
@@ -319,17 +312,37 @@ fn prepare_system_normals(
     }
 }
 
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
-}
-
 #[cfg(test)]
 mod tests {
+    use approx::relative_eq;
+
     use super::*;
 
     #[test]
     fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
+        let p = vec![
+            Point2::new(0.0, 2.0),
+            Point2::new(0.0, 1.0),
+            Point2::new(0.0, 0.0),
+            Point2::new(0.0, -1.0),
+            Point2::new(0.0, -2.0),
+        ];
+
+        let q = vec![
+            Point2::new(1.0, 2.0),
+            Point2::new(1.0, 1.0),
+            Point2::new(1.0, 0.0),
+            Point2::new(1.0, -1.0),
+            Point2::new(1.0, -2.0),
+        ];
+
+        let r = icp_least_squares(&p, &q, None, 10);
+        // relative_eq!(r.x, 1.0);
+        // relative_eq!(r.y, 0.0);
+        // relative_eq!(r.z, 0.0);
+
+        relative_eq!(r, Vector3::new(1.0, 0.0, 0.0));
+
+        // assert_eq!(result, 4);
     }
 }

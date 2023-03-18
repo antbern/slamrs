@@ -17,3 +17,6 @@ nalgebra = {workspace = true}
 
 # special dependencies for this crate
 lstsq = "0.5.0"
+
+[dev-dependencies]
+approx = "0.5.1"

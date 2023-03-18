@@ -1606,6 +1606,7 @@ name = "slam"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "approx",
  "common",
  "egui",
  "lstsq",

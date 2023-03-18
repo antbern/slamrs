@@ -36,12 +36,14 @@ impl Node for SlamNode {
 
         // TODO: move all processing to separate thread later, do it here for now (but only one observation per frame)
         if let Some(o) = self.sub_obs.try_recv() {
-            let newpose = self.matcher.update(&o, self.pose_est);
+            if o.measurements.len() > 2 {
+                let newpose = self.matcher.update(&o, self.pose_est);
 
-            self.pose_est = newpose;
-            // self.pose_est.x += 0.1 * 1.0 / 60.0;
+                self.pose_est = newpose;
+                // self.pose_est.x += 0.1 * 1.0 / 60.0;
 
-            self.pub_pose.publish(Arc::new(self.pose_est));
+                self.pub_pose.publish(Arc::new(self.pose_est));
+            }
         }
     }
 }
