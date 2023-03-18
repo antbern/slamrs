@@ -5,7 +5,7 @@
 //!
 
 use common::robot::{Observation, Pose};
-use nalgebra::{Matrix1, Matrix2, Matrix2x3, Matrix3, Point2, Vector2, Vector3};
+use nalgebra::{Matrix1, Matrix2, Matrix2x3, Matrix2xX, Matrix3, Point2, Vector2, Vector3};
 
 pub(crate) struct ScanMatcher {
     previous_scan: Option<Observation>,
@@ -27,15 +27,18 @@ impl ScanMatcher {
     }
 }
 
+fn points_to_matrix(points: &[Point2<f32>]) -> Matrix2xX<f32> {
+    let vectors: Vec<Vector2<f32>> = points.iter().map(|p| p.coords).collect();
+    Matrix2xX::from_columns(&vectors)
+}
+
 fn scan_match(previous: Observation, new: Observation, start: Pose) -> Pose {
     // convert the observations into two arrays of points for easier manipulation
-    // let pa = a.to_points(start);
-    // let pb = b.to_points(start);
 
     println!("Matching scan {} to {}", previous.id, new.id);
 
-    let previous = previous.to_points(Pose::default());
-    let new = new.to_points(Pose::default());
+    let previous = points_to_matrix(&previous.to_points(Pose::default()));
+    let new = points_to_matrix(&new.to_points(Pose::default()));
 
     // match the new scan with the previous to get an estimate of the movement
     let m = icp_least_squares(&new, &previous, None, 20);
@@ -51,18 +54,18 @@ fn scan_match(previous: Observation, new: Observation, start: Pose) -> Pose {
 }
 
 /// For each point in `p`, finds the closest point in `q` using euclidean distance. Returns tuples of (p,q) indices with the correspondences
-fn find_correspondences(p: &[Point2<f32>], q: &[Point2<f32>]) -> Vec<(usize, usize)> {
+fn find_correspondences(p: &Matrix2xX<f32>, q: &Matrix2xX<f32>) -> Vec<(usize, usize)> {
     let mut c = Vec::with_capacity(p.len());
 
     if p.is_empty() || q.is_empty() {
         return c;
     }
 
-    for (i_p, p_p) in p.iter().enumerate() {
+    for (i_p, p_p) in p.column_iter().enumerate() {
         let mut min_dist = f32::INFINITY;
         let mut min_idx = 0usize;
 
-        for (i_q, p_q) in q.iter().enumerate() {
+        for (i_q, p_q) in q.column_iter().enumerate() {
             let d2 = (p_q - p_p).norm_squared();
             if d2 <= min_dist {
                 min_dist = d2;
@@ -83,7 +86,7 @@ fn R(theta: f32) -> Matrix2<f32> {
     Matrix2::new(theta.cos(), -theta.sin(), theta.sin(), theta.cos())
 }
 
-fn jacobian(x: Vector3<f32>, p_point: Point2<f32>) -> Matrix2x3<f32> {
+fn jacobian(x: Vector3<f32>, p_point: Vector2<f32>) -> Matrix2x3<f32> {
     let mut J = Matrix2x3::identity();
     let t = dR(x[2]) * p_point;
     J.set_column(2, &Vector2::new(t.x, t.y));
@@ -96,7 +99,7 @@ fn jacobian(x: Vector3<f32>, p_point: Point2<f32>) -> Matrix2x3<f32> {
 //     J[0:2, [2]] = dR(0).dot(p_point)
 //     return J
 
-fn error(x: Vector3<f32>, p_point: Point2<f32>, q_point: Point2<f32>) -> Vector2<f32> {
+fn error(x: Vector3<f32>, p_point: Vector2<f32>, q_point: Vector2<f32>) -> Vector2<f32> {
     let r = R(x[2]);
     let tr = x.xy();
 
@@ -127,8 +130,8 @@ fn weight(error: Matrix1<f32>) -> f32 {
 // Computes the hessian and the gradient of the system based on the provided correspondences and the transformation (translation + rotation) x
 fn prepare_system(
     x: Vector3<f32>,
-    p: &[Point2<f32>],
-    q: &[Point2<f32>],
+    p: &Matrix2xX<f32>,
+    q: &Matrix2xX<f32>,
     c: &[(usize, usize)],
 ) -> PreparedSystem {
     let mut H = Matrix3::zeros();
@@ -136,12 +139,12 @@ fn prepare_system(
     let mut chi = 0f32;
 
     for &(i, j) in c {
-        let p_point = p[i];
-        let q_point = q[j];
+        let p_point = p.column(i);
+        let q_point = q.column(j);
 
-        let e = error(x, p_point, q_point);
+        let e = error(x, p_point.into(), q_point.into());
         let weight = weight(e.transpose() * e); // TODO
-        let J = jacobian(x, p_point);
+        let J = jacobian(x, p_point.into());
 
         H += weight * J.transpose() * J;
         g += weight * J.transpose() * e;
@@ -173,25 +176,25 @@ fn prepare_system(
 
 /// Returns the pose required to translate points p to be as close to points q as possible.
 fn icp_least_squares(
-    p: &[Point2<f32>],
-    q: &[Point2<f32>],
+    p: &Matrix2xX<f32>,
+    q: &Matrix2xX<f32>,
     initial_transformation: Option<Vector3<f32>>,
     iterations: usize,
 ) -> Vector3<f32> {
     let mut x = initial_transformation.unwrap_or(Vector3::zeros());
-    let mut chi_values: Vec<f32> = Vec::with_capacity(iterations);
-
-    let mut p_copy = p.to_owned(); // copy to modify along the way
 
     let q_normals = compute_normals(q);
 
+    let mut chi_values: Vec<f32> = Vec::with_capacity(iterations);
     for _ in 0..iterations {
+        // transform the original points by the accumulated x
+        let mut p_copy = R(x[2]) * p;
+        p_copy.row_mut(0).add_scalar_mut(x[0]);
+        p_copy.row_mut(1).add_scalar_mut(x[1]);
+
         let correspondences = find_correspondences(&p_copy, q);
-        // dbg!(correspondences.len());
-        // dbg!(&correspondences);
 
         // let s = prepare_system(x, p, q, &correspondences);
-
         let s = prepare_system_normals(x, p, q, &correspondences, &q_normals);
 
         let r =
@@ -202,16 +205,11 @@ fn icp_least_squares(
         // normalize the angle
         x[2] = f32::atan2(x[2].sin(), x[2].cos());
 
-        // transform the original points by the accumulated x
-        let rot = R(x[2]);
-        let t = x.xy();
-        p_copy = p.iter().map(|o| rot * o + t).collect();
-
         // log metrics
         chi_values.push(s.chi);
     }
 
-    // dbg!(&chi_values);
+    // dbg!(&chi_values.last());
     // dbg!(&x);
     // dbg!(x[2].to_degrees());
     x
@@ -242,23 +240,27 @@ fn icp_least_squares(
 //     corresp_values.append(corresp_values[-1])
 //     return P_values, chi_values, corresp_values
 
-fn compute_normals(points: &[Point2<f32>]) -> Vec<Vector2<f32>> {
-    let mut normals = Vec::with_capacity(points.len());
+fn compute_normals(points: &Matrix2xX<f32>) -> Matrix2xX<f32> {
+    // let mut normals = Vec::with_capacity(points.len());
 
-    normals.push(Vector2::zeros()); // no normal for the endpoints
+    let mut normals = Matrix2xX::zeros(points.ncols());
 
-    for w in points.windows(3) {
-        let prev_point = w[0]; //points[i - step];
-        let next_point = w[2]; //points[i + step];
+    // normals.push(Vector2::zeros()); // no normal for the endpoints
+
+    for i in 1..(points.ncols() - 1) {
+        let prev_point = points.column(i - 1);
+        let next_point = points.column(i + 1);
 
         let diff = next_point - prev_point;
 
         let normal = Vector2::new(-diff.y, diff.x).normalize();
 
-        normals.push(normal);
+        normals.set_column(i, &normal);
+
+        // normals.push(normal);
     }
 
-    normals.push(Vector2::zeros()); // no normal for the endpoints
+    // normals.push(Vector2::zeros()); // no normal for the endpoints
 
     normals
 }
@@ -281,23 +283,23 @@ fn compute_normals(points: &[Point2<f32>]) -> Vec<Vector2<f32>> {
 
 fn prepare_system_normals(
     x: Vector3<f32>,
-    p: &[Point2<f32>],
-    q: &[Point2<f32>],
+    p: &Matrix2xX<f32>,
+    q: &Matrix2xX<f32>,
     c: &[(usize, usize)],
-    q_normals: &[Vector2<f32>],
+    q_normals: &Matrix2xX<f32>,
 ) -> PreparedSystem {
     let mut H = Matrix3::zeros();
     let mut g = Vector3::zeros();
     let mut chi = 0f32;
 
     for &(i, j) in c {
-        let p_point = p[i];
-        let q_point = q[j];
-        let q_normal = q_normals[j];
+        let p_point = p.column(i);
+        let q_point = q.column(j);
+        let q_normal = q_normals.column(j);
 
-        let e = q_normal.transpose() * error(x, p_point, q_point);
+        let e = q_normal.transpose() * error(x, p_point.into(), q_point.into());
         let weight = weight(e); // TODO
-        let J = q_normal.transpose() * jacobian(x, p_point);
+        let J = q_normal.transpose() * jacobian(x, p_point.into());
 
         H += weight * J.transpose() * J;
         g += weight * J.transpose() * e;
@@ -336,7 +338,7 @@ mod tests {
             Point2::new(1.0, -2.0),
         ];
 
-        let r = icp_least_squares(&p, &q, None, 10);
+        let r = icp_least_squares(&points_to_matrix(&p), &points_to_matrix(&q), None, 10);
         // relative_eq!(r.x, 1.0);
         // relative_eq!(r.y, 0.0);
         // relative_eq!(r.z, 0.0);
