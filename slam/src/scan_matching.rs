@@ -10,6 +10,7 @@ use common::{
     robot::{Observation, Pose},
     PerfStats,
 };
+use kd_tree::KdMap;
 use nalgebra::{Matrix1, Matrix2, Matrix2x3, Matrix2xX, Matrix3, Point2, Vector2, Vector3};
 
 pub(crate) struct ScanMatcher {
@@ -45,6 +46,15 @@ fn points_to_matrix(points: &[Point2<f32>]) -> Matrix2xX<f32> {
     Matrix2xX::from_columns(&vectors)
 }
 
+fn matrix_to_kdmap(matrix: &Matrix2xX<f32>) -> KdMap<[f32; 2], usize> {
+    let s: Vec<([f32; 2], usize)> = matrix
+        .column_iter()
+        .enumerate()
+        .map(|(i, c)| ([c.x, c.y], i))
+        .collect();
+    KdMap::build_by_ordered_float(s)
+}
+
 fn scan_match(previous: Observation, new: Observation, start: Pose) -> (Pose, Duration) {
     // convert the observations into two arrays of points for easier manipulation
 
@@ -70,7 +80,7 @@ fn scan_match(previous: Observation, new: Observation, start: Pose) -> (Pose, Du
 }
 
 /// For each point in `p`, finds the closest point in `q` using euclidean distance. Returns tuples of (p,q) indices with the correspondences
-fn find_correspondences(p: &Matrix2xX<f32>, q: &Matrix2xX<f32>) -> Vec<(usize, usize)> {
+fn find_correspondences(p: &Matrix2xX<f32>, q: &KdMap<[f32; 2], usize>) -> Vec<(usize, usize)> {
     let mut c = Vec::with_capacity(p.len());
 
     if p.is_empty() || q.is_empty() {
@@ -78,18 +88,11 @@ fn find_correspondences(p: &Matrix2xX<f32>, q: &Matrix2xX<f32>) -> Vec<(usize, u
     }
 
     for (i_p, p_p) in p.column_iter().enumerate() {
-        let mut min_dist = f32::INFINITY;
-        let mut min_idx = 0usize;
+        let nearest = q
+            .nearest(&[p_p.x, p_p.y])
+            .expect("Could not find nearest neighbor in Kd-tree");
 
-        for (i_q, p_q) in q.column_iter().enumerate() {
-            let d2 = (p_q - p_p).norm_squared();
-            if d2 <= min_dist {
-                min_dist = d2;
-                min_idx = i_q;
-            }
-        }
-
-        c.push((i_p, min_idx));
+        c.push((i_p, nearest.item.1));
     }
     c
 }
@@ -208,6 +211,7 @@ fn icp_least_squares(
     let mut x = initial_transformation.unwrap_or(Vector3::zeros());
 
     let q_normals = compute_normals(q);
+    let q_tree = matrix_to_kdmap(q);
 
     let mut chi_values: Vec<f32> = Vec::with_capacity(iterations);
     for _ in 0..iterations {
@@ -216,7 +220,7 @@ fn icp_least_squares(
         p_copy.row_mut(0).add_scalar_mut(x[0]);
         p_copy.row_mut(1).add_scalar_mut(x[1]);
 
-        let correspondences = find_correspondences(&p_copy, q);
+        let correspondences = find_correspondences(&p_copy, &q_tree);
 
         // let s = prepare_system(x, p, q, &correspondences);
         let s = prepare_system_normals(x, p, q, &correspondences, &q_normals);
@@ -369,7 +373,7 @@ mod tests {
 
         let r = icp_least_squares(&points_to_matrix(&p), &points_to_matrix(&q), None, 10);
 
-        relative_eq!(r, Vector3::new(1.0, 0.0, 0.0));
+        relative_eq!(r.transformation, Vector3::new(1.0, 0.0, 0.0));
 
         // assert_eq!(result, 4);
     }
