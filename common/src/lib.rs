@@ -1,3 +1,4 @@
+use std::fmt::Display;
 pub mod node;
 pub mod robot;
 pub mod world;

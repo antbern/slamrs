@@ -8,6 +8,7 @@ use egui::{Label, RichText, Sense};
 use pubsub::{Publisher, Subscription};
 use scan_matching::ScanMatcher;
 
+mod icp;
 mod scan_matching;
 
 pub struct SlamNode {

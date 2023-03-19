@@ -1,4 +1,4 @@
-use nalgebra::Point2;
+use nalgebra::{Point2, Vector3};
 
 /// The pose of a robot in the 2D plane.
 #[derive(Copy, Clone, Default)]
@@ -16,6 +16,22 @@ pub struct Pose {
 impl From<Pose> for (f32, f32) {
     fn from(val: Pose) -> Self {
         (val.x, val.y)
+    }
+}
+
+impl From<Pose> for Vector3<f32> {
+    fn from(value: Pose) -> Self {
+        Vector3::new(value.x, value.y, value.theta)
+    }
+}
+
+impl From<Vector3<f32>> for Pose {
+    fn from(value: Vector3<f32>) -> Self {
+        Pose {
+            x: value[0],
+            y: value[1],
+            theta: value[2],
+        }
     }
 }
 
