@@ -16,6 +16,7 @@ use pubsub::Publisher;
 
 use crate::icp;
 
+// TODO: make this into a scan matcher for generating odometry generator
 pub(crate) struct ScanMatcher {
     previous_scan: Option<Observation>,
     stats: PerfStats,
@@ -62,11 +63,6 @@ impl ScanMatcher {
     }
 }
 
-fn points_to_matrix(points: &[Point2<f32>]) -> Matrix2xX<f32> {
-    let vectors: Vec<Vector2<f32>> = points.iter().map(|p| p.coords).collect();
-    Matrix2xX::from_columns(&vectors)
-}
-
 fn scan_match(
     previous: &Observation,
     new: &Observation,
@@ -82,8 +78,8 @@ fn scan_match(
         new.measurements.len()
     );
 
-    let previous = points_to_matrix(&previous.to_points(Pose::default()));
-    let newp = points_to_matrix(&new.to_points(Pose::default()));
+    let previous = &previous.to_matrix(Pose::default());
+    let newp = &new.to_matrix(Pose::default());
 
     let startv = start.into();
 

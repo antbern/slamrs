@@ -15,8 +15,8 @@ pub struct FrameVizualizer {
     last_pose: Pose,
     sub: Subscription<Observation>,
     sub_pose: Subscription<Pose>,
-    last_pointmap: Option<Arc<Observation>>,
-    sub_pointmap: Subscription<Observation>,
+    // last_pointmap: Option<Arc<Observation>>,
+    // sub_pointmap: Subscription<Observation>,
 }
 
 impl Node for FrameVizualizer {
@@ -27,11 +27,11 @@ impl Node for FrameVizualizer {
         Self {
             last_frame: None,
             last_pose: Default::default(),
-            last_pointmap: None,
+            // last_pointmap: None,
             // sub: pubsub.subscribe("scan"),
             sub: pubsub.subscribe("robot/observation"),
             sub_pose: pubsub.subscribe("robot/pose"),
-            sub_pointmap: pubsub.subscribe("pointmap"),
+            // sub_pointmap: pubsub.subscribe("pointmap"),
         }
     }
 
@@ -44,9 +44,9 @@ impl Node for FrameVizualizer {
             self.last_pose = *v; // Copy the value into local storage
         }
 
-        while let Some(v) = self.sub_pointmap.try_recv() {
-            self.last_pointmap = Some(v); // Copy the value into local storage
-        }
+        // while let Some(v) = self.sub_pointmap.try_recv() {
+        //     self.last_pointmap = Some(v); // Copy the value into local storage
+        // }
 
         if let Some(frame) = &self.last_frame {
             // draw the reading into the world
@@ -96,24 +96,24 @@ impl Node for FrameVizualizer {
             world.sr.end()
         }
 
-        if let Some(frame) = &self.last_pointmap {
-            world.sr.begin(PrimitiveType::Filled);
+        // if let Some(frame) = &self.last_pointmap {
+        //     world.sr.begin(PrimitiveType::Filled);
 
-            let ox = 0.0;
-            let oy = 0.0;
-            for m in frame.measurements.iter() {
-                let (s, c) = (m.angle as f32).sin_cos();
-                let d = m.distance as f32;
-                let x = c * d;
-                let y = s * d;
+        //     let ox = 0.0;
+        //     let oy = 0.0;
+        //     for m in frame.measurements.iter() {
+        //         let (s, c) = (m.angle as f32).sin_cos();
+        //         let d = m.distance as f32;
+        //         let x = c * d;
+        //         let y = s * d;
 
-                let color = Color::rgb(m.strength as f32 / 2000.0, 0.0, 0.0);
-                world
-                    .sr
-                    .rect(ox + x - 0.005, oy + y - 0.005, 0.01, 0.01, color)
-            }
-            world.sr.end();
-        }
+        //         let color = Color::rgb(m.strength as f32 / 2000.0, 0.0, 0.0);
+        //         world
+        //             .sr
+        //             .rect(ox + x - 0.005, oy + y - 0.005, 0.01, 0.01, color)
+        //     }
+        //     world.sr.end();
+        // }
 
         // window that shows the strength vs angle
         egui::Window::new("Frame Visualization").show(ui.ctx(), |ui| {

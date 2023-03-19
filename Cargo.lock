@@ -1652,6 +1652,7 @@ dependencies = [
  "approx",
  "common",
  "egui",
+ "graphics",
  "itertools",
  "kd-tree",
  "lstsq",
