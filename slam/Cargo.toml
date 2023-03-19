@@ -20,6 +20,7 @@ lstsq = "0.5.0"
 # the feature is using a different nalgebra version which makes it useles...
 # kd-tree = { version = "0.5.1", features = ["nalgebra"] }
 kd-tree = { version = "0.5.1"}
+itertools = "0.10.5"
 
 [dev-dependencies]
 approx = "0.5.1"

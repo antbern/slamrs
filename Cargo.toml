@@ -41,6 +41,11 @@ opt-level = 3
 opt-level = 3
 
 
+[profile.dev]
+# Turn on a small amount of optimisation in development mode.
+opt-level = 1
+
+
 [patch.crates-io]
 
 # If you want to use the bleeding edge version of egui and eframe:

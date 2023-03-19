@@ -4,14 +4,19 @@
 //! * https://nbviewer.org/github/niosus/notebooks/blob/master/icp.ipynb
 //!
 
-use std::time::{Duration, Instant};
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use common::{
-    robot::{Observation, Pose},
+    robot::{Measurement, Observation, Pose},
     PerfStats,
 };
+
 use kd_tree::KdMap;
 use nalgebra::{Matrix1, Matrix2, Matrix2x3, Matrix2xX, Matrix3, Point2, Vector2, Vector3};
+use pubsub::Publisher;
 
 pub(crate) struct ScanMatcher {
     previous_scan: Option<Observation>,
@@ -26,9 +31,27 @@ impl ScanMatcher {
         }
     }
 
-    pub(crate) fn update(&mut self, scan: &Observation, pose: Pose) -> Pose {
-        if let Some(prev) = self.previous_scan.replace(scan.clone()) {
-            let (p, time) = scan_match(prev, scan.clone(), pose);
+    pub(crate) fn update(
+        &mut self,
+        scan: &Observation,
+        pose: Pose,
+        pub_pointmap: &mut Publisher<Observation>,
+    ) -> Pose {
+        if self.previous_scan.is_none() {
+            self.previous_scan = Some(scan.clone());
+            return pose;
+        }
+
+        if let Some(mut prev) = self.previous_scan.take() {
+            let (p, time, transformed) = scan_match(&prev, scan, pose);
+
+            // TODO: subsample this a bit now and then... or just add every Nth point etc
+            prev.measurements.extend(transformed.iter().step_by(3));
+
+            pub_pointmap.publish(Arc::new(prev.clone()));
+
+            self.previous_scan = Some(prev);
+
             self.stats.update(time);
             p
         } else {
@@ -55,27 +78,69 @@ fn matrix_to_kdmap(matrix: &Matrix2xX<f32>) -> KdMap<[f32; 2], usize> {
     KdMap::build_by_ordered_float(s)
 }
 
-fn scan_match(previous: Observation, new: Observation, start: Pose) -> (Pose, Duration) {
+fn scan_match(
+    previous: &Observation,
+    new: &Observation,
+    start: Pose,
+) -> (Pose, Duration, Vec<Measurement>) {
     // convert the observations into two arrays of points for easier manipulation
 
-    println!("Matching scan {} to {}", previous.id, new.id);
+    println!(
+        "Matching scan {} ({}) to {} ({})",
+        previous.id,
+        previous.measurements.len(),
+        new.id,
+        new.measurements.len()
+    );
 
     let previous = points_to_matrix(&previous.to_points(Pose::default()));
-    let new = points_to_matrix(&new.to_points(Pose::default()));
+    let newp = points_to_matrix(&new.to_points(Pose::default()));
+
+    let startv = Vector3::new(start.x, start.y, start.theta);
 
     // match the new scan with the previous to get an estimate of the movement
-    let result = icp_least_squares(&new, &previous, None, 20);
+    let result = icp_least_squares(&newp, &previous, Some(startv), 20);
+
+    // transform the points
+    let transformed_points = new
+        .measurements
+        .iter()
+        .filter(|&m| m.valid)
+        .map(|m| {
+            let mut m = *m;
+
+            let point = Vector2::new(
+                (m.angle as f32).cos() * m.distance as f32,
+                (m.angle as f32).sin() * m.distance as f32,
+            );
+
+            // apply transformation
+            let point = R(result.transformation[2]) * point + result.transformation.xy();
+
+            // convert back into a measurement
+            m.distance = point.norm() as f64;
+            m.angle = f32::atan2(point.y, point.x) as f64;
+
+            m
+        })
+        .collect();
 
     // the translation need to be converted from local to global space before being applied
-    let s = R(start.theta) * result.transformation.xy();
+    // let s = R(start.theta) * result.transformation.xy();
 
     (
+        // Pose {
+        //     x: start.x + s.x,
+        //     y: start.y + s.y,
+        //     theta: start.theta + result.transformation[2],
+        // },
         Pose {
-            x: start.x + s.x,
-            y: start.y + s.y,
-            theta: start.theta + result.transformation[2],
+            x: result.transformation[0],
+            y: result.transformation[1],
+            theta: result.transformation[2],
         },
         result.duration,
+        transformed_points,
     )
 }
 
@@ -139,7 +204,7 @@ struct PreparedSystem {
 }
 
 fn weight(error: Matrix1<f32>) -> f32 {
-    if error.norm() < 10.0 {
+    if error.norm_squared() < 0.05 * 0.05 {
         1.0
     } else {
         0.0
@@ -199,6 +264,23 @@ struct IcpResult {
     duration: Duration,
 }
 
+fn least_squares(hessian: Matrix3<f32>, gradient: Vector3<f32>) -> Vector3<f32> {
+    lstsq::lstsq(&hessian, &(-gradient), 1e-8)
+        .expect("Could not solve least squares")
+        .solution
+}
+
+fn least_squares_lm(hessian: Matrix3<f32>, gradient: Vector3<f32>) -> Vector3<f32> {
+    let lambda: f32 = 0.0;
+    let lhs = hessian + lambda * Matrix3::identity();
+    let rhs = -gradient;
+
+    let r = lstsq::lstsq(&lhs, &rhs, 1e-8).expect("Could not solve least squares");
+    let dx = r.solution;
+
+    dx
+}
+
 /// Returns the pose required to translate points p to be as close to points q as possible.
 fn icp_least_squares(
     p: &Matrix2xX<f32>,
@@ -225,9 +307,7 @@ fn icp_least_squares(
         // let s = prepare_system(x, p, q, &correspondences);
         let s = prepare_system_normals(x, p, q, &correspondences, &q_normals);
 
-        let r =
-            lstsq::lstsq(&s.hessian, &(-s.gradient), 1e-8).expect("Could not solve least squares");
-        let dx = r.solution;
+        let dx = least_squares(s.hessian, s.gradient);
         x += dx;
 
         // normalize the angle
