@@ -8,7 +8,12 @@ use common::{
 use egui::plot::{Bar, BarChart, Plot, PlotBounds, Points};
 use pubsub::{PubSub, Subscription};
 
-use graphics::primitiverenderer::{Color, PrimitiveType};
+use graphics::{
+    primitiverenderer::{Color, PrimitiveType},
+    shaperenderer::ShapeRenderer,
+};
+
+use super::visualize::Visualize;
 
 pub struct FrameVizualizer {
     last_frame: Option<Arc<Observation>>,
@@ -17,6 +22,42 @@ pub struct FrameVizualizer {
     sub_pose: Subscription<Pose>,
     // last_pointmap: Option<Arc<Observation>>,
     // sub_pointmap: Subscription<Observation>,
+    vis: Vec<Box<dyn SubViz>>,
+}
+
+trait SubViz: Visualize {
+    fn poll(&mut self);
+    // fn ui(&mut self, ui: &mut egui::Ui);
+}
+
+struct SubscriptionVisualizer<T: Visualize + Send + Sync + 'static> {
+    subscription: Subscription<T>,
+    latest_value: Option<Arc<T>>,
+}
+
+impl<T: Visualize + Send + Sync + 'static> SubscriptionVisualizer<T> {
+    pub fn new(subscription: Subscription<T>) -> Self {
+        Self {
+            subscription,
+            latest_value: None,
+        }
+    }
+}
+
+impl<T: Visualize + Send + Sync + 'static> SubViz for SubscriptionVisualizer<T> {
+    fn poll(&mut self) {
+        while let Some(v) = self.subscription.try_recv() {
+            self.latest_value = Some(v);
+        }
+    }
+}
+
+impl<T: Visualize + Send + Sync + 'static> Visualize for SubscriptionVisualizer<T> {
+    fn visualize(&self, sr: &mut ShapeRenderer) {
+        if let Some(latest_value) = &self.latest_value {
+            latest_value.visualize(sr);
+        }
+    }
 }
 
 impl Node for FrameVizualizer {
@@ -32,6 +73,9 @@ impl Node for FrameVizualizer {
             sub: pubsub.subscribe("robot/observation"),
             sub_pose: pubsub.subscribe("robot/pose"),
             // sub_pointmap: pubsub.subscribe("pointmap"),
+            vis: vec![Box::new(SubscriptionVisualizer::new(
+                pubsub.subscribe::<Pose>("robot/pose"),
+            ))],
         }
     }
 
@@ -40,9 +84,9 @@ impl Node for FrameVizualizer {
             self.last_frame = Some(v);
         }
 
-        while let Some(v) = self.sub_pose.try_recv() {
-            self.last_pose = *v; // Copy the value into local storage
-        }
+        // while let Some(v) = self.sub_pose.try_recv() {
+        //     self.last_pose = *v; // Copy the value into local storage
+        // }
 
         // while let Some(v) = self.sub_pointmap.try_recv() {
         //     self.last_pointmap = Some(v); // Copy the value into local storage
@@ -156,5 +200,10 @@ impl Node for FrameVizualizer {
                 .view_aspect(2.0)
                 .show(ui, |plot_ui| plot_ui.points(points));
         });
+
+        for v in self.vis.iter_mut() {
+            v.poll();
+            v.visualize(world.sr);
+        }
     }
 }
