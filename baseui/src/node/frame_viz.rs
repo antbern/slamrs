@@ -11,20 +11,13 @@ use egui::{
 };
 use pubsub::{PubSub, Subscription};
 
-use graphics::{
-    primitiverenderer::{Color, PrimitiveType},
-    shaperenderer::ShapeRenderer,
+use graphics::shaperenderer::ShapeRenderer;
+
+use super::visualize::{
+    ObservationVisualizeConfig, PoseVisualizeConfig, Visualize, VisualizeParametersUi,
 };
 
-use super::visualize::{PoseVisualizeConfig, Visualize, VisualizeParametersUi};
-
 pub struct FrameVizualizer {
-    last_frame: Option<Arc<Observation>>,
-    last_pose: Pose,
-    sub: Subscription<Observation>,
-    sub_pose: Subscription<Pose>,
-    // last_pointmap: Option<Arc<Observation>>,
-    // sub_pointmap: Subscription<Observation>,
     vis: Vec<Box<dyn SubViz>>,
 }
 
@@ -36,25 +29,46 @@ trait SubViz {
     fn config_ui(&mut self, ui: &mut egui::Ui);
 }
 
+pub enum SecondaryValue<T: Send + Sync + 'static + Clone> {
+    None,
+    Constant(T),
+    Subscription(Subscription<T>),
+}
 struct SubscriptionVisualizer<
-    T: Visualize<Parameters = C> + Send + Sync + 'static,
+    T: Visualize<Parameters = C, Secondary = S> + Send + Sync + 'static,
     C: VisualizeParametersUi,
+    S: Send + Sync + 'static + Clone,
 > {
     subscription: Subscription<T>,
+    secondary_value: SecondaryValue<S>,
     latest_value: Option<Arc<T>>,
+    latest_secondary_value: Option<S>,
     config: C,
     enabled: bool,
     name: String,
 }
 
-impl<T: Visualize<Parameters = C> + Send + Sync + 'static, C: VisualizeParametersUi>
-    SubscriptionVisualizer<T, C>
+impl<
+        T: Visualize<Parameters = C, Secondary = S> + Send + Sync + 'static,
+        C: VisualizeParametersUi,
+        S: Send + Sync + 'static + Clone,
+    > SubscriptionVisualizer<T, C, S>
 {
     pub fn new(subscription: Subscription<T>, config: C) -> Self {
+        Self::new_with_secondary(subscription, config, SecondaryValue::None)
+    }
+
+    pub fn new_with_secondary(
+        subscription: Subscription<T>,
+        config: C,
+        secondary_value: SecondaryValue<S>,
+    ) -> Self {
         let name = format!("{} ({})", subscription.topic(), std::any::type_name::<T>());
         Self {
             subscription,
+            secondary_value,
             latest_value: None,
+            latest_secondary_value: None,
             config,
             enabled: true,
             name,
@@ -62,18 +76,31 @@ impl<T: Visualize<Parameters = C> + Send + Sync + 'static, C: VisualizeParameter
     }
 }
 
-impl<T: Visualize<Parameters = C> + Send + Sync + 'static, C: VisualizeParametersUi> SubViz
-    for SubscriptionVisualizer<T, C>
+impl<
+        T: Visualize<Parameters = C, Secondary = S> + Send + Sync + 'static,
+        C: VisualizeParametersUi,
+        S: Send + Sync + 'static + Clone,
+    > SubViz for SubscriptionVisualizer<T, C, S>
 {
     fn poll(&mut self) {
         while let Some(v) = self.subscription.try_recv() {
             self.latest_value = Some(v);
         }
+
+        match &mut self.secondary_value {
+            SecondaryValue::None => self.latest_secondary_value = None,
+            SecondaryValue::Constant(value) => self.latest_secondary_value = Some(value.clone()),
+            SecondaryValue::Subscription(ref mut s) => {
+                while let Some(v) = s.try_recv() {
+                    self.latest_secondary_value = Some((*v).clone());
+                }
+            }
+        }
     }
 
     fn visualize(&self, sr: &mut ShapeRenderer) {
         if let Some(latest_value) = &self.latest_value {
-            latest_value.visualize(sr, &self.config);
+            latest_value.visualize(sr, &self.config, &self.latest_secondary_value);
         }
     }
 
@@ -96,102 +123,25 @@ impl Node for FrameVizualizer {
         Self: Sized,
     {
         Self {
-            last_frame: None,
-            last_pose: Default::default(),
-            // last_pointmap: None,
-            // sub: pubsub.subscribe("scan"),
-            sub: pubsub.subscribe("robot/observation"),
-            sub_pose: pubsub.subscribe("robot/pose"),
-            // sub_pointmap: pubsub.subscribe("pointmap"),
-            vis: vec![Box::new(SubscriptionVisualizer::new(
-                pubsub.subscribe::<Pose>("robot/pose"),
-                PoseVisualizeConfig::default(),
-            ))],
+            vis: vec![
+                Box::new(SubscriptionVisualizer::new(
+                    pubsub.subscribe::<Pose>("robot/pose"),
+                    PoseVisualizeConfig::default(),
+                )),
+                Box::new(SubscriptionVisualizer::new_with_secondary(
+                    pubsub.subscribe::<Observation>("robot/observation"),
+                    ObservationVisualizeConfig::default(),
+                    SecondaryValue::Subscription(pubsub.subscribe::<Pose>("robot/pose")),
+                )),
+            ],
         }
     }
 
     fn draw(&mut self, ui: &egui::Ui, world: &mut WorldObj<'_>) {
-        while let Some(v) = self.sub.try_recv() {
-            self.last_frame = Some(v);
-        }
-
-        // while let Some(v) = self.sub_pose.try_recv() {
-        //     self.last_pose = *v; // Copy the value into local storage
-        // }
-
-        // while let Some(v) = self.sub_pointmap.try_recv() {
-        //     self.last_pointmap = Some(v); // Copy the value into local storage
-        // }
-
-        if let Some(frame) = &self.last_frame {
-            // draw the reading into the world
-
-            let (ox, oy) = self.last_pose.into();
-
-            world.sr.begin(PrimitiveType::Line);
-
-            for m in frame.measurements.iter() {
-                let (s, c) = (m.angle as f32 + self.last_pose.theta).sin_cos();
-                let d = m.distance as f32;
-                let x = c * d;
-                let y = s * d;
-
-                // let color = if m.valid { Color::WHITE } else { Color::BLACK };
-                let color = Color::BLACK;
-
-                world.sr.line(ox, oy, ox + x, oy + y, color);
-            }
-
-            world.sr.end();
-
-            world.sr.begin(PrimitiveType::Filled);
-
-            for m in frame.measurements.iter() {
-                let (s, c) = (m.angle as f32 + self.last_pose.theta).sin_cos();
-                let d = m.distance as f32;
-                let x = c * d;
-                let y = s * d;
-
-                let color = Color::rgb(m.strength as f32 / 2000.0, 0.0, 0.0);
-                world
-                    .sr
-                    .rect(ox + x - 0.005, oy + y - 0.005, 0.01, 0.01, color)
-            }
-
-            // dbg!(self.last_pose.theta);
-
-            world.sr.arrow(
-                self.last_pose.x,
-                self.last_pose.y,
-                self.last_pose.theta,
-                0.1,
-                Color::GREEN,
-            );
-
-            world.sr.end()
-        }
-
-        // if let Some(frame) = &self.last_pointmap {
-        //     world.sr.begin(PrimitiveType::Filled);
-
-        //     let ox = 0.0;
-        //     let oy = 0.0;
-        //     for m in frame.measurements.iter() {
-        //         let (s, c) = (m.angle as f32).sin_cos();
-        //         let d = m.distance as f32;
-        //         let x = c * d;
-        //         let y = s * d;
-
-        //         let color = Color::rgb(m.strength as f32 / 2000.0, 0.0, 0.0);
-        //         world
-        //             .sr
-        //             .rect(ox + x - 0.005, oy + y - 0.005, 0.01, 0.01, color)
-        //     }
-        //     world.sr.end();
-        // }
-
+        // TODO: move this into the Visualizer directly?
         // window that shows the strength vs angle
-        egui::Window::new("Frame Visualization").show(ui.ctx(), |ui| {
+        egui::Window::new("Visualizer").show(ui.ctx(), |ui| {
+            /*
             let mut bars = Vec::new();
 
             if let Some(o) = &self.last_frame {
@@ -230,15 +180,14 @@ impl Node for FrameVizualizer {
             Plot::new("my_plot")
                 .view_aspect(2.0)
                 .show(ui, |plot_ui| plot_ui.points(points));
-
-            ui.label("Visualizer");
+             */
 
             for v in self.vis.iter_mut() {
                 ui.horizontal(|ui| {
                     ui.checkbox(v.enabled(), "");
 
                     CollapsingHeader::new(v.name())
-                        .default_open(true)
+                        // .default_open(true)
                         .show(ui, |ui| v.config_ui(ui));
                 });
             }
