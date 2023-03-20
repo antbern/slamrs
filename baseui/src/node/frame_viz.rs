@@ -5,7 +5,10 @@ use common::{
     robot::{Observation, Pose},
     world::WorldObj,
 };
-use egui::plot::{Bar, BarChart, Plot, PlotBounds, Points};
+use egui::{
+    plot::{Bar, BarChart, Plot, PlotBounds, Points},
+    CollapsingHeader,
+};
 use pubsub::{PubSub, Subscription};
 
 use graphics::{
@@ -13,7 +16,7 @@ use graphics::{
     shaperenderer::ShapeRenderer,
 };
 
-use super::visualize::Visualize;
+use super::visualize::{PoseVisualizeConfig, Visualize, VisualizeParametersUi};
 
 pub struct FrameVizualizer {
     last_frame: Option<Arc<Observation>>,
@@ -25,38 +28,65 @@ pub struct FrameVizualizer {
     vis: Vec<Box<dyn SubViz>>,
 }
 
-trait SubViz: Visualize {
+trait SubViz {
+    fn visualize(&self, sr: &mut ShapeRenderer);
     fn poll(&mut self);
-    // fn ui(&mut self, ui: &mut egui::Ui);
+    fn name(&self) -> &str;
+    fn enabled(&mut self) -> &mut bool;
+    fn config_ui(&mut self, ui: &mut egui::Ui);
 }
 
-struct SubscriptionVisualizer<T: Visualize + Send + Sync + 'static> {
+struct SubscriptionVisualizer<
+    T: Visualize<Parameters = C> + Send + Sync + 'static,
+    C: VisualizeParametersUi,
+> {
     subscription: Subscription<T>,
     latest_value: Option<Arc<T>>,
+    config: C,
+    enabled: bool,
+    name: String,
 }
 
-impl<T: Visualize + Send + Sync + 'static> SubscriptionVisualizer<T> {
-    pub fn new(subscription: Subscription<T>) -> Self {
+impl<T: Visualize<Parameters = C> + Send + Sync + 'static, C: VisualizeParametersUi>
+    SubscriptionVisualizer<T, C>
+{
+    pub fn new(subscription: Subscription<T>, config: C) -> Self {
+        let name = format!("{} ({})", subscription.topic(), std::any::type_name::<T>());
         Self {
             subscription,
             latest_value: None,
+            config,
+            enabled: true,
+            name,
         }
     }
 }
 
-impl<T: Visualize + Send + Sync + 'static> SubViz for SubscriptionVisualizer<T> {
+impl<T: Visualize<Parameters = C> + Send + Sync + 'static, C: VisualizeParametersUi> SubViz
+    for SubscriptionVisualizer<T, C>
+{
     fn poll(&mut self) {
         while let Some(v) = self.subscription.try_recv() {
             self.latest_value = Some(v);
         }
     }
-}
 
-impl<T: Visualize + Send + Sync + 'static> Visualize for SubscriptionVisualizer<T> {
     fn visualize(&self, sr: &mut ShapeRenderer) {
         if let Some(latest_value) = &self.latest_value {
-            latest_value.visualize(sr);
+            latest_value.visualize(sr, &self.config);
         }
+    }
+
+    fn config_ui(&mut self, ui: &mut egui::Ui) {
+        self.config.ui(ui)
+    }
+
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn enabled(&mut self) -> &mut bool {
+        &mut self.enabled
     }
 }
 
@@ -75,6 +105,7 @@ impl Node for FrameVizualizer {
             // sub_pointmap: pubsub.subscribe("pointmap"),
             vis: vec![Box::new(SubscriptionVisualizer::new(
                 pubsub.subscribe::<Pose>("robot/pose"),
+                PoseVisualizeConfig::default(),
             ))],
         }
     }
@@ -199,11 +230,25 @@ impl Node for FrameVizualizer {
             Plot::new("my_plot")
                 .view_aspect(2.0)
                 .show(ui, |plot_ui| plot_ui.points(points));
+
+            ui.label("Visualizer");
+
+            for v in self.vis.iter_mut() {
+                ui.horizontal(|ui| {
+                    ui.checkbox(v.enabled(), "");
+
+                    CollapsingHeader::new(v.name())
+                        .default_open(true)
+                        .show(ui, |ui| v.config_ui(ui));
+                });
+            }
         });
 
         for v in self.vis.iter_mut() {
             v.poll();
-            v.visualize(world.sr);
+            if *v.enabled() {
+                v.visualize(world.sr);
+            }
         }
     }
 }

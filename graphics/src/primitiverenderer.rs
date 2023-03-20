@@ -337,3 +337,15 @@ impl Color {
         }
     }
 }
+
+impl From<[f32; 3]> for Color {
+    fn from(value: [f32; 3]) -> Self {
+        Color::rgb(value[0], value[1], value[2])
+    }
+}
+
+impl From<[f32; 4]> for Color {
+    fn from(value: [f32; 4]) -> Self {
+        Color::rgba(value[0], value[1], value[2], value[3])
+    }
+}
