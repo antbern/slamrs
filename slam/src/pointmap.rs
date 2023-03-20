@@ -103,4 +103,8 @@ impl PointMap {
             world.sr.end();
         }
     }
+
+    pub fn estimated_pose(&self) -> Pose {
+        self.pose_est
+    }
 }

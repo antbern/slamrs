@@ -45,6 +45,7 @@ impl Topic {
 }
 
 pub struct Subscription<T: Any + Send + Sync + 'static> {
+    topic: String,
     reciever: Receiver<Arc<dyn Any + Send + Sync + 'static>>,
     _phantom: PhantomData<T>,
 }
@@ -77,10 +78,15 @@ impl<T: Any + Send + Sync + 'static> Subscription<T> {
             .downcast::<T>()
             .expect("Received value was not of the expected type")
     }
+
+    pub fn topic(&self) -> &str {
+        &self.topic
+    }
 }
 
 #[derive(Clone)]
 pub struct Publisher<T: Any + Send + Sync + 'static> {
+    topic: String,
     send: Sender<Arc<dyn Any + Send + Sync + 'static>>,
     signal: Sender<Signal>,
     _p: PhantomData<T>,
@@ -91,6 +97,10 @@ impl<T: Any + Send + Sync + 'static> Publisher<T> {
     pub fn publish(&mut self, value: Arc<T>) {
         self.send.send(value).unwrap();
         self.signal.send(Signal {}).unwrap();
+    }
+
+    pub fn topic(&self) -> &str {
+        &self.topic
     }
 }
 
@@ -126,6 +136,7 @@ impl PubSub {
         let t = self.get_topic_by_name_or_insert::<T>(topic);
 
         Publisher {
+            topic: topic.to_string(),
             send: t.incoming_sender.clone(),
             signal: self.signal_source.clone(),
             _p: PhantomData,
@@ -142,6 +153,7 @@ impl PubSub {
         t.outgoing.push(send);
 
         Subscription {
+            topic: topic.to_owned(),
             reciever: recv,
             _phantom: PhantomData,
         }

@@ -60,6 +60,9 @@ impl Node for SlamNode {
         // TODO: move all processing to separate thread later, do it here for now (but only one observation per frame)
         if let Some(o) = self.sub_obs.try_recv() {
             self.point_map.update(&o);
+
+            self.pub_pose
+                .publish(Arc::new(self.point_map.estimated_pose()));
         }
     }
 }
