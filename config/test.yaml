@@ -34,6 +34,20 @@ nodes:
   topic_pose: "robot/pose"
 
 - !Visualizer
+  topics:
+  - !Observation
+    topic: "robot/observation"
+    topic_pose: "robot/pose"
+    config:
+      draw_lines: true
+      size: 0.01
+      point_color: [0.0, 1.0, 0.0]
+
+  - !Pose
+    topic: "robot/pose"
+    config:
+      color: [0.0, 1.0, 1.0]
+      radius: 0.1
 
 #   scanner:
 #     rate: 5

@@ -118,23 +118,48 @@ impl<
     }
 }
 
-#[derive(Deserialize)]
-pub struct FrameVizualizerNodeConfig {}
+#[derive(Deserialize, Debug)]
+pub struct FrameVizualizerNodeConfig {
+    topics: Vec<VizType>,
+}
+
+#[derive(Deserialize, Debug)]
+enum VizType {
+    Pose {
+        topic: String,
+        config: PoseVisualizeConfig,
+    },
+    Observation {
+        topic: String,
+        topic_pose: String,
+        config: ObservationVisualizeConfig,
+    },
+}
+
+impl VizType {
+    fn instantiate(&self, pubsub: &mut PubSub) -> Box<dyn SubViz> {
+        match self {
+            VizType::Pose { topic, config } => Box::new(SubscriptionVisualizer::new(
+                pubsub.subscribe::<Pose>(topic),
+                config.clone(),
+            )),
+            VizType::Observation {
+                topic,
+                topic_pose,
+                config,
+            } => Box::new(SubscriptionVisualizer::new_with_secondary(
+                pubsub.subscribe::<Observation>(topic),
+                config.clone(),
+                SecondaryValue::Subscription(pubsub.subscribe::<Pose>(topic_pose)),
+            )),
+        }
+    }
+}
 
 impl NodeConfig for FrameVizualizerNodeConfig {
     fn instantiate(&self, pubsub: &mut PubSub) -> Box<dyn Node> {
         Box::new(FrameVizualizer {
-            vis: vec![
-                Box::new(SubscriptionVisualizer::new(
-                    pubsub.subscribe::<Pose>("robot/pose"),
-                    PoseVisualizeConfig::default(),
-                )),
-                Box::new(SubscriptionVisualizer::new_with_secondary(
-                    pubsub.subscribe::<Observation>("robot/observation"),
-                    ObservationVisualizeConfig::default(),
-                    SecondaryValue::Subscription(pubsub.subscribe::<Pose>("robot/pose")),
-                )),
-            ],
+            vis: self.topics.iter().map(|t| t.instantiate(pubsub)).collect(),
         })
     }
 }

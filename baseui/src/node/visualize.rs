@@ -4,6 +4,7 @@ use graphics::{
     primitiverenderer::{Color, PrimitiveType},
     shaperenderer::ShapeRenderer,
 };
+use serde::Deserialize;
 
 pub trait Visualize {
     type Parameters;
@@ -21,6 +22,7 @@ pub trait VisualizeParametersUi {
 }
 
 //////////////// Implementation for Pose /////////////////
+#[derive(Deserialize, Debug, Clone)]
 pub struct PoseVisualizeConfig {
     color: [f32; 3],
     radius: f32,
@@ -65,6 +67,7 @@ impl Visualize for Pose {
 }
 
 //////////////// Implementation for Observation /////////////////
+#[derive(Deserialize, Debug, Clone)]
 pub struct ObservationVisualizeConfig {
     draw_lines: bool,
     size: f32,
