@@ -116,9 +116,8 @@ impl<
         &mut self.enabled
     }
 }
-
-impl Node for FrameVizualizer {
-    fn new(pubsub: &mut PubSub) -> Self
+impl FrameVizualizer {
+    pub fn new(pubsub: &mut PubSub) -> Self
     where
         Self: Sized,
     {
@@ -136,7 +135,9 @@ impl Node for FrameVizualizer {
             ],
         }
     }
+}
 
+impl Node for FrameVizualizer {
     fn draw(&mut self, ui: &egui::Ui, world: &mut WorldObj<'_>) {
         // TODO: move this into the Visualizer directly?
         // window that shows the strength vs angle

@@ -6,11 +6,12 @@ use graphics::primitiverenderer::{Color, PrimitiveType};
 use pubsub::PubSub;
 pub struct ShapeRendering {}
 
-impl Node for ShapeRendering {
-    fn new(_pubsub: &mut PubSub) -> Self {
+impl ShapeRendering {
+    pub fn new(_pubsub: &mut PubSub) -> Self {
         ShapeRendering {}
     }
-
+}
+impl Node for ShapeRendering {
     fn draw(&mut self, ui: &egui::Ui, w: &mut WorldObj<'_>) {
         let c1 = Color::rgba(1.0, 0.0, 0.0, 1.0);
         let c2 = Color::rgba(0.0, 1.0, 0.0, 1.0);

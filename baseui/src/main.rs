@@ -6,7 +6,17 @@
 fn main() {
     // Log to stdout (if you run with `RUST_LOG=debug`).
 
+    use baseui::config::Config;
     use egui::{Style, Visuals};
+
+    // load configuration file
+    let mut args = std::env::args();
+    let config = if args.len() >= 2 {
+        Config::from_file(&args.nth(1).unwrap()).expect("Could not load config file")
+    } else {
+        Config::default()
+    };
+
     tracing_subscriber::fmt::init();
 
     let native_options = eframe::NativeOptions {
@@ -26,7 +36,7 @@ fn main() {
                 ..Style::default()
             };
             cc.egui_ctx.set_style(style);
-            Box::new(baseui::App::new(cc))
+            Box::new(baseui::App::new(cc, config))
         }),
     );
 }

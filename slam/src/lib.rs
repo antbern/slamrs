@@ -5,7 +5,7 @@ use common::{
     robot::{Observation, Pose},
 };
 use egui::{Label, RichText, Sense};
-use pointmap::PointMap;
+use pointmap::IcpPointMapper;
 use pubsub::{Publisher, Subscription};
 use scan_matching::ScanMatcher;
 
@@ -19,11 +19,11 @@ pub struct SlamNode {
     // pub_point_map: Publisher<Observation>,
     pose_est: Pose,
     matcher: ScanMatcher,
-    point_map: PointMap,
+    point_map: IcpPointMapper,
 }
 
-impl Node for SlamNode {
-    fn new(pubsub: &mut pubsub::PubSub) -> Self
+impl SlamNode {
+    pub fn new(pubsub: &mut pubsub::PubSub) -> Self
     where
         Self: Sized,
     {
@@ -33,10 +33,12 @@ impl Node for SlamNode {
             // pub_point_map: pubsub.publish("pointmap"),
             pose_est: Pose::default(),
             matcher: ScanMatcher::new(),
-            point_map: PointMap::new(),
+            point_map: IcpPointMapper::new(),
         }
     }
+}
 
+impl Node for SlamNode {
     fn draw(&mut self, ui: &egui::Ui, world: &mut common::world::WorldObj<'_>) {
         egui::Window::new("Slam").show(ui.ctx(), |ui| {
             ui.label("Slam Stuff");

@@ -13,6 +13,7 @@ use graphics::primitiverenderer::{Color, PrimitiveType};
 use nalgebra::{Point2, Vector2};
 
 use scene::ray::{Draw, LineSegment, Scene};
+use serde::Deserialize;
 use sim::{SimParameters, Simulator};
 
 mod scene;
@@ -27,36 +28,72 @@ pub struct SimulatorNode {
     running: bool,
 }
 
-impl Node for SimulatorNode {
-    fn new(pubsub: &mut pubsub::PubSub) -> Self
-    where
-        Self: Sized,
-    {
+#[derive(Deserialize)]
+pub struct SimulatorNodeConfig {
+    topic_observation: String,
+    topic_pose: String,
+    topic_command: String,
+    running: bool,
+
+    #[serde(default)]
+    scene: Vec<SceneObject>,
+}
+
+#[derive(Deserialize)]
+enum SceneObject {
+    Line {
+        x1: f32,
+        y1: f32,
+        x2: f32,
+        y2: f32,
+    },
+    Rectangle {
+        x: f32,
+        y: f32,
+        width: f32,
+        height: f32,
+    },
+}
+
+impl SimulatorNodeConfig {
+    pub fn instantiate(&self, pubsub: &mut pubsub::PubSub) -> Box<dyn Node> {
         let mut scene = Scene::new();
 
-        scene
-            .add_rect(Point2::new(-1.0, -1.0), Vector2::new(2.0, 2.0))
-            .add_rect(Point2::new(-0.1, -0.4), Vector2::new(0.5, 0.1))
-            .add_rect(Point2::new(-0.6, 0.4), Vector2::new(0.2, 0.5))
-            .add(Box::new(LineSegment::new(-0.6, -0.4, 0.2, 0.4)));
+        for o in &self.scene {
+            match *o {
+                SceneObject::Line { x1, y1, x2, y2 } => {
+                    scene.add(Box::new(LineSegment::new(x1, y1, x2, y2)));
+                }
+                SceneObject::Rectangle {
+                    x,
+                    y,
+                    width,
+                    height,
+                } => {
+                    scene.add_rect(Point2::new(x, y), Vector2::new(width, height));
+                }
+            }
+        }
 
         let scene = Arc::new(RwLock::new(scene));
 
-        Self {
+        Box::new(SimulatorNode {
             scene: scene.clone(),
             sim: Arc::new(Mutex::new(Simulator::new(
-                pubsub.publish("robot/observation"),
-                pubsub.publish("robot/pose"),
-                pubsub.subscribe("robot/command"),
+                pubsub.publish(&self.topic_observation),
+                pubsub.publish(&self.topic_pose),
+                pubsub.subscribe(&self.topic_command),
                 scene,
                 SimParameters::default(),
             ))),
             parameters: SimParameters::default(),
             handle: None,
-            running: true,
-        }
+            running: self.running,
+        })
     }
+}
 
+impl Node for SimulatorNode {
     fn draw(&mut self, ui: &egui::Ui, world: &mut common::world::WorldObj<'_>) {
         egui::Window::new("Simulator").show(ui.ctx(), |ui| {
             ui.label("Used to simulate different LIDAR sensors and environment shapes.");

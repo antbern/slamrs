@@ -1,0 +1,26 @@
+
+settings:
+  headless: false
+
+nodes:
+- !Simulator
+  running: true
+  topic_observation: "robot/observation"
+  topic_pose: "robot/pose"
+  topic_command: "robot/command"
+  scene:
+  - !Rectangle {x: -1.0, y: -1.0, width: 2.0, height: 2.0}
+  - !Rectangle {x: -0.1, y: -0.4, width: 0.5, height: 0.1}
+  - !Rectangle {x: -0.6, y:  0.4, width: 0.2, height: 0.5}
+  - !Line {x1: -0.6, y1: -0.4, x2: 0.2, y2: 0.4}
+
+
+
+#   scanner:
+#     rate: 5
+#     fov: 360
+
+# - IcpPointMapper
+#   icp_threshold: 300
+
+        

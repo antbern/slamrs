@@ -20,6 +20,8 @@ glow = {workspace = true}
 # serde = { version = "1", features = ["derive"] }
 nalgebra = {workspace = true}
 anyhow = {workspace = true}
+serde = {workspace = true}
+serde_yaml = {workspace = true}
 
 pubsub = {workspace = true}
 graphics = {workspace = true}

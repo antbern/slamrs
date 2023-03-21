@@ -1,8 +1,11 @@
 use std::{sync::Arc, time::Instant};
 
-use crate::node::{
-    controls::ControlsNode, frame_viz::FrameVizualizer, mouse_position::MousePosition,
-    shape_rendering::ShapeRendering,
+use crate::{
+    config::Config,
+    node::{
+        controls::ControlsNode, frame_viz::FrameVizualizer, mouse_position::MousePosition,
+        shape_rendering::ShapeRendering,
+    },
 };
 use common::{node::Node, world::WorldObj, PerfStats};
 use eframe::egui_glow;
@@ -26,7 +29,7 @@ pub struct App {
 
 impl App {
     /// Called once before the first frame.
-    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+    pub fn new(cc: &eframe::CreationContext<'_>, config: Config) -> Self {
         // This is also where you can customize the look and feel of egui using
         // `cc.egui_ctx.set_visuals` and `cc.egui_ctx.set_fonts`.
 
@@ -36,16 +39,19 @@ impl App {
             .expect("You need to run eframe with the glow backend");
 
         let mut pubsub = PubSub::new();
-        let nodes: Vec<Box<dyn Node>> = vec![
+        let mut nodes: Vec<Box<dyn Node>> = vec![
             Box::new(MousePosition::new(&mut pubsub)),
             Box::new(ShapeRendering::new(&mut pubsub)),
             Box::new(FileLoader::new(&mut pubsub)),
             Box::new(FrameVizualizer::new(&mut pubsub)),
             Box::new(SerialConnection::new(&mut pubsub)),
-            Box::new(SimulatorNode::new(&mut pubsub)),
             Box::new(ControlsNode::new(&mut pubsub)),
             Box::new(SlamNode::new(&mut pubsub)),
         ];
+        // instantiate based on the config
+        nodes.extend(config.instantiate_nodes(&mut pubsub));
+
+        // TODO: do stuff with the config.settings object
 
         // TODO: remove this once we have processing that is not dependent on UI updates...
         let ctx = cc.egui_ctx.clone();
@@ -98,6 +104,10 @@ impl eframe::App for App {
                 }
             });
         });
+
+        for n in self.nodes.iter_mut() {
+            n.update();
+        }
 
         egui::CentralPanel::default().show(ctx, |ui| {
             // The central panel the region left after adding TopPanel's and SidePanel's

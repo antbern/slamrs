@@ -3,4 +3,5 @@
 mod app;
 pub use app::App;
 
+pub mod config;
 mod node;

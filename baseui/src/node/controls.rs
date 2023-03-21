@@ -24,8 +24,8 @@ enum Control {
     Right,
 }
 
-impl Node for ControlsNode {
-    fn new(pubsub: &mut pubsub::PubSub) -> Self
+impl ControlsNode {
+    pub fn new(pubsub: &mut pubsub::PubSub) -> Self
     where
         Self: Sized,
     {
@@ -34,9 +34,13 @@ impl Node for ControlsNode {
             keyboard_enabled: true,
             target_speed: 0.1,
             last_command: Default::default(),
+            b: false,
+            joy: Vector2::zeros(),
         }
     }
+}
 
+impl Node for ControlsNode {
     fn draw(&mut self, ui: &egui::Ui, _world: &mut common::world::WorldObj<'_>) {
         use Control::*;
 

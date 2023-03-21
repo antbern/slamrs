@@ -2,11 +2,13 @@ use common::{node::Node, world::WorldObj};
 use pubsub::PubSub;
 pub struct MousePosition {}
 
-impl Node for MousePosition {
-    fn new(_pubsub: &mut PubSub) -> Self {
+impl MousePosition {
+    pub fn new(_pubsub: &mut PubSub) -> Self {
         MousePosition {}
     }
+}
 
+impl Node for MousePosition {
     fn draw(&mut self, ui: &egui::Ui, world: &mut WorldObj<'_>) {
         egui::Window::new("World").show(ui.ctx(), |ui| {
             ui.label(format!(

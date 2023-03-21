@@ -27,8 +27,8 @@ enum State {
     },
 }
 
-impl Node for SerialConnection {
-    fn new(pubsub: &mut PubSub) -> Self
+impl SerialConnection {
+    pub fn new(pubsub: &mut PubSub) -> Self
     where
         Self: Sized,
     {
@@ -38,7 +38,9 @@ impl Node for SerialConnection {
             pub_obs: pubsub.publish("robot/observation"),
         }
     }
+}
 
+impl Node for SerialConnection {
     fn draw(&mut self, ui: &egui::Ui, _world: &mut WorldObj<'_>) {
         egui::Window::new("Serial Connection").show(ui.ctx(), |ui| {
             let ports = SerialPort::available_ports().unwrap();

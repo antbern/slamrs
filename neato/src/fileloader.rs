@@ -16,8 +16,8 @@ pub struct FileLoader {
     pub_pose: Publisher<Pose>,
 }
 
-impl Node for FileLoader {
-    fn new(pubsub: &mut PubSub) -> Self
+impl FileLoader {
+    pub fn new(pubsub: &mut PubSub) -> Self
     where
         Self: Sized,
     {
@@ -29,7 +29,9 @@ impl Node for FileLoader {
             pub_pose: pubsub.publish("robot/pose"),
         }
     }
+}
 
+impl Node for FileLoader {
     fn draw(&mut self, ui: &egui::Ui, _world: &mut WorldObj<'_>) {
         egui::Window::new("Neato File").show(ui.ctx(), |ui| {
             if ui.button("Open file…").clicked() {
