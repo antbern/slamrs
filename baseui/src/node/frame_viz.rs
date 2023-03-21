@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use common::{
-    node::Node,
+    node::{Node, NodeConfig},
     robot::{Observation, Pose},
     world::WorldObj,
 };
@@ -12,6 +12,7 @@ use egui::{
 use pubsub::{PubSub, Subscription};
 
 use graphics::shaperenderer::ShapeRenderer;
+use serde::Deserialize;
 
 use super::visualize::{
     ObservationVisualizeConfig, PoseVisualizeConfig, Visualize, VisualizeParametersUi,
@@ -116,12 +117,13 @@ impl<
         &mut self.enabled
     }
 }
-impl FrameVizualizer {
-    pub fn new(pubsub: &mut PubSub) -> Self
-    where
-        Self: Sized,
-    {
-        Self {
+
+#[derive(Deserialize)]
+pub struct FrameVizualizerNodeConfig {}
+
+impl NodeConfig for FrameVizualizerNodeConfig {
+    fn instantiate(&self, pubsub: &mut PubSub) -> Box<dyn Node> {
+        Box::new(FrameVizualizer {
             vis: vec![
                 Box::new(SubscriptionVisualizer::new(
                     pubsub.subscribe::<Pose>("robot/pose"),
@@ -133,7 +135,7 @@ impl FrameVizualizer {
                     SecondaryValue::Subscription(pubsub.subscribe::<Pose>("robot/pose")),
                 )),
             ],
-        }
+        })
     }
 }
 

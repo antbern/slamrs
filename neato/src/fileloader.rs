@@ -1,12 +1,13 @@
 use common::{
-    node::Node,
+    node::{Node, NodeConfig},
     robot::{Observation, Pose},
     world::WorldObj,
 };
 use pubsub::{PubSub, Publisher};
+use serde::Deserialize;
 use std::sync::Arc;
 
-use super::frame::{self, NeatoFrame};
+use super::frame;
 
 pub struct FileLoader {
     picked_path: Option<String>,
@@ -16,18 +17,22 @@ pub struct FileLoader {
     pub_pose: Publisher<Pose>,
 }
 
-impl FileLoader {
-    pub fn new(pubsub: &mut PubSub) -> Self
-    where
-        Self: Sized,
-    {
-        Self {
+#[derive(Deserialize)]
+pub struct FileLoaderNodeConfig {
+    topic_observation: String,
+    topic_pose: String,
+    // TODO: make it possible to specify a path to load automatically here
+}
+
+impl NodeConfig for FileLoaderNodeConfig {
+    fn instantiate(&self, pubsub: &mut PubSub) -> Box<dyn Node> {
+        Box::new(FileLoader {
             picked_path: None,
             data: None,
             selected_frame: 0,
-            pub_frame: pubsub.publish("robot/observation"),
-            pub_pose: pubsub.publish("robot/pose"),
-        }
+            pub_frame: pubsub.publish(&self.topic_observation),
+            pub_pose: pubsub.publish(&self.topic_pose),
+        })
     }
 }
 

@@ -39,17 +39,9 @@ impl App {
             .expect("You need to run eframe with the glow backend");
 
         let mut pubsub = PubSub::new();
-        let mut nodes: Vec<Box<dyn Node>> = vec![
-            Box::new(MousePosition::new(&mut pubsub)),
-            Box::new(ShapeRendering::new(&mut pubsub)),
-            Box::new(FileLoader::new(&mut pubsub)),
-            Box::new(FrameVizualizer::new(&mut pubsub)),
-            Box::new(SerialConnection::new(&mut pubsub)),
-            Box::new(ControlsNode::new(&mut pubsub)),
-            Box::new(SlamNode::new(&mut pubsub)),
-        ];
+
         // instantiate based on the config
-        nodes.extend(config.instantiate_nodes(&mut pubsub));
+        let nodes: Vec<Box<dyn Node>> = config.instantiate_nodes(&mut pubsub);
 
         // TODO: do stuff with the config.settings object
 

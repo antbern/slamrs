@@ -1,8 +1,10 @@
 use std::sync::Arc;
 
+use common::node::NodeConfig;
 use common::{node::Node, robot::Command};
 use egui::{Button, Key, Rgba, RichText, Slider};
 use pubsub::Publisher;
+use serde::Deserialize;
 
 pub struct ControlsNode {
     pub_cmd: Publisher<Command>,
@@ -24,19 +26,21 @@ enum Control {
     Right,
 }
 
-impl ControlsNode {
-    pub fn new(pubsub: &mut pubsub::PubSub) -> Self
-    where
-        Self: Sized,
-    {
-        Self {
-            pub_cmd: pubsub.publish("robot/command"),
-            keyboard_enabled: true,
-            target_speed: 0.1,
+#[derive(Deserialize)]
+pub struct ControlsNodeConfig {
+    topic_command: String,
+    keyboard_enabled: bool,
+    max_speed: f32,
+}
+
+impl NodeConfig for ControlsNodeConfig {
+    fn instantiate(&self, pubsub: &mut pubsub::PubSub) -> Box<dyn Node> {
+        Box::new(ControlsNode {
+            pub_cmd: pubsub.publish(&self.topic_command),
+            keyboard_enabled: self.keyboard_enabled,
+            target_speed: self.max_speed,
             last_command: Default::default(),
-            b: false,
-            joy: Vector2::zeros(),
-        }
+        })
     }
 }
 

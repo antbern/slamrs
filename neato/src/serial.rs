@@ -1,5 +1,10 @@
-use common::{node::Node, robot::Observation, world::WorldObj};
+use common::{
+    node::{Node, NodeConfig},
+    robot::Observation,
+    world::WorldObj,
+};
 use pubsub::{PubSub, Publisher};
+use serde::Deserialize;
 use std::{
     path::PathBuf,
     sync::{
@@ -27,16 +32,16 @@ enum State {
     },
 }
 
-impl SerialConnection {
-    pub fn new(pubsub: &mut PubSub) -> Self
-    where
-        Self: Sized,
-    {
-        Self {
+#[derive(Deserialize)]
+pub struct SerialConnectionNodeConfig {}
+
+impl NodeConfig for SerialConnectionNodeConfig {
+    fn instantiate(&self, pubsub: &mut PubSub) -> Box<dyn Node> {
+        Box::new(SerialConnection {
             state: State::Idle,
             selected_port: 0,
             pub_obs: pubsub.publish("robot/observation"),
-        }
+        })
     }
 }
 

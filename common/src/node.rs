@@ -1,3 +1,5 @@
+use pubsub::PubSub;
+
 use crate::world::WorldObj;
 
 /// A Node is an entity that can publish and react to subscibed messages as well as draw itself.
@@ -18,4 +20,8 @@ pub trait Node {
 
     /// Called when the Node should terminate. Terminate background threads etc. here.
     fn terminate(&mut self) {}
+}
+
+pub trait NodeConfig {
+    fn instantiate(&self, pubsub: &mut PubSub) -> Box<dyn Node>;
 }

@@ -7,7 +7,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use common::node::Node;
+use common::node::{Node, NodeConfig};
 use egui::mutex::{Mutex, RwLock};
 use graphics::primitiverenderer::{Color, PrimitiveType};
 use nalgebra::{Point2, Vector2};
@@ -55,8 +55,8 @@ enum SceneObject {
     },
 }
 
-impl SimulatorNodeConfig {
-    pub fn instantiate(&self, pubsub: &mut pubsub::PubSub) -> Box<dyn Node> {
+impl NodeConfig for SimulatorNodeConfig {
+    fn instantiate(&self, pubsub: &mut pubsub::PubSub) -> Box<dyn Node> {
         let mut scene = Scene::new();
 
         for o in &self.scene {

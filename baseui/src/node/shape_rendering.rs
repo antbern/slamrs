@@ -1,16 +1,24 @@
 use std::f32::consts::{FRAC_PI_3, FRAC_PI_6, PI};
 
-use common::{node::Node, world::WorldObj};
+use common::{
+    node::{Node, NodeConfig},
+    world::WorldObj,
+};
 use graphics::primitiverenderer::{Color, PrimitiveType};
 
 use pubsub::PubSub;
+use serde::Deserialize;
 pub struct ShapeRendering {}
 
-impl ShapeRendering {
-    pub fn new(_pubsub: &mut PubSub) -> Self {
-        ShapeRendering {}
+#[derive(Deserialize)]
+pub struct ShapeRenderingNodeConfig {}
+
+impl NodeConfig for ShapeRenderingNodeConfig {
+    fn instantiate(&self, _pubsub: &mut PubSub) -> Box<dyn Node> {
+        Box::new(ShapeRendering {})
     }
 }
+
 impl Node for ShapeRendering {
     fn draw(&mut self, ui: &egui::Ui, w: &mut WorldObj<'_>) {
         let c1 = Color::rgba(1.0, 0.0, 0.0, 1.0);

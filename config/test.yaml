@@ -3,6 +3,16 @@ settings:
   headless: false
 
 nodes:
+
+- !MousePosition
+
+# - !ShapeTest
+
+- !FileLoader
+  topic_observation: "robot/observation"
+  topic_pose: "robot/pose"
+  
+
 - !Simulator
   running: true
   topic_observation: "robot/observation"
@@ -14,7 +24,16 @@ nodes:
   - !Rectangle {x: -0.6, y:  0.4, width: 0.2, height: 0.5}
   - !Line {x1: -0.6, y1: -0.4, x2: 0.2, y2: 0.4}
 
+- !Controls
+  topic_command: "robot/command"
+  keyboard_enabled: true
+  max_speed: 0.1
 
+- !Slam
+  topic_observation: "robot/observation"
+  topic_pose: "robot/pose"
+
+- !Visualizer
 
 #   scanner:
 #     rate: 5

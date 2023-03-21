@@ -1,13 +1,14 @@
 use std::sync::Arc;
 
 use common::{
-    node::Node,
+    node::{Node, NodeConfig},
     robot::{Observation, Pose},
 };
 use egui::{Label, RichText, Sense};
 use pointmap::IcpPointMapper;
 use pubsub::{Publisher, Subscription};
 use scan_matching::ScanMatcher;
+use serde::Deserialize;
 
 mod icp;
 mod pointmap;
@@ -22,19 +23,22 @@ pub struct SlamNode {
     point_map: IcpPointMapper,
 }
 
-impl SlamNode {
-    pub fn new(pubsub: &mut pubsub::PubSub) -> Self
-    where
-        Self: Sized,
-    {
-        SlamNode {
-            sub_obs: pubsub.subscribe("robot/observation"),
-            pub_pose: pubsub.publish("robot/pose"),
+#[derive(Deserialize)]
+pub struct SlamNodeConfig {
+    topic_pose: String,
+    topic_observation: String,
+}
+
+impl NodeConfig for SlamNodeConfig {
+    fn instantiate(&self, pubsub: &mut pubsub::PubSub) -> Box<dyn Node> {
+        Box::new(SlamNode {
+            sub_obs: pubsub.subscribe(&self.topic_observation),
+            pub_pose: pubsub.publish(&self.topic_pose),
             // pub_point_map: pubsub.publish("pointmap"),
             pose_est: Pose::default(),
             matcher: ScanMatcher::new(),
             point_map: IcpPointMapper::new(),
-        }
+        })
     }
 }
 

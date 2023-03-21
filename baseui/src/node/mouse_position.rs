@@ -1,10 +1,16 @@
-use common::{node::Node, world::WorldObj};
+use common::{
+    node::{Node, NodeConfig},
+    world::WorldObj,
+};
 use pubsub::PubSub;
+use serde::Deserialize;
 pub struct MousePosition {}
+#[derive(Deserialize)]
+pub struct MousePositionNodeConfig {}
 
-impl MousePosition {
-    pub fn new(_pubsub: &mut PubSub) -> Self {
-        MousePosition {}
+impl NodeConfig for MousePositionNodeConfig {
+    fn instantiate(&self, _pubsub: &mut PubSub) -> Box<dyn Node> {
+        Box::new(MousePosition {})
     }
 }
 

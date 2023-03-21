@@ -13,13 +13,13 @@ use crate::icp;
 
 const MAP_POINTS_SIZE: f32 = 0.01;
 #[derive(Default)]
-pub struct PointMap {
+pub struct IcpPointMapper {
     map_points: Option<Matrix2xX<f32>>,
     pose_est: Pose,
     perf_stats: PerfStats,
 }
 
-impl PointMap {
+impl IcpPointMapper {
     pub fn new() -> Self {
         Self::default()
     }

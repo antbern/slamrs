@@ -1193,6 +1193,7 @@ dependencies = [
  "egui",
  "pubsub",
  "rfd",
+ "serde",
  "serial2",
 ]
 

@@ -13,6 +13,7 @@ common = {workspace = true}
 # inherited dependencies
 anyhow = {workspace = true}
 egui = {workspace = true}
+serde = {workspace = true}
 
 # special dependencies for this crate
 serial2 = "0.1.7"

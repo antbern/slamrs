@@ -15,6 +15,7 @@ graphics = {workspace = true}
 anyhow = {workspace = true}
 egui = {workspace = true}
 nalgebra = {workspace = true}
+serde = {workspace = true}
 
 # special dependencies for this crate
 lstsq = "0.5.0"
