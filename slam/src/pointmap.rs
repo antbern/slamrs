@@ -11,13 +11,14 @@ use nalgebra::Matrix2xX;
 
 use crate::icp;
 
-const MAP_POINTS_SIZE: f32 = 0.01;
+pub struct PointMap(pub Matrix2xX<f32>);
 #[derive(Default)]
 pub struct IcpPointMapper {
     map_points: Option<Matrix2xX<f32>>,
     pose_est: Pose,
     perf_stats: PerfStats,
 }
+// TODO: make this into its own node, that takes in observations and outputs pose estimations and point cloud map
 
 impl IcpPointMapper {
     pub fn new() -> Self {
@@ -78,33 +79,17 @@ impl IcpPointMapper {
                 self.perf_stats.reset();
             }
         });
-
-        if let Some(map_points) = &self.map_points {
-            world.sr.begin(PrimitiveType::Filled);
-
-            for p in map_points.column_iter() {
-                world.sr.rect(
-                    p.x - MAP_POINTS_SIZE / 2.0,
-                    p.y - MAP_POINTS_SIZE / 2.0,
-                    MAP_POINTS_SIZE,
-                    MAP_POINTS_SIZE,
-                    Color::BLACK,
-                )
-            }
-
-            world.sr.arrow(
-                self.pose_est.x,
-                self.pose_est.y,
-                self.pose_est.theta,
-                0.1,
-                Color::GREEN,
-            );
-
-            world.sr.end();
-        }
     }
 
     pub fn estimated_pose(&self) -> Pose {
         self.pose_est
+    }
+
+    pub fn pointmap(&self) -> PointMap {
+        if let Some(m) = &self.map_points {
+            PointMap(m.to_owned())
+        } else {
+            PointMap(Matrix2xX::zeros(0))
+        }
     }
 }

@@ -13,9 +13,11 @@ use pubsub::{PubSub, Subscription};
 
 use graphics::shaperenderer::ShapeRenderer;
 use serde::Deserialize;
+use slam::PointMap;
 
 use super::visualize::{
-    ObservationVisualizeConfig, PoseVisualizeConfig, Visualize, VisualizeParametersUi,
+    ObservationVisualizeConfig, PointMapVisualizeConfig, PoseVisualizeConfig, Visualize,
+    VisualizeParametersUi,
 };
 
 pub struct FrameVizualizer {
@@ -134,6 +136,10 @@ enum VizType {
         topic_pose: String,
         config: ObservationVisualizeConfig,
     },
+    PointMap {
+        topic: String,
+        config: PointMapVisualizeConfig,
+    },
 }
 
 impl VizType {
@@ -151,6 +157,10 @@ impl VizType {
                 pubsub.subscribe::<Observation>(topic),
                 config.clone(),
                 SecondaryValue::Subscription(pubsub.subscribe::<Pose>(topic_pose)),
+            )),
+            VizType::PointMap { topic, config } => Box::new(SubscriptionVisualizer::new(
+                pubsub.subscribe::<PointMap>(topic),
+                config.clone(),
             )),
         }
     }

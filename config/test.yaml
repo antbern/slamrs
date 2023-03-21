@@ -32,9 +32,17 @@ nodes:
 - !Slam
   topic_observation: "robot/observation"
   topic_pose: "robot/pose"
+  topic_pointmap: "slam/map"
 
 - !Visualizer
   topics:
+  
+  - !PointMap
+    topic: "slam/map"
+    config:
+      size: 0.01
+      point_color: [0.0, 1.0, 0.0]
+    
   - !Observation
     topic: "robot/observation"
     topic_pose: "robot/pose"
@@ -48,6 +56,9 @@ nodes:
     config:
       color: [0.0, 1.0, 1.0]
       radius: 0.1
+
+  
+
 
 #   scanner:
 #     rate: 5

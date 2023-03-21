@@ -14,11 +14,11 @@ mod icp;
 mod pointmap;
 mod scan_matching;
 
+pub use pointmap::PointMap;
 pub struct SlamNode {
     sub_obs: Subscription<Observation>,
     pub_pose: Publisher<Pose>,
-    // pub_point_map: Publisher<Observation>,
-    pose_est: Pose,
+    pub_point_map: Publisher<PointMap>,
     matcher: ScanMatcher,
     point_map: IcpPointMapper,
 }
@@ -27,6 +27,7 @@ pub struct SlamNode {
 pub struct SlamNodeConfig {
     topic_pose: String,
     topic_observation: String,
+    topic_pointmap: String,
 }
 
 impl NodeConfig for SlamNodeConfig {
@@ -34,8 +35,7 @@ impl NodeConfig for SlamNodeConfig {
         Box::new(SlamNode {
             sub_obs: pubsub.subscribe(&self.topic_observation),
             pub_pose: pubsub.publish(&self.topic_pose),
-            // pub_point_map: pubsub.publish("pointmap"),
-            pose_est: Pose::default(),
+            pub_point_map: pubsub.publish(&self.topic_pointmap),
             matcher: ScanMatcher::new(),
             point_map: IcpPointMapper::new(),
         })
@@ -69,6 +69,9 @@ impl Node for SlamNode {
 
             self.pub_pose
                 .publish(Arc::new(self.point_map.estimated_pose()));
+
+            self.pub_point_map
+                .publish(Arc::new(self.point_map.pointmap()));
         }
     }
 }
