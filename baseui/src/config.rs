@@ -5,7 +5,7 @@ use common::node::{Node, NodeConfig};
 use pubsub::PubSub;
 use serde::Deserialize;
 use simulator::SimulatorNodeConfig;
-use slam::SlamNodeConfig;
+use slam::IcpPointMapNodeConfig;
 
 use crate::node::{
     controls::ControlsNodeConfig, frame_viz::FrameVizualizerNodeConfig,
@@ -33,7 +33,7 @@ pub enum NodeEnum {
     MousePosition(MousePositionNodeConfig),
     ShapeTest(ShapeRenderingNodeConfig),
     FileLoader(FileLoaderNodeConfig),
-    Slam(SlamNodeConfig),
+    IcpPointMapper(IcpPointMapNodeConfig),
     Visualizer(FrameVizualizerNodeConfig),
 }
 
@@ -46,7 +46,7 @@ impl NodeEnum {
             MousePosition(c) => c.instantiate(pubsub),
             ShapeTest(c) => c.instantiate(pubsub),
             FileLoader(c) => c.instantiate(pubsub),
-            Slam(c) => c.instantiate(pubsub),
+            IcpPointMapper(c) => c.instantiate(pubsub),
             Visualizer(c) => c.instantiate(pubsub),
         }
     }

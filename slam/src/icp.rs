@@ -1,26 +1,56 @@
+#![allow(non_snake_case)]
+
+//! Module for performing scan matching using Iterative Closest Point (ICP). Inspiration and code taken from:
+//! * https://nbviewer.org/github/niosus/notebooks/blob/master/icp.ipynb
+//!
+
 use std::time::{Duration, Instant};
 
 use kd_tree::KdMap;
 use nalgebra::{Matrix1, Matrix2, Matrix2x3, Matrix2xX, Matrix3, Vector2, Vector3};
+use serde::Deserialize;
 
-// pub enum CorrespondenceWeight {
-//     /// All weights are 1.0
-//     Uniform,
-//     Step {
-//         threshold: f32,
-//     },
-// }
+/// Specifies parameters to use during the ICP computation.
+#[derive(Deserialize, Clone, Copy)]
+pub struct IcpParameters {
+    pub correspondence_weights: CorrespondenceWeight,
+    pub iterations: usize,
+}
 
-// pub trait Weight {}
-
-fn weight(error: Matrix1<f32>) -> f32 {
-    if error.norm_squared() < 0.05 * 0.05 {
-        1.0
-    } else {
-        0.0
+impl Default for IcpParameters {
+    fn default() -> Self {
+        Self {
+            correspondence_weights: CorrespondenceWeight::Uniform,
+            iterations: 10,
+        }
     }
 }
 
+#[derive(Deserialize, Clone, Copy)]
+pub enum CorrespondenceWeight {
+    /// All weights are 1.0
+    Uniform,
+
+    /// Weight is a step function. Below the threshold (in error norm terms) the weight is 1.0. Above it is 0.0.
+    Step { threshold: f32 },
+}
+
+impl CorrespondenceWeight {
+    fn weight(&self, error: Matrix1<f32>) -> f32 {
+        match self {
+            CorrespondenceWeight::Uniform => 1.0,
+            CorrespondenceWeight::Step { threshold } => {
+                if error.norm_squared() < threshold * threshold {
+                    1.0
+                } else {
+                    0.0
+                }
+            }
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct IcpResult {
     pub transformation: Vector3<f32>,
     pub transformed_points: Matrix2xX<f32>,
@@ -53,7 +83,7 @@ pub fn icp_point_to_normal(
     points: &Matrix2xX<f32>,
     reference_points: &Matrix2xX<f32>,
     initial_pose: Vector3<f32>,
-    iterations: usize,
+    params: IcpParameters,
 ) -> IcpResult {
     let start_time = Instant::now();
 
@@ -62,15 +92,22 @@ pub fn icp_point_to_normal(
     let q_normals = compute_normals(reference_points);
     let q_tree = matrix_to_kdmap(reference_points);
 
-    let mut chi_values: Vec<f32> = Vec::with_capacity(iterations);
-    for _ in 0..iterations {
+    let mut chi_values: Vec<f32> = Vec::with_capacity(params.iterations);
+    for _ in 0..params.iterations {
         // transform the original points by the accumulated x
         let p_copy = transform_points(points, x);
 
         let correspondences = find_correspondences(&p_copy, &q_tree);
 
         // let s = prepare_system(x, p, q, &correspondences);
-        let s = prepare_system_normals(x, points, reference_points, &correspondences, &q_normals);
+        let s = prepare_system_normals(
+            x,
+            points,
+            reference_points,
+            &correspondences,
+            &q_normals,
+            &params,
+        );
 
         let dx = least_squares(s.hessian, s.gradient);
         x += dx;
@@ -144,6 +181,7 @@ fn prepare_system(
     p: &Matrix2xX<f32>,
     q: &Matrix2xX<f32>,
     c: &[(usize, usize)],
+    params: &IcpParameters,
 ) -> PreparedSystem {
     let mut H = Matrix3::zeros();
     let mut g = Vector3::zeros();
@@ -154,7 +192,7 @@ fn prepare_system(
         let q_point = q.column(j);
 
         let e = error(x, p_point.into(), q_point.into());
-        let weight = weight(e.transpose() * e); // TODO
+        let weight = params.correspondence_weights.weight(e.transpose() * e); // TODO
         let J = jacobian(x, p_point.into());
 
         H += weight * J.transpose() * J;
@@ -194,6 +232,11 @@ fn compute_normals(points: &Matrix2xX<f32>) -> Matrix2xX<f32> {
 
     // normals.push(Vector2::zeros()); // no normal for the endpoints
 
+    // we cannot compute normals unless we have at least 3 points
+    if normals.ncols() <= 2 {
+        return normals;
+    }
+
     for i in 1..(points.ncols() - 1) {
         let prev_point = points.column(i - 1);
         let next_point = points.column(i + 1);
@@ -218,6 +261,7 @@ fn prepare_system_normals(
     q: &Matrix2xX<f32>,
     c: &[(usize, usize)],
     q_normals: &Matrix2xX<f32>,
+    params: &IcpParameters,
 ) -> PreparedSystem {
     let mut H = Matrix3::zeros();
     let mut g = Vector3::zeros();
@@ -229,7 +273,7 @@ fn prepare_system_normals(
         let q_normal = q_normals.column(j);
 
         let e = q_normal.transpose() * error(x, p_point.into(), q_point.into());
-        let weight = weight(e); // TODO
+        let weight = params.correspondence_weights.weight(e);
         let J = q_normal.transpose() * jacobian(x, p_point.into());
 
         H += weight * J.transpose() * J;
@@ -247,7 +291,7 @@ fn prepare_system_normals(
 
 #[cfg(test)]
 mod tests {
-    use approx::relative_eq;
+    use approx::assert_relative_eq;
 
     use super::*;
 
@@ -269,9 +313,17 @@ mod tests {
             Vector2::new(1.0, -2.0),
         ]);
 
-        let r = icp_point_to_normal(&p, &q, Vector3::zeros(), 10);
+        let r = icp_point_to_normal(
+            &p,
+            &q,
+            Vector3::zeros(),
+            IcpParameters {
+                correspondence_weights: CorrespondenceWeight::Uniform,
+                iterations: 10,
+            },
+        );
 
-        relative_eq!(r.transformation, Vector3::new(1.0, 0.0, 0.0));
+        assert_relative_eq!(r.transformation, Vector3::new(1.0, 0.0, 0.0));
 
         // assert_eq!(result, 4);
     }

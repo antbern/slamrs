@@ -1,21 +1,13 @@
 use std::{sync::Arc, time::Instant};
 
-use crate::{
-    config::Config,
-    node::{
-        controls::ControlsNode, frame_viz::FrameVizualizer, mouse_position::MousePosition,
-        shape_rendering::ShapeRendering,
-    },
-};
+use crate::config::Config;
 use common::{node::Node, world::WorldObj, PerfStats};
 use eframe::egui_glow;
 use egui::{mutex::Mutex, Label, Pos2, RichText, Sense, Vec2};
 use graphics::{camera::Camera, shaperenderer::ShapeRenderer};
 use nalgebra::{Matrix4, Point2};
-use neato::{FileLoader, SerialConnection};
+
 use pubsub::{PubSub, PubSubThreadHandle};
-use simulator::SimulatorNode;
-use slam::SlamNode;
 
 pub struct App {
     _pubsub: PubSubThreadHandle,

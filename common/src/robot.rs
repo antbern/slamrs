@@ -59,7 +59,11 @@ impl Observation {
     pub fn to_matrix(&self, origin: Pose) -> Matrix2xX<f32> {
         // Not the most efficient implementation (since it creates two Vec's, but it works)
         let vectors: Vec<Vector2<f32>> = self.to_points(origin).iter().map(|p| p.coords).collect();
-        Matrix2xX::from_columns(&vectors)
+        if !vectors.is_empty() {
+            Matrix2xX::from_columns(&vectors)
+        } else {
+            Matrix2xX::zeros(0)
+        }
     }
 }
 
