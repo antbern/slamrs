@@ -133,7 +133,7 @@ impl Node for IcpPointMapNode {
         }
     }
 
-    fn draw(&mut self, ui: &egui::Ui, world: &mut common::world::WorldObj<'_>) {
+    fn draw(&mut self, ui: &egui::Ui, _world: &mut common::world::WorldObj<'_>) {
         egui::Window::new("IcpPointMapNode").show(ui.ctx(), |ui| {
             ui.label("Point Map: ");
             ui.horizontal(|ui| {

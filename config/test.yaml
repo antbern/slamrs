@@ -18,6 +18,11 @@ nodes:
   topic_observation: "robot/observation"
   topic_pose: "robot/pose"
   topic_command: "robot/command"
+
+  parameters:
+    wheel_base: 0.1
+    update_period: 0.2
+
   scene:
   - !Rectangle {x: -1.0, y: -1.0, width: 2.0, height: 2.0}
   - !Rectangle {x: -0.1, y: -0.4, width: 0.5, height: 0.1}

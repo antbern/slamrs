@@ -20,11 +20,7 @@ impl NodeConfig for ShapeRenderingNodeConfig {
 }
 
 impl Node for ShapeRendering {
-    fn draw(&mut self, ui: &egui::Ui, w: &mut WorldObj<'_>) {
-        let c1 = Color::rgba(1.0, 0.0, 0.0, 1.0);
-        let c2 = Color::rgba(0.0, 1.0, 0.0, 1.0);
-        let c3 = Color::rgba(0.0, 0.0, 1.0, 1.0);
-
+    fn draw(&mut self, _ui: &egui::Ui, w: &mut WorldObj<'_>) {
         w.sr.begin(PrimitiveType::Filled);
         for x in 0..255 {
             for y in 0..255 {

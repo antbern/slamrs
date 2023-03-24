@@ -1,4 +1,4 @@
-#![allow(non_snake_case)]
+#![allow(non_snake_case, unused)]
 
 //! Module for performing scan matching using Iterative Closest Point (ICP). Inspiration and code taken from:
 //! * https://nbviewer.org/github/niosus/notebooks/blob/master/icp.ipynb
@@ -220,9 +220,7 @@ fn least_squares_lm(hessian: Matrix3<f32>, gradient: Vector3<f32>) -> Vector3<f3
     let rhs = -gradient;
 
     let r = lstsq::lstsq(&lhs, &rhs, 1e-8).expect("Could not solve least squares");
-    let dx = r.solution;
-
-    dx
+    r.solution
 }
 
 fn compute_normals(points: &Matrix2xX<f32>) -> Matrix2xX<f32> {

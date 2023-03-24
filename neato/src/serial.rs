@@ -27,6 +27,7 @@ pub struct SerialConnection {
 enum State {
     Idle,
     Running {
+        #[allow(unused)] // We need to hold on to this but are actually never using it directly
         handle: JoinHandle<()>,
         running: Arc<AtomicBool>,
     },
@@ -78,7 +79,7 @@ impl Node for SerialConnection {
                                 self.state = Running { handle, running }
                             }
                         }
-                        Running { handle, running } => {
+                        Running { handle: _, running } => {
                             if ui.button("Close").clicked() {
                                 running.store(false, Ordering::Relaxed);
                                 // handle.join();

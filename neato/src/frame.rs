@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 use std::{fs::File, io::Read, path::PathBuf};
 
 use common::robot::{Measurement, Observation};

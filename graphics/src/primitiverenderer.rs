@@ -153,7 +153,7 @@ impl PrimitiveRenderer {
         layout.push(gl::GLType::UnsignedByte, 4);
         let layout = layout;
 
-        let mut vb = gl::VertexBuffer::new(gl, max_vertices * layout.get_stride());
+        let mut vb = gl::VertexBuffer::new(gl);
 
         // allocate storage for our vertices (3 position + 1 color) floats
         let vertices = vec![0f32; max_vertices as usize * 4];

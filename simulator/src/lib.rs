@@ -37,6 +37,8 @@ pub struct SimulatorNodeConfig {
 
     #[serde(default)]
     scene: Vec<SceneObject>,
+
+    parameters: SimParameters,
 }
 
 #[derive(Deserialize)]
@@ -84,9 +86,9 @@ impl NodeConfig for SimulatorNodeConfig {
                 pubsub.publish(&self.topic_pose),
                 pubsub.subscribe(&self.topic_command),
                 scene,
-                SimParameters::default(),
+                self.parameters,
             ))),
-            parameters: SimParameters::default(),
+            parameters: self.parameters,
             handle: None,
             running: self.running,
         })

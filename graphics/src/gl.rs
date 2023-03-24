@@ -128,7 +128,7 @@ pub struct VertexBuffer {
     is_bound: bool,
 }
 impl VertexBuffer {
-    pub fn new(gl: &glow::Context, size: u32) -> Self {
+    pub fn new(gl: &glow::Context) -> Self {
         use glow::HasContext as _;
 
         let buffer = unsafe { gl.create_buffer().expect("Cannot create vertex buffer") };

@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 use std::cmp::Ordering;
 
 use nalgebra::{Point2, Vector2};
@@ -10,11 +12,11 @@ pub struct Ray {
 }
 
 impl Ray {
-    pub fn new(origin: Point2<f32>, direction: Vector2<f32>) -> Self {
+    pub fn from_origin_direction(origin: Point2<f32>, direction: Vector2<f32>) -> Self {
         Self { origin, direction }
     }
 
-    pub fn from_point_angle(origin: Point2<f32>, angle: f32) -> Self {
+    pub fn from_origin_angle(origin: Point2<f32>, angle: f32) -> Self {
         Self {
             origin,
             direction: Vector2::new(angle.cos(), angle.sin()),

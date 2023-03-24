@@ -5,10 +5,7 @@ use common::{
     robot::{Observation, Pose},
     world::WorldObj,
 };
-use egui::{
-    plot::{Bar, BarChart, Plot, PlotBounds, Points},
-    CollapsingHeader,
-};
+use egui::CollapsingHeader;
 use pubsub::{PubSub, Subscription};
 
 use graphics::shaperenderer::ShapeRenderer;

@@ -4,6 +4,7 @@ use common::robot::{Command, Measurement, Observation, Pose};
 use egui::mutex::RwLock;
 use nalgebra::{Point2, Vector2};
 use pubsub::{Publisher, Subscription};
+use serde::Deserialize;
 
 use crate::scene::ray::{Intersect, Ray, Scene};
 
@@ -21,7 +22,7 @@ pub struct Simulator {
     scan_counter: usize,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Deserialize)]
 pub struct SimParameters {
     wheel_base: f32,
     update_period: f32, // 1/Hz
@@ -92,7 +93,7 @@ impl Simulator {
                     if let Some(v) = self
                         .scene
                         .read()
-                        .intersect(&Ray::from_point_angle(origin, angle + self.pose.theta))
+                        .intersect(&Ray::from_origin_angle(origin, angle + self.pose.theta))
                     {
                         if v < 1.0 {
                             meas.push(Measurement {

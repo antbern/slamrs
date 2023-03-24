@@ -138,16 +138,12 @@ impl ShapeRenderer {
         }
     }
 
-    // pre-computed sine and cosine values for the "back-wing" of the arrow
-    // const arrowAngle: f32 = 45f32.to_radians();
-    // const aSin: f32 = arrowAngle.sin();
-    // const aCos: f32 = arrowAngle.cos();
-
     pub fn arrow(&mut self, x: f32, y: f32, angle_rad: f32, radius: f32, color: Color) {
         // pre compute sin and cos for the rotation
         let (s, c) = angle_rad.sin_cos();
 
-        let (aSin, aCos) = 45f32.sin_cos();
+        // pre-computed sine and cosine values for the "back-wing" of the arrow
+        let (a_sin, a_cos) = 45f32.sin_cos();
 
         // Used Wolfram Alpha for the following trigonometric identities for the corner points:
         // cos(t+pi-a) = -sin(a)sin(t)-cos(a)cos(t)
@@ -156,10 +152,10 @@ impl ShapeRenderer {
         // sin(t+pi+a) = sin(a)-cos(t)-cos(a)sin(t)
 
         // pre compute the factors above for the position of the corner points
-        let leftCos = -aSin * s - aCos * c;
-        let leftSin = aSin * c - aCos * s;
-        let rightCos = aSin * s - aCos * c;
-        let rightSin = aSin * -c - aCos * s;
+        let left_cos = -a_sin * s - a_cos * c;
+        let left_sin = a_sin * c - a_cos * s;
+        let right_cos = a_sin * s - a_cos * c;
+        let right_sin = a_sin * -c - a_cos * s;
 
         match self.current_shape_type {
             Some(PrimitiveType::Filled) => {
@@ -170,7 +166,7 @@ impl ShapeRenderer {
 
                 // back left
                 self.pr
-                    .xyc(x + leftCos * radius, y + leftSin * radius, color);
+                    .xyc(x + left_cos * radius, y + left_sin * radius, color);
 
                 // back middle
                 self.pr
@@ -182,7 +178,7 @@ impl ShapeRenderer {
 
                 // back right
                 self.pr
-                    .xyc(x + rightCos * radius, y + rightSin * radius, color);
+                    .xyc(x + right_cos * radius, y + right_sin * radius, color);
 
                 // front
                 self.pr.xyc(x + c * radius, y + s * radius, color);
@@ -195,11 +191,11 @@ impl ShapeRenderer {
 
                 // back left
                 self.pr
-                    .xyc(x + leftCos * radius, y + leftSin * radius, color);
+                    .xyc(x + left_cos * radius, y + left_sin * radius, color);
 
                 // back left (again, starting a new line)
                 self.pr
-                    .xyc(x + leftCos * radius, y + leftSin * radius, color);
+                    .xyc(x + left_cos * radius, y + left_sin * radius, color);
 
                 // back middle
                 self.pr
@@ -211,11 +207,11 @@ impl ShapeRenderer {
 
                 // back right
                 self.pr
-                    .xyc(x + rightCos * radius, y + rightSin * radius, color);
+                    .xyc(x + right_cos * radius, y + right_sin * radius, color);
 
                 // back right (again, starting a new line)
                 self.pr
-                    .xyc(x + rightCos * radius, y + rightSin * radius, color);
+                    .xyc(x + right_cos * radius, y + right_sin * radius, color);
 
                 // front
                 self.pr.xyc(x + c * radius, y + s * radius, color);
@@ -223,36 +219,6 @@ impl ShapeRenderer {
             _ => {}
         }
     }
-
-    /*
-    pub fn test(&mut self) {
-        let c1 = Color::rgba(1.0, 0.0, 0.0, 1.0);
-        let c2 = Color::rgba(0.0, 1.0, 0.0, 1.0);
-        let c3 = Color::rgba(0.0, 0.0, 1.0, 1.0);
-
-        let mut g = self.pr.begin2(PrimitiveType::Filled);
-
-        g.xyc(0.0, 1.0, c1);
-        g.xyc(-1.0, -1.0, c2);
-        g.xyc(1.0, -1.0, c3);
-
-        g.end();
-        let mut g2 = self.pr.begin2(PrimitiveType::Line);
-
-        // let g = self.pr.begin2(PrimitiveType::Line);
-
-        // self.pr.xyc(0.0, 1.0 + 0.1, c1);
-        // self.pr.xyc(-1.0 - 0.1, -1.0 - 0.1, c2);
-
-        // self.pr.xyc(-1.0 - 0.1, -1.0 - 0.1, c2);
-        // self.pr.xyc(1.0 + 0.1, -1.0 - 0.1, c3);
-
-        // self.pr.xyc(1.0 + 0.1, -1.0 - 0.1, c3);
-        // self.pr.xyc(0.0, 1.0 + 0.1, c1);
-
-        // self.pr.end();
-    }
-    */
 
     pub fn destroy(&self, gl: &glow::Context) {
         self.pr.destroy(gl);
