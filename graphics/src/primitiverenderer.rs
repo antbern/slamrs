@@ -336,6 +336,10 @@ impl Color {
             bits: unsafe { core::mem::transmute::<u32, f32>(colori) },
         }
     }
+
+    pub fn grayscale(gray: f32) -> Self {
+        Self::rgb(gray, gray, gray)
+    }
 }
 
 impl From<[f32; 3]> for Color {

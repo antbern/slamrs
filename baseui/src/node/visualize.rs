@@ -5,7 +5,7 @@ use graphics::{
     shaperenderer::ShapeRenderer,
 };
 use serde::Deserialize;
-use slam::PointMap;
+use slam::{GridMapMessage, PointMap};
 
 pub trait Visualize {
     type Parameters;
@@ -221,5 +221,69 @@ impl Visualize for PointMap {
         }
 
         sr.end();
+    }
+}
+
+//////////////// Implementation for GridMap /////////////////
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct GridMapVisualizeConfig {
+    gridlines: bool,
+}
+
+impl Default for GridMapVisualizeConfig {
+    fn default() -> Self {
+        Self { gridlines: false }
+    }
+}
+
+impl VisualizeParametersUi for GridMapVisualizeConfig {
+    fn ui(&mut self, ui: &mut egui::Ui) {
+        ui.checkbox(&mut self.gridlines, "Draw Grid Lines");
+    }
+}
+
+impl Visualize for GridMapMessage {
+    type Parameters = GridMapVisualizeConfig;
+    type Secondary = ();
+
+    fn visualize(&self, sr: &mut ShapeRenderer, c: &Self::Parameters, _: &Option<Self::Secondary>) {
+        sr.begin(PrimitiveType::Filled);
+
+        for (c, v) in self.data.iter_cells() {
+            let color = Color::grayscale(v.value());
+
+            let x = self.position.x + c.column as f32 * self.resolution;
+            let y = self.position.y + c.row as f32 * self.resolution;
+            sr.rect(x, y, self.resolution, self.resolution, color)
+        }
+
+        sr.end();
+
+        if c.gridlines {
+            sr.begin(PrimitiveType::Line);
+
+            for x in 0..self.data.size().x {
+                sr.line(
+                    x as f32 * self.resolution + self.position.x,
+                    self.position.y,
+                    x as f32 * self.resolution + self.position.x,
+                    self.data.size().y as f32 * self.resolution + self.position.x,
+                    Color::BLACK,
+                );
+            }
+
+            for y in 0..self.data.size().y {
+                sr.line(
+                    self.position.x,
+                    y as f32 * self.resolution + self.position.y,
+                    self.data.size().x as f32 * self.resolution + self.position.y,
+                    y as f32 * self.resolution + self.position.y,
+                    Color::BLACK,
+                );
+            }
+
+            sr.end();
+        }
     }
 }

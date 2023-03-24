@@ -5,7 +5,7 @@ use common::node::{Node, NodeConfig};
 use pubsub::PubSub;
 use serde::Deserialize;
 use simulator::SimulatorNodeConfig;
-use slam::IcpPointMapNodeConfig;
+use slam::{GridMapSlamNodeConfig, IcpPointMapNodeConfig};
 
 use crate::node::{
     controls::ControlsNodeConfig, frame_viz::FrameVizualizerNodeConfig,
@@ -35,6 +35,7 @@ pub enum NodeEnum {
     FileLoader(FileLoaderNodeConfig),
     IcpPointMapper(IcpPointMapNodeConfig),
     Visualizer(FrameVizualizerNodeConfig),
+    GridMapSlam(GridMapSlamNodeConfig),
 }
 
 impl NodeEnum {
@@ -48,6 +49,7 @@ impl NodeEnum {
             FileLoader(c) => c.instantiate(pubsub),
             IcpPointMapper(c) => c.instantiate(pubsub),
             Visualizer(c) => c.instantiate(pubsub),
+            GridMapSlam(c) => c.instantiate(pubsub),
         }
     }
 }

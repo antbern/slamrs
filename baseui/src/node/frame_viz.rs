@@ -10,11 +10,11 @@ use pubsub::{PubSub, Subscription};
 
 use graphics::shaperenderer::ShapeRenderer;
 use serde::Deserialize;
-use slam::PointMap;
+use slam::{GridMapMessage, PointMap};
 
 use super::visualize::{
-    ObservationVisualizeConfig, PointMapVisualizeConfig, PoseVisualizeConfig, Visualize,
-    VisualizeParametersUi,
+    GridMapVisualizeConfig, ObservationVisualizeConfig, PointMapVisualizeConfig,
+    PoseVisualizeConfig, Visualize, VisualizeParametersUi,
 };
 
 pub struct FrameVizualizer {
@@ -137,6 +137,10 @@ enum VizType {
         topic: String,
         config: PointMapVisualizeConfig,
     },
+    GridMap {
+        topic: String,
+        config: GridMapVisualizeConfig,
+    },
 }
 
 impl VizType {
@@ -157,6 +161,10 @@ impl VizType {
             )),
             VizType::PointMap { topic, config } => Box::new(SubscriptionVisualizer::new(
                 pubsub.subscribe::<PointMap>(topic),
+                config.clone(),
+            )),
+            VizType::GridMap { topic, config } => Box::new(SubscriptionVisualizer::new(
+                pubsub.subscribe::<GridMapMessage>(topic),
                 config.clone(),
             )),
         }

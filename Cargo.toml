@@ -20,7 +20,7 @@ slam = {path = "./slam"}
 
 egui = "0.20.0"
 glow = "0.11"
-nalgebra = "0.32.1"
+nalgebra = {version = "0.32.1", features = ["serde-serialize"] }
 anyhow = "1.0.68"
 
 serde = { version = "1.0", features = ["derive"] }
