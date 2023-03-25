@@ -13,6 +13,10 @@ impl Mul<Probability> for Probability {
 }
 
 impl Probability {
+    pub const fn new_unchecked(value: f32) -> Probability {
+        Probability(value)
+    }
+
     pub fn new(value: f32) -> Probability {
         assert!(
             (0.0..=1.0).contains(&value),
@@ -21,7 +25,7 @@ impl Probability {
         Probability(value)
     }
     pub fn log_odds(&self) -> LogOdds {
-        LogOdds(1.0 - 1.0 / (1.0 + self.0.exp()))
+        LogOdds((self.0 / (1.0 - self.0)).ln())
     }
 
     pub fn value(&self) -> f32 {
@@ -69,7 +73,7 @@ impl SubAssign<LogOdds> for LogOdds {
 
 impl LogOdds {
     pub fn probability(&self) -> Probability {
-        Probability((self.0 / (1.0 - self.0)).ln())
+        Probability(1.0 - 1.0 / (1.0 + self.0.exp()))
     }
 }
 
@@ -97,5 +101,10 @@ mod test {
                 epsilon = 1e-6
             );
         }
+    }
+
+    #[test]
+    fn zero_is_half() {
+        assert_relative_eq!(Probability(0.5).log_odds().0, 0.0);
     }
 }
