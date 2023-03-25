@@ -22,6 +22,7 @@ nodes:
   parameters:
     wheel_base: 0.1
     update_period: 0.2
+    scanner_range: 1.0
 
   scene:
   - !Rectangle {x: -1.0, y: -1.0, width: 2.0, height: 2.0}

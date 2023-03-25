@@ -26,6 +26,7 @@ pub struct Simulator {
 pub struct SimParameters {
     wheel_base: f32,
     update_period: f32, // 1/Hz
+    scanner_range: f32, // Max range sensor distance in meters.
 }
 
 impl Default for SimParameters {
@@ -33,6 +34,7 @@ impl Default for SimParameters {
         Self {
             wheel_base: 0.1,
             update_period: 0.2,
+            scanner_range: 1.0,
         }
     }
 }
@@ -95,12 +97,19 @@ impl Simulator {
                         .read()
                         .intersect(&Ray::from_origin_angle(origin, angle + self.pose.theta))
                     {
-                        if v < 1.0 {
+                        if v < self.parameters.scanner_range {
                             meas.push(Measurement {
                                 angle: angle as f64,
                                 distance: v as f64,
                                 strength: 1.0,
                                 valid: true,
+                            });
+                        } else {
+                            meas.push(Measurement {
+                                angle: angle as f64,
+                                distance: self.parameters.scanner_range as f64,
+                                strength: 1.0,
+                                valid: false, // Treat the valid flag as a hit/no hit for now
                             });
                         }
                     }

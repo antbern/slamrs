@@ -251,7 +251,7 @@ impl Visualize for GridMapMessage {
         sr.begin(PrimitiveType::Filled);
 
         for (c, v) in self.data.iter_cells() {
-            let color = Color::grayscale(v.value());
+            let color = Color::grayscale(1.0 - v.value());
 
             let x = self.position.x + c.column as f32 * self.resolution;
             let y = self.position.y + c.row as f32 * self.resolution;

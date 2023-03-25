@@ -1,7 +1,10 @@
-use common::robot::Observation;
-use nalgebra::{DMatrix, Matrix2, Vector2};
+use common::robot::{Observation, Pose};
+use nalgebra::{DMatrix, EuclideanNorm, Matrix2, Vector2};
 
-use super::math::{LogOdds, Probability};
+use super::{
+    math::{LogOdds, Probability},
+    ray::GridRayIterator,
+};
 
 #[derive(Clone)]
 pub struct Map {
@@ -45,7 +48,7 @@ impl Map {
             world_size,
             grid_size,
             resolution,
-            odds: GridData::new_fill(grid_size, Probability::new(0.8).log_odds()),
+            odds: GridData::new_fill(grid_size, Probability::new(0.5).log_odds()),
         }
     }
 
@@ -57,8 +60,75 @@ impl Map {
         self.position
     }
 
-    pub fn integrate(&mut self, observation: &Observation) {
-        *self.odds.get_mut(Cell::new(10, 20)) += Probability::new(0.01).log_odds();
+    /// Converts a position in the world into a grid-relative position. Note that the returned
+    /// value is not guaranteed to lie_within_ the bounds of this Map.
+    pub fn world_to_grid(&self, world: Vector2<f32>) -> Vector2<f32> {
+        (world - self.position) / self.resolution
+    }
+
+    pub fn integrate(&mut self, observation: &Observation, pose: Pose) {
+        let start = self.world_to_grid(pose.xy());
+
+        let points = observation.to_points(pose);
+
+        for m in &observation.measurements {
+            let end = Vector2::new(
+                pose.x + (pose.theta + m.angle as f32).cos() * m.distance as f32,
+                pose.y + (pose.theta + m.angle as f32).sin() * m.distance as f32,
+            );
+
+            let end = self.world_to_grid(end);
+
+            // println!("{} -> {}", start, end);
+
+            self.apply_measurement(start, end, m.distance as f32 / self.resolution, m.valid);
+        }
+    }
+
+    fn apply_measurement(
+        &mut self,
+        start: Vector2<f32>,
+        end: Vector2<f32>,
+        measured_distance: f32,
+        was_hit: bool,
+    ) {
+        // TODO: additional_steps below need to coincide with the threshold in the inverse sensor model (so that we correctly take the model into account)
+        for (cell, center) in
+            GridRayIterator::new(start.x, start.y, end.x, end.y, self.grid_size, 2)
+        {
+            // calculate the distance from the start to the center of this visited cell
+            let distance = start.apply_metric_distance(&center, &EuclideanNorm);
+
+            // update the log odds based on the inverse sensor model
+            *self.odds.get_mut(cell) +=
+                inverse_sensor_model(distance, measured_distance, was_hit, 2.0).log_odds();
+        }
+    }
+}
+
+fn inverse_sensor_model(
+    distance: f32,
+    measured_distance: f32,
+    was_hit: bool,
+    tolerance: f32,
+) -> Probability {
+    const P_FREE: Probability = Probability::new_unchecked(0.30);
+    const P_OCCUPPIED: Probability = Probability::new_unchecked(0.9);
+    const P_PRIOR: Probability = Probability::new_unchecked(0.5);
+
+    if !was_hit {
+        if distance < measured_distance {
+            return P_FREE;
+        } else {
+            return P_PRIOR;
+        }
+    }
+    if distance < measured_distance - tolerance / 2.0 {
+        P_FREE
+    } else if distance > measured_distance + tolerance / 2.0 {
+        P_PRIOR
+    } else {
+        P_OCCUPPIED
     }
 }
 
@@ -106,11 +176,15 @@ impl<T> GridData<T> {
 
     pub fn get(&self, cell: Cell) -> &T {
         &self.data[self.index(cell)]
+
+        // SAFETY: we assume the cell is created to be within bounds
+        // unsafe { self.data.get_unchecked(self.index(cell)) }
     }
 
     pub fn get_mut(&mut self, cell: Cell) -> &mut T {
         let index = self.index(cell);
         &mut self.data[index]
+        // unsafe { self.data.get_unchecked_mut(index) }
     }
 
     /// Returns a copy of this GridData with each element converted to `S` using the provided function.

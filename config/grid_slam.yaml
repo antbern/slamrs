@@ -17,10 +17,10 @@ nodes:
   topic_pose: "robot/pose"
   topic_map: "slam/map"
   config:
-    position: [-3.0, -3.0]
-    width: 6.0
-    height: 6.0
-    resolution: 0.05
+    position: [-2.0, -2.0]
+    width: 4.0
+    height: 4.0
+    resolution: 0.02
 
 
 - !Visualizer
@@ -55,7 +55,8 @@ nodes:
 
   parameters:
     wheel_base: 0.1
-    update_period: 0.2
+    update_period: 1.0
+    scanner_range: 0.5 #1.0
 
   scene:
   - !Rectangle {x: -1.0, y: -1.0, width: 2.0, height: 2.0}

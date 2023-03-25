@@ -35,7 +35,14 @@ impl From<Vector3<f32>> for Pose {
     }
 }
 
+impl Pose {
+    pub fn xy(&self) -> Vector2<f32> {
+        Vector2::new(self.x, self.y)
+    }
+}
+
 /// Contains all data for a single lidar scan (a complete revolution)
+/// Note that these measurements are in the robots local coordinate system.
 #[derive(Clone)]
 pub struct Observation {
     pub id: usize,
@@ -43,12 +50,12 @@ pub struct Observation {
 }
 
 impl Observation {
-    pub fn to_points(&self, origin: Pose) -> Vec<Point2<f32>> {
+    pub fn to_points(&self, origin: Pose) -> Vec<Vector2<f32>> {
         self.measurements
             .iter()
             .filter(|&m| m.valid)
             .map(|m| {
-                Point2::new(
+                Vector2::new(
                     origin.x + (origin.theta + m.angle as f32).cos() * m.distance as f32,
                     origin.y + (origin.theta + m.angle as f32).sin() * m.distance as f32,
                 )
@@ -58,7 +65,7 @@ impl Observation {
 
     pub fn to_matrix(&self, origin: Pose) -> Matrix2xX<f32> {
         // Not the most efficient implementation (since it creates two Vec's, but it works)
-        let vectors: Vec<Vector2<f32>> = self.to_points(origin).iter().map(|p| p.coords).collect();
+        let vectors: Vec<Vector2<f32>> = self.to_points(origin);
         if !vectors.is_empty() {
             Matrix2xX::from_columns(&vectors)
         } else {

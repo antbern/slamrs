@@ -32,7 +32,7 @@ impl GridMapSlam {
     }
 
     pub fn update(&mut self, observation: &Observation) {
-        self.map.integrate(observation);
+        self.map.integrate(observation, Pose::default());
     }
 
     pub fn estimated_pose(&self) -> Pose {
