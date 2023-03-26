@@ -4,7 +4,7 @@
 
 use embassy_executor::_export::StaticCell;
 use embassy_net::tcp::TcpSocket;
-use embassy_net::{Config, Ipv4Address, Stack, StackResources};
+use embassy_net::{Config, IpListenEndpoint, Ipv4Address, Stack, StackResources};
 
 use esp32_hal as hal;
 
@@ -13,12 +13,13 @@ use embassy_time::{Duration, Timer};
 use embedded_svc::wifi::{ClientConfiguration, Configuration, Wifi};
 use esp_backtrace as _;
 use esp_println::logger::init_logger;
-use esp_println::println;
+use esp_println::{print, println};
 use esp_wifi::initialize;
 use esp_wifi::wifi::{WifiController, WifiDevice, WifiEvent, WifiMode, WifiState};
 use hal::clock::{ClockControl, CpuClock};
-use hal::Rng;
+use hal::gpio::{AnyPin, Output, PushPull};
 use hal::{embassy, peripherals::Peripherals, prelude::*, timer::TimerGroup, Rtc};
+use hal::{Rng, IO};
 
 #[cfg(any(feature = "esp32c3", feature = "esp32c2", feature = "esp32c6"))]
 use hal::system::SystemExt;
@@ -50,6 +51,11 @@ fn main() -> ! {
     let mut rtc = Rtc::new(peripherals.RTC_CNTL);
     rtc.rwdt.disable();
 
+    let io = IO::new(peripherals.GPIO, peripherals.IO_MUX);
+    let mut led = io.pins.gpio2.into_push_pull_output().degrade();
+
+    led.set_high().unwrap();
+
     let timer = TimerGroup::new(peripherals.TIMG1, &clocks).timer0;
     initialize(timer, Rng::new(peripherals.RNG), &clocks).unwrap();
 
@@ -74,7 +80,7 @@ fn main() -> ! {
     executor.run(|spawner| {
         spawner.spawn(connection(controller)).ok();
         spawner.spawn(net_task(&stack)).ok();
-        spawner.spawn(task(&stack)).ok();
+        spawner.spawn(task(&stack, led)).ok();
     });
 }
 
@@ -120,7 +126,7 @@ async fn net_task(stack: &'static Stack<WifiDevice>) {
 }
 
 #[embassy_executor::task]
-async fn task(stack: &'static Stack<WifiDevice>) {
+async fn task(stack: &'static Stack<WifiDevice>, mut led: AnyPin<Output<PushPull>>) {
     let mut rx_buffer = [0; 4096];
     let mut tx_buffer = [0; 4096];
 
@@ -128,7 +134,10 @@ async fn task(stack: &'static Stack<WifiDevice>) {
         if stack.is_link_up() {
             break;
         }
-        Timer::after(Duration::from_millis(500)).await;
+        led.set_high().unwrap();
+        Timer::after(Duration::from_millis(250)).await;
+        led.set_low().unwrap();
+        Timer::after(Duration::from_millis(250)).await;
     }
 
     println!("Waiting to get IP address...");
@@ -137,47 +146,88 @@ async fn task(stack: &'static Stack<WifiDevice>) {
             println!("Got IP: {}", config.address);
             break;
         }
-        Timer::after(Duration::from_millis(500)).await;
+        led.set_high().unwrap();
+        Timer::after(Duration::from_millis(100)).await;
+        led.set_low().unwrap();
+        Timer::after(Duration::from_millis(400)).await;
     }
 
+    Timer::after(Duration::from_millis(1_000)).await;
+
+    let mut socket = TcpSocket::new(&stack, &mut rx_buffer, &mut tx_buffer);
+    socket.set_timeout(Some(embassy_net::SmolDuration::from_secs(10)));
+
     loop {
-        Timer::after(Duration::from_millis(1_000)).await;
+        println!("Wait for connection...");
+        let r = socket
+            .accept(IpListenEndpoint {
+                addr: None,
+                port: 8080,
+            })
+            .await;
+        println!("Connected...");
+        led.set_high().unwrap();
 
-        let mut socket = TcpSocket::new(&stack, &mut rx_buffer, &mut tx_buffer);
-
-        socket.set_timeout(Some(embassy_net::SmolDuration::from_secs(10)));
-
-        let remote_endpoint = (Ipv4Address::new(142, 250, 185, 115), 80);
-        println!("connecting...");
-        let r = socket.connect(remote_endpoint).await;
         if let Err(e) = r {
             println!("connect error: {:?}", e);
             continue;
         }
-        println!("connected!");
-        let mut buf = [0; 1024];
+
+        use embedded_io::asynch::Write;
+
+        let mut buffer = [0u8; 1024];
+        let mut pos = 0;
         loop {
-            use embedded_io::asynch::Write;
-            let r = socket
-                .write_all(b"GET / HTTP/1.0\r\nHost: www.mobile-j.de\r\n\r\n")
-                .await;
-            if let Err(e) = r {
-                println!("write error: {:?}", e);
-                break;
-            }
-            let n = match socket.read(&mut buf).await {
+            match socket.read(&mut buffer).await {
                 Ok(0) => {
                     println!("read EOF");
                     break;
                 }
-                Ok(n) => n,
+                Ok(len) => {
+                    let to_print =
+                        unsafe { core::str::from_utf8_unchecked(&buffer[..(pos + len)]) };
+
+                    if to_print.contains("\r\n\r\n") {
+                        print!("{}", to_print);
+                        println!();
+                        break;
+                    }
+
+                    pos += len;
+                }
                 Err(e) => {
                     println!("read error: {:?}", e);
                     break;
                 }
             };
-            println!("{}", core::str::from_utf8(&buf[..n]).unwrap());
         }
-        Timer::after(Duration::from_millis(3000)).await;
+
+        let r = socket
+            .write_all(
+                b"HTTP/1.0 200 OK\r\n\r\n\
+            <html>\
+                <body>\
+                    <h1>Hello Rust! Hello esp-wifi!</h1>\
+                </body>\
+            </html>\r\n\
+            ",
+            )
+            .await;
+        if let Err(e) = r {
+            println!("write error: {:?}", e);
+        }
+
+        let r = socket.flush().await;
+        if let Err(e) = r {
+            println!("flush error: {:?}", e);
+        }
+        Timer::after(Duration::from_millis(1000)).await;
+
+        socket.close();
+        println!("Connection terminated");
+        led.set_low().unwrap();
+        Timer::after(Duration::from_millis(1000)).await;
+
+        socket.abort();
     }
 }
