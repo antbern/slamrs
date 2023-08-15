@@ -51,12 +51,14 @@ impl Node for ControlsNode {
         let mut ctrl = Stop;
 
         if self.keyboard_enabled {
-            let input = ui.ctx().input();
-
-            let up = input.key_down(Key::W);
-            let left = input.key_down(Key::A);
-            let down = input.key_down(Key::S);
-            let right = input.key_down(Key::D);
+            let (up, left, down, right) = ui.ctx().input(|i| {
+                (
+                    i.key_down(Key::W),
+                    i.key_down(Key::A),
+                    i.key_down(Key::S),
+                    i.key_down(Key::D),
+                )
+            });
 
             ctrl = if up && left {
                 UpLeft

@@ -18,8 +18,8 @@ neato = {path = "./neato"}
 simulator = {path = "./simulator"}
 slam = {path = "./slam"}
 
-egui = "0.20.0"
-glow = "0.11"
+egui = "0.22.0"
+glow = "0.12"
 nalgebra = {version = "0.32.1", features = ["serde-serialize"] }
 anyhow = "1.0.68"
 

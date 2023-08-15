@@ -127,7 +127,7 @@ impl App {
         );
 
         let scroll = if ui.rect_contains_pointer(rect) {
-            ui.ctx().input().scroll_delta.y / 50.0
+            ui.ctx().input(|i| i.scroll_delta.y / 50.0)
         } else {
             0.0
         };

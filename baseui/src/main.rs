@@ -3,7 +3,7 @@
 
 // When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]
-fn main() {
+fn main() -> Result<(), eframe::Error> {
     // Log to stdout (if you run with `RUST_LOG=debug`).
 
     use baseui::config::Config;
@@ -22,7 +22,7 @@ fn main() {
     let native_options = eframe::NativeOptions {
         initial_window_size: Some(egui::vec2(1280.0, 720.0)),
         resizable: true,
-        multisampling: 8,
+        //multisampling: 8, // does not seem to work on my laptop
         renderer: eframe::Renderer::Glow,
         ..Default::default()
     };
@@ -38,7 +38,7 @@ fn main() {
             cc.egui_ctx.set_style(style);
             Box::new(baseui::App::new(cc, config))
         }),
-    );
+    )
 }
 
 // when compiling to web using trunk.
