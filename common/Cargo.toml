@@ -13,5 +13,12 @@ graphics = {workspace = true}
 # inherited dependencies
 egui = {workspace = true}
 nalgebra = {workspace = true}
+statrs = {workspace = true}
+rand = {workspace = true}
+
 
 # special dependencies for this crate
+
+
+[dev-dependencies]
+approx = "0.5.1"

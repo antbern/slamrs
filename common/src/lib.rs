@@ -3,6 +3,7 @@ use std::{fmt::Display, time::Duration};
 pub mod node;
 pub mod robot;
 pub mod world;
+pub mod math;
 
 /// Keeps track of performance metrics and incremental updates the values. In milliseconds.
 pub struct PerfStats {
@@ -41,6 +42,8 @@ impl PerfStats {
 
     pub fn update(&mut self, duration: Duration) {
         let msecs = duration.as_secs_f64() * 1000.0;
+
+        // Inspiration taken from https://datagenetics.com/blog/november22017/index.html
 
         if self.sample_count > 0 {
             // mean

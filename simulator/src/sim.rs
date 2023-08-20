@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use common::robot::{Command, Measurement, Observation, Pose};
+use common::robot::{Command, Measurement, Observation, Odometry, Pose};
 use egui::mutex::RwLock;
 use nalgebra::{Point2, Vector2};
 use pubsub::{Publisher, Subscription};
@@ -10,7 +10,7 @@ use crate::scene::ray::{Intersect, Ray, Scene};
 
 pub struct Simulator {
     pub_obs: Publisher<Observation>,
-    pub_pose: Publisher<Pose>,
+    pub_obs_odometry: Publisher<(Observation, Odometry)>,
     sub_cmd: Subscription<Command>,
     scene: Arc<RwLock<Scene>>,
     parameters: SimParameters,
@@ -20,6 +20,7 @@ pub struct Simulator {
     active: bool,
     scan_update_timer: f32,
     scan_counter: usize,
+    wheel_motion_accumulator: (f32, f32),
 }
 
 #[derive(Clone, Copy, Deserialize)]
@@ -42,14 +43,14 @@ impl Default for SimParameters {
 impl Simulator {
     pub fn new(
         pub_obs: Publisher<Observation>,
-        pub_pose: Publisher<Pose>,
+        pub_obs_odometry: Publisher<(Observation, Odometry)>,
         sub_cmd: Subscription<Command>,
         scene: Arc<RwLock<Scene>>,
         parameters: SimParameters,
     ) -> Self {
         Self {
             pub_obs,
-            pub_pose,
+            pub_obs_odometry,
             sub_cmd,
             scene,
             parameters,
@@ -58,6 +59,7 @@ impl Simulator {
             active: true,
             scan_update_timer: 0.0,
             scan_counter: 0,
+            wheel_motion_accumulator: (0.0, 0.0),
         }
     }
 
@@ -80,7 +82,14 @@ impl Simulator {
 
         if self.active {
             self.scan_update_timer += dt;
+           
+            // make the robot move
+            self.motion_model(self.wheel_velocity.x * dt, self.wheel_velocity.y * dt);
 
+            self.wheel_motion_accumulator.0 += self.wheel_velocity.x * dt;
+            self.wheel_motion_accumulator.1 += self.wheel_velocity.y * dt;
+            
+            // if it's time for a scan, perform it!
             if self.scan_update_timer > self.parameters.update_period {
                 self.scan_update_timer -= self.parameters.update_period;
 
@@ -117,13 +126,25 @@ impl Simulator {
 
                 self.pub_obs.publish(Arc::new(Observation {
                     id: self.scan_counter,
-                    measurements: meas,
+                    measurements: meas.clone(),
                 }));
+
+                self.pub_obs_odometry.publish(Arc::new((
+                    Observation {
+                        id: self.scan_counter,
+                        measurements: meas,
+                    },
+                    Odometry::new(
+                        self.wheel_motion_accumulator.0 as f32,
+                        self.wheel_motion_accumulator.1 as f32,
+                    ),
+                )));
+
+                // reset the accumulator
+                self.wheel_motion_accumulator = (0.0, 0.0);
+
                 self.scan_counter += 1;
             }
-
-            // make the robot move
-            self.motion_model(self.wheel_velocity.x * dt, self.wheel_velocity.y * dt);
         }
     }
 

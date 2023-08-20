@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use common::{
     node::{Node, NodeConfig},
-    robot::{Observation, Pose},
+    robot::{Observation, Odometry, Pose},
 };
 use nalgebra::Vector2;
 use pubsub::{Publisher, Subscription};
@@ -10,12 +10,12 @@ use serde::Deserialize;
 
 use super::{
     map::GridData,
-    math::Probability,
     slam::{GridMapSlam, GridMapSlamConfig},
 };
+use common::math::Probability;
 
 pub struct GridMapSlamNode {
-    sub_obs: Subscription<Observation>,
+    sub_obs_odom: Subscription<(Observation, Odometry)>,
     pub_pose: Publisher<Pose>,
     pub_map: Publisher<GridMapMessage>,
     slam: GridMapSlam,
@@ -25,7 +25,7 @@ pub struct GridMapSlamNode {
 #[derive(Deserialize)]
 pub struct GridMapSlamNodeConfig {
     topic_pose: String,
-    topic_observation: String,
+    topic_observation_odometry: String,
     topic_map: String,
     config: GridMapSlamConfig,
 }
@@ -33,7 +33,7 @@ pub struct GridMapSlamNodeConfig {
 impl NodeConfig for GridMapSlamNodeConfig {
     fn instantiate(&self, pubsub: &mut pubsub::PubSub) -> Box<dyn Node> {
         Box::new(GridMapSlamNode {
-            sub_obs: pubsub.subscribe(&self.topic_observation),
+            sub_obs_odom: pubsub.subscribe(&self.topic_observation_odometry),
             pub_pose: pubsub.publish(&self.topic_pose),
             pub_map: pubsub.publish(&self.topic_map),
             slam: GridMapSlam::new(&self.config),
@@ -44,8 +44,8 @@ impl NodeConfig for GridMapSlamNodeConfig {
 
 impl Node for GridMapSlamNode {
     fn update(&mut self) {
-        if let Some(o) = self.sub_obs.try_recv() {
-            self.slam.update(&o);
+        if let Some(o) = self.sub_obs_odom.try_recv() {
+            self.slam.update(&o.0, o.1);
 
             self.pub_pose.publish(Arc::new(self.slam.estimated_pose()));
 

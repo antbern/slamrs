@@ -1,10 +1,8 @@
 use common::robot::{Observation, Pose};
 use nalgebra::{DMatrix, EuclideanNorm, Matrix2, Vector2};
 
-use super::{
-    math::{LogOdds, Probability},
-    ray::GridRayIterator,
-};
+use super::ray::GridRayIterator;
+use common::math::{LogOdds, LogProbability, Probability};
 
 #[derive(Clone)]
 pub struct Map {
@@ -61,15 +59,20 @@ impl Map {
     }
 
     /// Converts a position in the world into a grid-relative position. Note that the returned
-    /// value is not guaranteed to lie_within_ the bounds of this Map.
+    /// value is not guaranteed to lie _within_ the bounds of this Map.
     pub fn world_to_grid(&self, world: Vector2<f32>) -> Vector2<f32> {
         (world - self.position) / self.resolution
     }
 
+    pub fn is_valid(&self, grid: Vector2<f32>) -> bool {
+        !((grid.x < 0.0)
+            || (grid.y < 0.0)
+            || (grid.x as usize > self.grid_size.x)
+            || (grid.y as usize > self.grid_size.y))
+    }
+
     pub fn integrate(&mut self, observation: &Observation, pose: Pose) {
         let start = self.world_to_grid(pose.xy());
-
-        let points = observation.to_points(pose);
 
         for m in &observation.measurements {
             let end = Vector2::new(
@@ -103,6 +106,45 @@ impl Map {
             *self.odds.get_mut(cell) +=
                 inverse_sensor_model(distance, measured_distance, was_hit, 2.0).log_odds();
         }
+    }
+    /// Probability to assign when hit, random is the complement (1-Z_HIT)
+    const Z_HIT: f64 = 0.9;
+    const SENSOR_MAXDIST: f64 = 1.0; // Meters
+
+    /// Computes the probability of the observation given the map and the pose: p(z | m, x)
+    /// TODO: include the smoothed binarized version of the map here instead
+    pub(crate) fn probability_of(&self, z: &Observation, pose: Pose) -> LogProbability {
+        let mut product = LogProbability::new(1.0);
+
+        for m in &z.measurements {
+            if !m.valid {
+                continue;
+            }
+            let end = Vector2::new(
+                pose.x + (pose.theta + m.angle as f32).cos() * m.distance as f32,
+                pose.y + (pose.theta + m.angle as f32).sin() * m.distance as f32,
+            );
+
+            let end = self.world_to_grid(end);
+
+            if self.is_valid(end) {
+                let gridx = end.x as usize;
+                let gridy = end.y as usize;
+                let cell = Cell::new(gridx, gridy);
+
+                let odds = self.odds.get(cell);
+
+                // if the probability neither points to free or occupied, just treat as uniform
+                if odds.probability().value() == 0.5 {
+                    product *= (1.0 / Self::SENSOR_MAXDIST);
+                } else {
+                    product *= (Self::Z_HIT * odds.probability().value()
+                        + (1.0 - Self::Z_HIT) * 1.0 / Self::SENSOR_MAXDIST);
+                }
+            }
+        }
+
+        product
     }
 }
 

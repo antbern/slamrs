@@ -31,7 +31,7 @@ pub struct SimulatorNode {
 #[derive(Deserialize)]
 pub struct SimulatorNodeConfig {
     topic_observation: String,
-    topic_pose: String,
+    topic_observation_odometry: String,
     topic_command: String,
     running: bool,
 
@@ -83,7 +83,7 @@ impl NodeConfig for SimulatorNodeConfig {
             scene: scene.clone(),
             sim: Arc::new(Mutex::new(Simulator::new(
                 pubsub.publish(&self.topic_observation),
-                pubsub.publish(&self.topic_pose),
+                pubsub.publish(&self.topic_observation_odometry),
                 pubsub.subscribe(&self.topic_command),
                 scene,
                 self.parameters,
