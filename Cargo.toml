@@ -30,6 +30,8 @@ serde_yaml = "0.9"
 rand = "0.8.5"
 statrs = "0.16.0"
 
+web-time = "0.2.0" # for using time::instant on wasm
+
 # [profile.release]
 # opt-level = 2 # fast and small wasm
 

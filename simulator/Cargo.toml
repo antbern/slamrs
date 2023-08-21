@@ -18,3 +18,4 @@ nalgebra = {workspace = true}
 serde = {workspace = true}
 
 # special dependencies for this crate
+web-time = { workspace = true }

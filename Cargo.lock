@@ -137,8 +137,10 @@ dependencies = [
  "console_error_panic_hook",
  "eframe",
  "egui",
+ "getrandom",
  "glow",
  "graphics",
+ "log",
  "nalgebra 0.32.1",
  "neato",
  "pubsub",
@@ -149,6 +151,7 @@ dependencies = [
  "tracing-subscriber",
  "tracing-wasm",
  "wasm-bindgen-futures",
+ "web-time",
 ]
 
 [[package]]
@@ -649,8 +652,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c05aeb6a22b8f62540c194aac980f2115af067bfe15a0734d7277a768d396b31"
 dependencies = [
  "cfg-if",
+ "js-sys",
  "libc",
  "wasi",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -1747,6 +1752,7 @@ dependencies = [
  "nalgebra 0.32.1",
  "pubsub",
  "serde",
+ "web-time",
 ]
 
 [[package]]
@@ -2267,6 +2273,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bcda906d8be16e728fd5adc5b729afad4e444e106ab28cd1c7256e54fa61510f"
 dependencies = [
  "js-sys",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "web-time"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "19353897b48e2c4d849a2d73cb0aeb16dc2be4e00c565abfc11eb65a806e47de"
+dependencies = [
+ "js-sys",
+ "once_cell",
  "wasm-bindgen",
 ]
 
