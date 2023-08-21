@@ -30,15 +30,17 @@ impl Program {
             let shaders: Vec<_> = shader_sources
                 .iter()
                 .map(|(shader_type, shader_source)| {
+                    let source = format!("{}\n{}", shader_version, shader_source);
                     let shader = gl
                         .create_shader(*shader_type)
                         .expect("Cannot create shader");
-                    gl.shader_source(shader, &format!("{}\n{}", shader_version, shader_source));
+                    gl.shader_source(shader, &source);
                     gl.compile_shader(shader);
                     assert!(
                         gl.get_shader_compile_status(shader),
-                        "Failed to compile shader of type {shader_type}: {}",
-                        gl.get_shader_info_log(shader)
+                        "Failed to compile shader of type {shader_type}: {}, source: {}",
+                        gl.get_shader_info_log(shader),
+                        &source
                     );
                     gl.attach_shader(program, shader);
                     shader
