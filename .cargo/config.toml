@@ -1,7 +1,14 @@
 # From https://lesleylai.info/en/improve-rust-link-time-with-lld/
-[build]
+[target.'cfg(not(target_arch = "wasm32"))']
 rustflags = [
   "-C", "link-arg=-fuse-ld=lld", 
   "-Clink-arg=-Wl,--no-rosegment" # needed so that flamegraph generates accurate informaiton
 ]
+
+
+# rustc-wrapper = "sccache"
+
+# For wasm, we do not provide any rustflags (use the default linker)
+[target.'cfg(target_arch = "wasm32")']
+rustflags = []
 

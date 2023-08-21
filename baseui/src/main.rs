@@ -44,21 +44,26 @@ fn main() -> Result<(), eframe::Error> {
 // when compiling to web using trunk.
 #[cfg(target_arch = "wasm32")]
 fn main() {
-    // Make sure panics are logged using `console.error`.
-    console_error_panic_hook::set_once();
+    use baseui::config::Config;
+
+    // Redirect `log` message to `console.log` and friends:
+    eframe::WebLogger::init(log::LevelFilter::Debug).ok();
 
     // Redirect tracing to console.log and friends:
     tracing_wasm::set_as_global_default();
 
+    let config = Config::from_contents(include_str!("../../config/grid_slam.yaml")).expect("Could not parse hard-coded config file!");
+
     let web_options = eframe::WebOptions::default();
 
     wasm_bindgen_futures::spawn_local(async {
-        eframe::start_web(
-            "the_canvas_id", // hardcode it
-            web_options,
-            Box::new(|cc| Box::new(baseui::App::new(cc))),
-        )
-        .await
-        .expect("failed to start eframe");
+        eframe::WebRunner::new()
+            .start(
+                "the_canvas_id", // hardcode it
+                web_options,
+                Box::new(|cc| Box::new(baseui::App::new(cc, config))),
+            )
+            .await
+            .expect("failed to start eframe");
     });
 }
