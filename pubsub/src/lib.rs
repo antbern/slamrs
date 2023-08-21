@@ -3,11 +3,9 @@ use std::{
     collections::HashMap,
     marker::PhantomData,
     sync::{
-        atomic::{AtomicBool, Ordering},
         mpsc::{self, channel, Receiver, Sender},
         Arc,
     },
-    thread::{self, JoinHandle},
 };
 
 /// A simple publish/subscribe system that allows sending and subscribing to values on different topics.
@@ -176,55 +174,99 @@ impl PubSub {
         while self.signal.try_recv().is_ok() {}
     }
 
-    /// Starts a separate thread continously calling tick()
-    pub fn start_background_thread(
-        self,
-        waker: impl FnMut() + Send + 'static,
-    ) -> PubSubThreadHandle {
-        PubSubThreadHandle::new(self, waker)
+    /// Creates a ticker that calls tick() continously when updated.
+    /// On desktop this spawns a background thread, on wasm32 it runs the tick
+    /// method directly on the main thread.
+    pub fn to_ticker(self, waker: impl FnMut() + Send + 'static) -> ticker::PubSubTicker {
+        ticker::PubSubTicker::new(self, waker)
     }
 }
 
-pub struct PubSubThreadHandle {
-    handle: JoinHandle<anyhow::Result<()>>,
-    running: Arc<AtomicBool>,
-}
+#[cfg(target_arch = "wasm32")]
+pub mod ticker {
+    use crate::PubSub;
 
-impl PubSubThreadHandle {
-    fn new(pubsub: PubSub, waker: impl FnMut() + Send + 'static) -> Self {
-        let running = Arc::new(AtomicBool::new(true));
-
-        let handle = thread::spawn({
-            let running = running.clone();
-            move || Self::tick_thread(pubsub, running, waker)
-        });
-
-        Self { handle, running }
+    pub struct PubSubTicker {
+        pubsub: PubSub,
     }
 
-    pub fn stop(self) {
-        self.running.store(false, Ordering::Relaxed);
-
-        self.handle.join().unwrap().unwrap();
-    }
-
-    fn tick_thread(
-        mut pubsub: PubSub,
-        running: Arc<AtomicBool>,
-        mut waker: impl FnMut() + Send + 'static,
-    ) -> anyhow::Result<()> {
-        while running.load(Ordering::Relaxed) {
-            // block on the signal
-            pubsub.signal.recv()?;
-
-            // process messages
-            pubsub.tick();
-
-            // call the waker to notify anyone listening about the newly available messages
-            waker();
+    impl PubSubTicker {
+        pub fn new(pubsub: PubSub, _waker: impl FnMut() + Send + 'static) -> Self {
+            // waker is intentionally unused since we will not "wake up" to do
+            // repaint on publish either way
+            Self { pubsub }
         }
 
-        Ok(())
+        pub fn tick(&mut self) {
+            self.pubsub.tick()
+        }
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub mod ticker {
+    use crate::PubSub;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::Arc;
+    use std::thread::{self, JoinHandle};
+
+    pub struct PubSubTicker {
+        thread_handle: PubSubThreadHandle,
+    }
+
+    impl PubSubTicker {
+        pub fn new(pubsub: PubSub, waker: impl FnMut() + Send + 'static) -> Self {
+            Self {
+                thread_handle: PubSubThreadHandle::new(pubsub, waker),
+            }
+        }
+
+        pub fn tick(&mut self) {
+            // do nothing on desktop
+        }
+    }
+
+    pub struct PubSubThreadHandle {
+        handle: JoinHandle<anyhow::Result<()>>,
+        running: Arc<AtomicBool>,
+    }
+
+    impl PubSubThreadHandle {
+        fn new(pubsub: PubSub, waker: impl FnMut() + Send + 'static) -> Self {
+            let running = Arc::new(AtomicBool::new(true));
+
+            let handle = thread::spawn({
+                let running = running.clone();
+                move || Self::tick_thread(pubsub, running, waker)
+            });
+
+            Self { handle, running }
+        }
+
+        pub fn stop(self) {
+            self.running.store(false, Ordering::Relaxed);
+
+            self.handle.join().unwrap().unwrap();
+        }
+
+        fn tick_thread(
+            mut pubsub: PubSub,
+            running: Arc<AtomicBool>,
+            mut waker: impl FnMut() + Send + 'static,
+        ) -> anyhow::Result<()> {
+            while running.load(Ordering::Relaxed) {
+                // block on the signal
+                pubsub.signal.recv()?;
+
+                // process messages
+                pubsub.tick();
+
+                // call the waker to notify anyone listening about the newly available messages
+                waker();
+            }
+
+            Ok(())
+        }
     }
 }
 

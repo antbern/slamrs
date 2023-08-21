@@ -24,6 +24,8 @@ serde = {workspace = true}
 serde_yaml = {workspace = true}
 log = {workspace = true}
 
+web-time = { workspace = true }
+
 pubsub = {workspace = true}
 graphics = {workspace = true}
 common = {workspace = true}
