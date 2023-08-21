@@ -12,6 +12,7 @@ use crate::node::{
     mouse_position::MousePositionNodeConfig, shape_rendering::ShapeRenderingNodeConfig,
 };
 
+#[cfg(not(target_arch = "wasm32"))]
 use neato::FileLoaderNodeConfig;
 
 #[derive(Deserialize, Default)]
@@ -32,6 +33,7 @@ pub enum NodeEnum {
     Controls(ControlsNodeConfig),
     MousePosition(MousePositionNodeConfig),
     ShapeTest(ShapeRenderingNodeConfig),
+    #[cfg(not(target_arch = "wasm32"))]
     FileLoader(FileLoaderNodeConfig),
     IcpPointMapper(IcpPointMapNodeConfig),
     Visualizer(FrameVizualizerNodeConfig),
@@ -46,6 +48,7 @@ impl NodeEnum {
             Controls(c) => c.instantiate(pubsub),
             MousePosition(c) => c.instantiate(pubsub),
             ShapeTest(c) => c.instantiate(pubsub),
+            #[cfg(not(target_arch = "wasm32"))]
             FileLoader(c) => c.instantiate(pubsub),
             IcpPointMapper(c) => c.instantiate(pubsub),
             Visualizer(c) => c.instantiate(pubsub),
@@ -59,6 +62,10 @@ impl Config {
         // read file contents
         let contents = fs::read_to_string(path)?;
 
+        Self::from_contents(&contents)
+    }
+
+    pub fn from_contents(contents: &str) -> anyhow::Result<Self> {
         serde_yaml::from_str(&contents).map_err(|e| anyhow!(e))
     }
 

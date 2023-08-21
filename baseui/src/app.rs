@@ -1,4 +1,5 @@
-use std::{sync::Arc, time::Instant};
+use std::{sync::Arc, time::Duration};
+use web_time::Instant;
 
 use crate::config::Config;
 use common::{node::Node, world::WorldObj, PerfStats};
@@ -7,10 +8,10 @@ use egui::{mutex::Mutex, Label, Pos2, RichText, Sense, Vec2};
 use graphics::{camera::Camera, shaperenderer::ShapeRenderer};
 use nalgebra::{Matrix4, Point2};
 
-use pubsub::{PubSub, PubSubThreadHandle};
+use pubsub::{ticker::PubSubTicker, PubSub};
 
 pub struct App {
-    _pubsub: PubSubThreadHandle,
+    pubsub_ticker: PubSubTicker,
     nodes: Vec<Box<dyn Node>>,
 
     /// Behind an `Arc<Mutex<…>>` so we can pass it to [`egui::PaintCallback`] and paint later.
@@ -42,7 +43,7 @@ impl App {
 
         Self {
             nodes,
-            _pubsub: pubsub.start_background_thread(move || ctx.request_repaint()),
+            pubsub_ticker: pubsub.to_ticker(move || ctx.request_repaint()),
             world_renderer: Arc::new(Mutex::new(WorldRenderer::new(gl))),
             stats: PerfStats::new(),
         }
@@ -53,7 +54,15 @@ impl eframe::App for App {
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        #[cfg(target_arch = "wasm32")]
+        // On WASM the pubsub does not run in the background so we need to continously
+        // request repaint to keep the simulation and pubsub system running
+        ctx.request_repaint_after(Duration::from_millis((1.0 / 30.0 * 1000.0) as u64));
+
         let start_time = Instant::now();
+
+        self.pubsub_ticker.tick();
+
         // Examples of how to create different panels and windows.
         // Pick whichever suits you.
         // Tip: a good default choice is to just keep the `CentralPanel`.

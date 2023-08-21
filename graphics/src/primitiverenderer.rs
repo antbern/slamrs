@@ -127,21 +127,22 @@ impl PrimitiveRenderer {
             
             uniform mat4 u_projModelView;
             
-            varying vec4 v_Color;
+            out vec4 v_Color;
             void main(){
                 // output the final vertex position
                 gl_Position = u_projModelView * position;
                     
                 v_Color = vec4(color.xyz, 1.0);
-            };
+            }
         "#,
             r#"
+            precision mediump float;
             layout(location = 0) out vec4 color;
-
-            varying vec4 v_Color;
+    
+            in vec4 v_Color;
             void main(){
                 color = v_Color;
-            };
+            }
             "#,
         );
 

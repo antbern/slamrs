@@ -1,7 +1,17 @@
 # From https://lesleylai.info/en/improve-rust-link-time-with-lld/
-[build]
+[target.'cfg(not(target_arch = "wasm32"))']
 rustflags = [
   "-C", "link-arg=-fuse-ld=lld", 
   "-Clink-arg=-Wl,--no-rosegment" # needed so that flamegraph generates accurate informaiton
 ]
+
+
+# rustc-wrapper = "sccache"
+
+# For wasm, we use the default linker, but need to include unsable api
+[target.'cfg(target_arch = "wasm32")']
+# clipboard api is still unstable, so web-sys requires the below flag to be passed for copy (ctrl + c) to work
+# https://rustwasm.github.io/docs/wasm-bindgen/web-sys/unstable-apis.html
+# check status at https://developer.mozilla.org/en-US/docs/Web/API/Clipboard#browser_compatibility
+rustflags = ["--cfg=web_sys_unstable_apis"]
 
