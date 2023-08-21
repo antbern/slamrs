@@ -4,7 +4,7 @@ name: Github Pages
 on:
   push:
     branches:
-      - master
+      - main
 # to only run when you do a new github release, comment out above part and uncomment the below trigger.
 # on:
 #   release:
@@ -18,7 +18,7 @@ jobs:
   build-github-pages:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2 # repo checkout
+      - uses: actions/checkout@v3 # repo checkout
       - uses: actions-rs/toolchain@v1 # get rust toolchain for wasm
         with:
           profile: minimal
@@ -26,7 +26,7 @@ jobs:
           target: wasm32-unknown-unknown
           override: true
       - name: Rust Cache # cache the rust build artefacts
-        uses: Swatinem/rust-cache@v1
+        uses: Swatinem/rust-cache@v2
       - name: Download and install Trunk binary
         run: wget -qO- https://github.com/thedodd/trunk/releases/latest/download/trunk-x86_64-unknown-linux-gnu.tar.gz | tar -xzf-
       - name: Build # build
@@ -35,11 +35,12 @@ jobs:
         # this is necessary for github pages where the site is deployed to username.github.io/repo_name and all files must be requested
         # relatively as eframe_template/favicon.ico. if we skip public-url option, the href paths will instead request username.github.io/favicon.ico which
         # will obviously return error 404 not found.
-        run: ./trunk build --release --public-url "${GITHUB_REPOSITORY#*/}"
+        run: ./trunk build baseui/index.html --release --public-url "${GITHUB_REPOSITORY#*/}"
       - name: Deploy
         uses: JamesIves/github-pages-deploy-action@v4
         with:
-          folder: dist
+          folder: baseui/dist
+          clean: true
           # this option will not maintain any history of your previous pages deployment
           # set to false if you want all page build to be committed to your gh-pages branch history
           single-commit: true

@@ -8,7 +8,10 @@ rustflags = [
 
 # rustc-wrapper = "sccache"
 
-# For wasm, we do not provide any rustflags (use the default linker)
+# For wasm, we use the default linker, but need to include unsable api
 [target.'cfg(target_arch = "wasm32")']
-rustflags = []
+# clipboard api is still unstable, so web-sys requires the below flag to be passed for copy (ctrl + c) to work
+# https://rustwasm.github.io/docs/wasm-bindgen/web-sys/unstable-apis.html
+# check status at https://developer.mozilla.org/en-US/docs/Web/API/Clipboard#browser_compatibility
+rustflags = ["--cfg=web_sys_unstable_apis"]
 
