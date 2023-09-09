@@ -146,7 +146,7 @@ impl Odometry {
         // TODO: should probably normalize the angle here... or at least calculate the shortest
         // distance between the angles
         let angle_distance = math::angle_diff(initial_pose.theta.into(), new_pose.theta.into());
-        
+
         // Since the pdf is not really a probability, we will do an unchecked initialization here
         // TODO: improve!
         LogProbability::new_unchecked(self.distribution_center.pdf(center_distance as f64))
