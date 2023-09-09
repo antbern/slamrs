@@ -199,6 +199,7 @@ pub mod ticker {
         pub fn tick(&mut self) {
             self.pubsub.tick()
         }
+        pub fn stop(self) {}
     }
 }
 

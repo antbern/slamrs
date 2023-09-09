@@ -52,7 +52,8 @@ fn main() {
     // Redirect tracing to console.log and friends:
     tracing_wasm::set_as_global_default();
 
-    let config = Config::from_contents(include_str!("../../config/grid_slam.yaml")).expect("Could not parse hard-coded config file!");
+    let config = Config::default();
+
 
     let web_options = eframe::WebOptions::default();
 

@@ -59,10 +59,12 @@ impl eframe::App for App {
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         #[cfg(target_arch = "wasm32")]
-        // On WASM the pubsub does not run in the background so we need to continously
-        // request repaint to keep the simulation and pubsub system running
-        ctx.request_repaint_after(Duration::from_millis((1.0 / 30.0 * 1000.0) as u64));
-
+        {
+            use std::time::Duration;
+            // On WASM the pubsub does not run in the background so we need to continously
+            // request repaint to keep the simulation and pubsub system running
+            ctx.request_repaint_after(Duration::from_millis((1.0 / 30.0 * 1000.0) as u64));
+        }
         let start_time = Instant::now();
 
         self.pubsub_ticker.tick();
