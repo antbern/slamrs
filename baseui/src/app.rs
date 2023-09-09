@@ -1,4 +1,4 @@
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 use web_time::Instant;
 
 use crate::config::Config;
@@ -48,7 +48,7 @@ impl App {
             pubsub_ticker: pubsub.to_ticker(move || ctx.request_repaint()),
             world_renderer: Arc::new(Mutex::new(WorldRenderer::new(gl))),
             config_editor: ConfigEditor::new(),
-            config_editor_visible: false,
+            config_editor_visible: true,
             stats: PerfStats::new(),
         }
     }
@@ -66,11 +66,6 @@ impl eframe::App for App {
         let start_time = Instant::now();
 
         self.pubsub_ticker.tick();
-
-        // Examples of how to create different panels and windows.
-        // Pick whichever suits you.
-        // Tip: a good default choice is to just keep the `CentralPanel`.
-        // For inspiration and more examples, go to https://emilk.github.io/egui
 
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             // The top panel is often a good place for a menu bar:
@@ -122,12 +117,11 @@ impl eframe::App for App {
                     ui.separator();
 
                     if let Some(config) = &self.config_editor.draw(ui) {
-                        // TODO: make the disconect less abrupt
-                        //
+                        // terminate and drop all the nodes
                         for n in &mut self.nodes {
                             n.terminate();
                         }
-                        self.nodes.clear(); // drop the nodes
+                        self.nodes.clear();
 
                         let mut pubsub = PubSub::new();
                         self.nodes = config.instantiate_nodes(&mut pubsub);

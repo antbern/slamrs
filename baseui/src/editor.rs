@@ -25,7 +25,10 @@ nodes:
 "#,
             ),
             confirm_open: false,
-            presets: vec![("grid_slam", include_str!("../../config/grid_slam.yaml"))],
+            presets: vec![
+                ("Shape Test", include_str!("../../config/shape_test.yaml")),
+                ("Grid Slam", include_str!("../../config/grid_slam.yaml")),
+            ],
             parsed_config: None,
         };
         s.parse_source();
@@ -65,7 +68,7 @@ nodes:
         if let Some(parsed_config) = &self.parsed_config {
             match parsed_config {
                 Ok(c) => {
-                    ui.label(format!("OK: {} nodes", c.nodes.len()));
+                    ui.label(format!("OK ({} nodes)", c.nodes.len()));
                 }
                 Err(e) => {
                     ui.label(format!("ERR:\n{}", e));

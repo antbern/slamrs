@@ -3,7 +3,7 @@ use std::{
     collections::HashMap,
     marker::PhantomData,
     sync::{
-        mpsc::{self, channel, Receiver, Sender},
+        mpsc::{self, channel, Receiver, SendError, Sender},
         Arc,
     },
 };
@@ -93,8 +93,9 @@ pub struct Publisher<T: Any + Send + Sync + 'static> {
 impl<T: Any + Send + Sync + 'static> Publisher<T> {
     /// Publishes a value wrapped in an `Arc` to the topic.
     pub fn publish(&mut self, value: Arc<T>) {
-        self.send.send(value).unwrap(); // TODO: how should we deal with Disconnections?
-        self.signal.send(Signal {}).unwrap();
+        // if the other end is closed or there was an error, ignore
+        _ = self.send.send(value);
+        _ = self.signal.send(Signal {});
     }
 
     pub fn topic(&self) -> &str {
@@ -159,14 +160,12 @@ impl PubSub {
 
     /// Proceses and distributes messages to all subscribers.
     pub fn tick(&mut self) {
-        for (_topic, t) in self.topics.iter() {
+        for (_topic, t) in self.topics.iter_mut() {
             // read all the incoming messages and distribute them by cloning the Arc's
 
             while let Ok(v) = t.incoming_recv.try_recv() {
-                for s in t.outgoing.iter() {
-                    // TODO: handle closing the subsciptions and thus the channel itself.
-                    s.send(v.clone()).unwrap();
-                }
+                // iterate over all outgoing, dropping any chanels that have been disconnected
+                t.outgoing.retain_mut(|s| s.send(v.clone()).is_ok());
             }
 
             // empty all signals as well
@@ -264,15 +263,14 @@ pub mod ticker {
                 loop {
                     let result = pubsub.signal.recv_timeout(Duration::from_millis(500));
                     if !running.load(Ordering::Relaxed) {
+                        println!("Stopping Tick Thread");
                         break 'outer;
                     }
 
                     match result {
-                        Err(std::sync::mpsc::RecvTimeoutError::Timeout) => break,
-                        other => {
-                            other?;
-                            break;
-                        }
+                        Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
+                        Err(e) => return Err(e.into()),
+                        _ => break,
                     };
                 }
 

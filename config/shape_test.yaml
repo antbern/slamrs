@@ -1,0 +1,7 @@
+settings:
+  headless: false
+
+nodes:
+
+- !MousePosition
+- !ShapeTest

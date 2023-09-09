@@ -20,7 +20,7 @@ pub struct SimulatorNode {
     running: bool,
 }
 
-#[derive(Clone,Deserialize)]
+#[derive(Clone, Deserialize)]
 pub struct SimulatorNodeConfig {
     topic_observation: String,
     topic_observation_odometry: String,
@@ -33,7 +33,7 @@ pub struct SimulatorNodeConfig {
     parameters: SimParameters,
 }
 
-#[derive(Clone,Deserialize)]
+#[derive(Clone, Deserialize)]
 enum SceneObject {
     Line {
         x1: f32,
@@ -111,7 +111,9 @@ impl Node for SimulatorNode {
         // TODO: draw the robot position (if enabled)
     }
 
-    fn terminate(&mut self) {}
+    fn terminate(&mut self) {
+        self.simulator_loop.tick(false);
+    }
 }
 
 #[cfg(target_arch = "wasm32")]
