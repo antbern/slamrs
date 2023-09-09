@@ -1,9 +1,9 @@
 use std::{fmt::Display, time::Duration};
 
+pub mod math;
 pub mod node;
 pub mod robot;
 pub mod world;
-pub mod math;
 
 /// Keeps track of performance metrics and incremental updates the values. In milliseconds.
 pub struct PerfStats {

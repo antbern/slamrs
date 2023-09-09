@@ -10,7 +10,7 @@ use pubsub::PubSub;
 use serde::Deserialize;
 pub struct ShapeRendering {}
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 pub struct ShapeRenderingNodeConfig {}
 
 impl NodeConfig for ShapeRenderingNodeConfig {

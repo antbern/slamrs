@@ -117,12 +117,12 @@ impl<
     }
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Clone, Deserialize, Debug)]
 pub struct FrameVizualizerNodeConfig {
     topics: Vec<VizType>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Clone, Deserialize, Debug)]
 enum VizType {
     Pose {
         topic: String,

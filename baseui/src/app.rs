@@ -1,4 +1,4 @@
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 use web_time::Instant;
 
 use crate::config::Config;
@@ -8,6 +8,7 @@ use egui::{mutex::Mutex, Label, Pos2, RichText, Sense, Vec2};
 use graphics::{camera::Camera, shaperenderer::ShapeRenderer};
 use nalgebra::{Matrix4, Point2};
 
+use crate::editor::ConfigEditor;
 use pubsub::{ticker::PubSubTicker, PubSub};
 
 pub struct App {
@@ -16,7 +17,8 @@ pub struct App {
 
     /// Behind an `Arc<Mutex<…>>` so we can pass it to [`egui::PaintCallback`] and paint later.
     world_renderer: Arc<Mutex<WorldRenderer>>,
-
+    config_editor: ConfigEditor,
+    config_editor_visible: bool,
     stats: PerfStats,
 }
 
@@ -45,6 +47,8 @@ impl App {
             nodes,
             pubsub_ticker: pubsub.to_ticker(move || ctx.request_repaint()),
             world_renderer: Arc::new(Mutex::new(WorldRenderer::new(gl))),
+            config_editor: ConfigEditor::new(),
+            config_editor_visible: true,
             stats: PerfStats::new(),
         }
     }
@@ -55,28 +59,31 @@ impl eframe::App for App {
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         #[cfg(target_arch = "wasm32")]
-        // On WASM the pubsub does not run in the background so we need to continously
-        // request repaint to keep the simulation and pubsub system running
-        ctx.request_repaint_after(Duration::from_millis((1.0 / 30.0 * 1000.0) as u64));
-
+        {
+            use std::time::Duration;
+            // On WASM the pubsub does not run in the background so we need to continously
+            // request repaint to keep the simulation and pubsub system running
+            ctx.request_repaint_after(Duration::from_millis((1.0 / 30.0 * 1000.0) as u64));
+        }
         let start_time = Instant::now();
 
         self.pubsub_ticker.tick();
 
-        // Examples of how to create different panels and windows.
-        // Pick whichever suits you.
-        // Tip: a good default choice is to just keep the `CentralPanel`.
-        // For inspiration and more examples, go to https://emilk.github.io/egui
-
-        #[cfg(not(target_arch = "wasm32"))] // no File->Quit on web pages!
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             // The top panel is often a good place for a menu bar:
             egui::menu::bar(ui, |ui| {
-                // ui.menu_button("File", |ui| {
-                //     if ui.button("Quit").clicked() {
-                //         _frame.close();
-                //     }
-                // });
+                #[cfg(not(target_arch = "wasm32"))] // no File->Quit on web pages!
+                ui.menu_button("File", |ui| {
+                    if ui.button("Quit").clicked() {
+                        _frame.close();
+                    }
+                });
+
+                ui.menu_button("Edit", |ui| {
+                    if ui.button("Config").clicked() {
+                        self.config_editor_visible = true;
+                    }
+                });
 
                 ui.label(
                     RichText::new(format!(
@@ -97,6 +104,36 @@ impl eframe::App for App {
                 }
             });
         });
+        if self.config_editor_visible {
+            egui::SidePanel::right("Config Editor")
+                .resizable(true)
+                .show(ctx, |ui| {
+                    // header and button for exit
+                    ui.horizontal(|ui| {
+                        ui.label("Config Editor");
+
+                        if ui.button("X").clicked() {
+                            self.config_editor_visible = false;
+                        }
+                    });
+                    ui.separator();
+
+                    if let Some(config) = &self.config_editor.draw(ui) {
+                        // terminate and drop all the nodes
+                        for n in &mut self.nodes {
+                            n.terminate();
+                        }
+                        self.nodes.clear();
+
+                        let mut pubsub = PubSub::new();
+                        self.nodes = config.instantiate_nodes(&mut pubsub);
+
+                        let ctx = ctx.clone();
+                        let new_ticker = pubsub.to_ticker(move || ctx.request_repaint());
+                        core::mem::replace(&mut self.pubsub_ticker, new_ticker).stop();
+                    }
+                });
+        }
 
         for n in self.nodes.iter_mut() {
             n.update();

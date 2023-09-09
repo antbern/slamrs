@@ -15,19 +15,19 @@ use crate::node::{
 #[cfg(not(target_arch = "wasm32"))]
 use neato::FileLoaderNodeConfig;
 
-#[derive(Deserialize, Default)]
+#[derive(Clone, Deserialize, Default)]
 pub struct Config {
     pub settings: Settings,
 
     pub nodes: Vec<NodeEnum>,
 }
 
-#[derive(Deserialize, Default)]
+#[derive(Clone, Deserialize, Default)]
 pub struct Settings {
     headless: bool,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 pub enum NodeEnum {
     Simulator(SimulatorNodeConfig),
     Controls(ControlsNodeConfig),

@@ -82,13 +82,13 @@ impl Simulator {
 
         if self.active {
             self.scan_update_timer += dt;
-           
+
             // make the robot move
             self.motion_model(self.wheel_velocity.x * dt, self.wheel_velocity.y * dt);
 
             self.wheel_motion_accumulator.0 += self.wheel_velocity.x * dt;
             self.wheel_motion_accumulator.1 += self.wheel_velocity.y * dt;
-            
+
             // if it's time for a scan, perform it!
             if self.scan_update_timer > self.parameters.update_period {
                 self.scan_update_timer -= self.parameters.update_period;
