@@ -100,7 +100,7 @@ pub struct IcpPointMapNode {
     point_map: IcpPointMapper,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 pub struct IcpPointMapNodeConfig {
     topic_pose: String,
     topic_observation: String,

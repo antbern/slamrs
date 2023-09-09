@@ -20,7 +20,7 @@ pub struct SimulatorNode {
     running: bool,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone,Deserialize)]
 pub struct SimulatorNodeConfig {
     topic_observation: String,
     topic_observation_odometry: String,
@@ -33,7 +33,7 @@ pub struct SimulatorNodeConfig {
     parameters: SimParameters,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone,Deserialize)]
 enum SceneObject {
     Line {
         x1: f32,

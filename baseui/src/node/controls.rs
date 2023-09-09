@@ -26,7 +26,7 @@ enum Control {
     Right,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 pub struct ControlsNodeConfig {
     topic_command: String,
     keyboard_enabled: bool,

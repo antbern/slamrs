@@ -22,7 +22,7 @@ pub struct GridMapSlamNode {
     config: GridMapSlamConfig,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 pub struct GridMapSlamNodeConfig {
     topic_pose: String,
     topic_observation_odometry: String,

@@ -5,7 +5,7 @@ use common::{
 use pubsub::PubSub;
 use serde::Deserialize;
 pub struct MousePosition {}
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 pub struct MousePositionNodeConfig {}
 
 impl NodeConfig for MousePositionNodeConfig {

@@ -17,7 +17,7 @@ pub struct FileLoader {
     pub_pose: Publisher<Pose>,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 pub struct FileLoaderNodeConfig {
     topic_observation: String,
     topic_pose: String,

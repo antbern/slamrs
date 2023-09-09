@@ -93,7 +93,7 @@ pub struct Publisher<T: Any + Send + Sync + 'static> {
 impl<T: Any + Send + Sync + 'static> Publisher<T> {
     /// Publishes a value wrapped in an `Arc` to the topic.
     pub fn publish(&mut self, value: Arc<T>) {
-        self.send.send(value).unwrap();
+        self.send.send(value).unwrap(); // TODO: how should we deal with Disconnections?
         self.signal.send(Signal {}).unwrap();
     }
 
@@ -209,6 +209,7 @@ pub mod ticker {
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Arc;
     use std::thread::{self, JoinHandle};
+    use std::time::Duration;
 
     pub struct PubSubTicker {
         thread_handle: PubSubThreadHandle,
@@ -223,6 +224,10 @@ pub mod ticker {
 
         pub fn tick(&mut self) {
             // do nothing on desktop
+        }
+
+        pub fn stop(self) {
+            self.thread_handle.stop();
         }
     }
 
@@ -245,7 +250,6 @@ pub mod ticker {
 
         pub fn stop(self) {
             self.running.store(false, Ordering::Relaxed);
-
             self.handle.join().unwrap().unwrap();
         }
 
@@ -254,9 +258,23 @@ pub mod ticker {
             running: Arc<AtomicBool>,
             mut waker: impl FnMut() + Send + 'static,
         ) -> anyhow::Result<()> {
-            while running.load(Ordering::Relaxed) {
+            'outer: loop {
                 // block on the signal
-                pubsub.signal.recv()?;
+
+                loop {
+                    let result = pubsub.signal.recv_timeout(Duration::from_millis(500));
+                    if !running.load(Ordering::Relaxed) {
+                        break 'outer;
+                    }
+
+                    match result {
+                        Err(std::sync::mpsc::RecvTimeoutError::Timeout) => break,
+                        other => {
+                            other?;
+                            break;
+                        }
+                    };
+                }
 
                 // process messages
                 pubsub.tick();
