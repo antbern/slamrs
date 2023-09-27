@@ -8,6 +8,7 @@ members = [
     "slam",
 ]
 default-members = ["baseui"]
+resolver = "2"
 
 
 [workspace.dependencies]
