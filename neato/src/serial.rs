@@ -33,15 +33,17 @@ enum State {
     },
 }
 
-#[derive(Deserialize)]
-pub struct SerialConnectionNodeConfig {}
+#[derive(Deserialize, Clone)]
+pub struct SerialConnectionNodeConfig {
+    topic_observation: String,
+}
 
 impl NodeConfig for SerialConnectionNodeConfig {
     fn instantiate(&self, pubsub: &mut PubSub) -> Box<dyn Node> {
         Box::new(SerialConnection {
             state: State::Idle,
             selected_port: 0,
-            pub_obs: pubsub.publish("robot/observation"),
+            pub_obs: pubsub.publish(&self.topic_observation),
         })
     }
 }
@@ -96,6 +98,17 @@ impl Node for SerialConnection {
     }
 }
 
+impl Drop for SerialConnection {
+    fn drop(&mut self) {
+        match &self.state {
+            State::Running { handle: _, running } => {
+                running.store(false, Ordering::Relaxed);
+            }
+            _ => {}
+        }
+    }
+}
+
 fn serial_thread(path: &PathBuf, running: Arc<AtomicBool>, pub_obs: Publisher<Observation>) {
     open_and_stream(path, running, pub_obs).expect("Error in serial thread");
 }
@@ -110,6 +123,7 @@ fn open_and_stream(
     let port = SerialPort::open(path, 115200)?;
 
     port.write(&[b'A'])?;
+    //port.flush()?;
 
     let mut buffer = [0u8; 1024];
     let mut parser = RunningParser::new();
