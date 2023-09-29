@@ -1,5 +1,8 @@
 use common::node::{Node, NodeConfig};
-use egui::mutex::{Mutex, RwLock};
+use egui::{
+    mutex::{Mutex, RwLock},
+    Slider,
+};
 use graphics::primitiverenderer::{Color, PrimitiveType};
 use nalgebra::{Point2, Vector2};
 use simulator_loop::SimulatorLoop;
@@ -14,10 +17,11 @@ mod sensor;
 mod sim;
 pub struct SimulatorNode {
     scene: Arc<RwLock<Scene>>,
-    parameters: SimParameters,
-    // parameter_channel: Sender<SimParameters>,
+    simulator: Arc<Mutex<Simulator>>,
     simulator_loop: simulator_loop::SimulatorLoop,
     running: bool,
+    draw_scene: bool,
+    draw_pose: bool,
 }
 
 #[derive(Clone, Deserialize)]
@@ -30,7 +34,16 @@ pub struct SimulatorNodeConfig {
     #[serde(default)]
     scene: Vec<SceneObject>,
 
+    #[serde(default = "_default_true")]
+    draw_scene: bool,
+    #[serde(default = "_default_true")]
+    draw_pose: bool,
+
     parameters: SimParameters,
+}
+
+const fn _default_true() -> bool {
+    true
 }
 
 #[derive(Clone, Deserialize)]
@@ -80,9 +93,11 @@ impl NodeConfig for SimulatorNodeConfig {
 
         Box::new(SimulatorNode {
             scene,
-            parameters: self.parameters,
             running: self.running,
+            simulator: simulator.clone(),
             simulator_loop: SimulatorLoop::new(simulator),
+            draw_scene: self.draw_scene,
+            draw_pose: self.draw_pose,
         })
     }
 }
@@ -94,21 +109,32 @@ impl Node for SimulatorNode {
         egui::Window::new("Simulator").show(ui.ctx(), |ui| {
             ui.label("Used to simulate different LIDAR sensors and environment shapes.");
 
-            // TODO: add controls for all the parameters and simulator controls here
             ui.checkbox(&mut self.running, "Running");
+
+            ui.checkbox(&mut self.draw_scene, "Draw Scene");
+            ui.checkbox(&mut self.draw_pose, "Draw Pose");
+
+            // lock the scene to make UI controls for some of the parameters
+            {
+                let mut simulator = self.simulator.lock();
+                let params = simulator.parameters_mut();
+                ui.add(Slider::new(&mut params.wheel_base, 0.05..=0.4).text("Wheel Base (m)"));
+                ui.add(Slider::new(&mut params.update_period, 0.1..=2.0).text("Update Period (s)"));
+                ui.add(Slider::new(&mut params.scanner_range, 0.1..=10.0).text("Scanner Range(m)"));
+            }
         });
+        if self.draw_scene {
+            world.sr.begin(PrimitiveType::Line);
+            self.scene.read().draw(world.sr, Color::BLACK);
+            world.sr.end();
+        }
 
-        // draw the scene itself
-        world.sr.begin(PrimitiveType::Line);
-        self.scene.read().draw(world.sr, Color::BLACK);
-        world.sr.end();
-
-        world.sr.begin(PrimitiveType::Filled);
-        let pose = self.simulator_loop.lock().get_pose();
-        world.sr.arrow(pose.x, pose.y, pose.theta, 0.1, Color::BLUE);
-        world.sr.end()
-
-        // TODO: draw the robot position (if enabled)
+        if self.draw_pose {
+            world.sr.begin(PrimitiveType::Filled);
+            let pose = self.simulator_loop.lock().get_pose();
+            world.sr.arrow(pose.x, pose.y, pose.theta, 0.1, Color::BLUE);
+            world.sr.end()
+        }
     }
 
     fn terminate(&mut self) {

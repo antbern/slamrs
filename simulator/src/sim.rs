@@ -16,7 +16,6 @@ pub struct Simulator {
     parameters: SimParameters,
     pose: Pose,
     wheel_velocity: Vector2<f32>,
-    // robot pose, last command, wheel velocities etc that need to be shared between the background thread and the UI
     active: bool,
     scan_update_timer: f32,
     scan_counter: usize,
@@ -25,9 +24,15 @@ pub struct Simulator {
 
 #[derive(Clone, Copy, Deserialize)]
 pub struct SimParameters {
-    wheel_base: f32,
-    update_period: f32, // 1/Hz
-    scanner_range: f32, // Max range sensor distance in meters.
+    /// The wheel base (in meters) of the differential robot used in the simulator, i.e,
+    /// the distance between the wheels.
+    pub(crate) wheel_base: f32,
+
+    /// The update period (in ms) of the laser range scanner, i.e., 1/Hz.
+    pub(crate) update_period: f32,
+
+    /// Laser range scanner maximum distance in meters.
+    pub(crate) scanner_range: f32,
 }
 
 impl Default for SimParameters {
@@ -63,8 +68,8 @@ impl Simulator {
         }
     }
 
-    pub fn set_parameters(&mut self, parameters: SimParameters) {
-        self.parameters = parameters;
+    pub fn parameters_mut(&mut self) -> &mut SimParameters {
+        &mut self.parameters
     }
 
     pub fn get_pose(&self) -> Pose {
@@ -72,10 +77,6 @@ impl Simulator {
     }
 
     pub fn tick(&mut self, dt: f32) {
-        // TODO: handle all incoming messages
-
-        // TODO: simulation logic goes here
-
         while let Some(c) = self.sub_cmd.try_recv() {
             self.wheel_velocity = Vector2::new(c.speed_left, c.speed_right);
         }
