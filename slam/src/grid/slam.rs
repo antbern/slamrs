@@ -42,6 +42,7 @@ impl GridMapSlam {
         }
     }
 
+    #[tracing::instrument(skip_all)]
     pub fn update(&mut self, z: &Observation, u: Odometry) {
         // self.map.integrate(observation, Pose::default());
 

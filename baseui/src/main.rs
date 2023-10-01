@@ -5,10 +5,15 @@
 #[cfg(not(target_arch = "wasm32"))]
 fn main() -> Result<(), eframe::Error> {
     // Log to stdout (if you run with `RUST_LOG=debug`).
-    tracing_subscriber::fmt::init();
+    tracing_subscriber::fmt::fmt()
+        .with_span_events(FmtSpan::CLOSE)
+        //.with_target(false)
+        //.with_level(false)
+        .init();
 
     use baseui::config::Config;
     use egui::{Style, Visuals};
+    use tracing_subscriber::fmt::format::FmtSpan;
 
     // load configuration file
     let mut args = std::env::args();
@@ -17,8 +22,6 @@ fn main() -> Result<(), eframe::Error> {
     } else {
         Config::default()
     };
-
-    
 
     let native_options = eframe::NativeOptions {
         initial_window_size: Some(egui::vec2(1280.0, 720.0)),
