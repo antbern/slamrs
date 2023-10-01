@@ -5,7 +5,7 @@ use rand::distributions::Distribution;
 use statrs::distribution::{Continuous, Normal};
 
 /// The pose of a robot in the 2D plane.
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Default, Debug)]
 pub struct Pose {
     /// The x position of the robot
     pub x: f32,
@@ -47,7 +47,7 @@ impl Pose {
 
 /// Contains all data for a single lidar scan (a complete revolution)
 /// Note that these measurements are in the robots local coordinate system.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Observation {
     pub id: usize,
     pub measurements: Vec<Measurement>,
@@ -78,7 +78,7 @@ impl Observation {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct Measurement {
     /// The angle this measurement was acquired at (relative to the sensor zero) in radians.
     pub angle: f64,

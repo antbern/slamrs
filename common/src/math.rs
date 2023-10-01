@@ -4,7 +4,7 @@ use std::{
 };
 
 /// A probability in the range 0-1
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub struct Probability(f64);
 
 impl Mul<Probability> for Probability {
@@ -47,6 +47,7 @@ impl From<LogOdds> for Probability {
 }
 
 /// A probability represented in the log space. When many probabilities are multiplied together, this improves performance and numerical stability.
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub struct LogProbability(f64);
 
 #[allow(clippy::suspicious_arithmetic_impl)]
@@ -99,7 +100,7 @@ impl MulAssign<f64> for LogProbability {
 }
 
 /// A probability in log-odds representation. Range +/- infinity.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct LogOdds(f64);
 
 impl Add<LogOdds> for LogOdds {
