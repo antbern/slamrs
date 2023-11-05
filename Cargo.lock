@@ -141,7 +141,7 @@ dependencies = [
  "glow",
  "graphics",
  "log",
- "nalgebra 0.32.1",
+ "nalgebra 0.32.3",
  "neato",
  "pubsub",
  "serde",
@@ -356,7 +356,7 @@ dependencies = [
  "approx",
  "egui",
  "graphics",
- "nalgebra 0.32.1",
+ "nalgebra 0.32.3",
  "pubsub",
  "rand",
  "statrs",
@@ -791,7 +791,7 @@ version = "0.1.0"
 dependencies = [
  "egui",
  "glow",
- "nalgebra 0.32.1",
+ "nalgebra 0.32.3",
 ]
 
 [[package]]
@@ -1003,7 +1003,7 @@ version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8b2591c55069b74283fbdd97167b402b69c534ba6b2c037847cbcae7e14471d8"
 dependencies = [
- "nalgebra 0.32.1",
+ "nalgebra 0.32.3",
 ]
 
 [[package]]
@@ -1095,13 +1095,13 @@ dependencies = [
 
 [[package]]
 name = "nalgebra"
-version = "0.32.1"
+version = "0.32.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f6515c882ebfddccaa73ead7320ca28036c4bc84c9bcca3cc0cbba8efe89223a"
+checksum = "307ed9b18cc2423f29e83f84fd23a8e73628727990181f18641a8b5dc2ab1caa"
 dependencies = [
  "approx",
  "matrixmultiply",
- "nalgebra-macros 0.2.0",
+ "nalgebra-macros 0.2.1",
  "num-complex",
  "num-rational",
  "num-traits",
@@ -1123,9 +1123,9 @@ dependencies = [
 
 [[package]]
 name = "nalgebra-macros"
-version = "0.2.0"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d232c68884c0c99810a5a4d333ef7e47689cfd0edc85efc9e54e1e6bf5212766"
+checksum = "91761aed67d03ad966ef783ae962ef9bbaca728d2dd7ceb7939ec110fffad998"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1752,7 +1752,7 @@ dependencies = [
  "common",
  "egui",
  "graphics",
- "nalgebra 0.32.1",
+ "nalgebra 0.32.3",
  "pubsub",
  "serde",
  "web-time",
@@ -1770,7 +1770,7 @@ dependencies = [
  "itertools",
  "kd-tree",
  "lstsq",
- "nalgebra 0.32.1",
+ "nalgebra 0.32.3",
  "pubsub",
  "rand",
  "serde",
