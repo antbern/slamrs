@@ -19,6 +19,8 @@ serde = {workspace = true}
 
 rand = {workspace = true}
 
+tracing = {workspace = true}
+
 # special dependencies for this crate
 lstsq = "0.5.0"
 # the feature is using a different nalgebra version which makes it useles...

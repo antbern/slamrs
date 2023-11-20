@@ -3,6 +3,7 @@ use egui::{
     mutex::{Mutex, RwLock},
     Slider,
 };
+
 use graphics::primitiverenderer::{Color, PrimitiveType};
 use nalgebra::{Point2, Vector2};
 use simulator_loop::SimulatorLoop;
@@ -196,7 +197,6 @@ mod simulator_loop {
 mod simulator_loop {
     // On desktop targets we run the simulator in a separate background thread,
     // while the actual game loop is the same.
-
     use crate::Simulator;
     use egui::mutex::{Mutex, MutexGuard};
     use std::{
@@ -207,6 +207,7 @@ mod simulator_loop {
         thread::{self, JoinHandle},
         time::Duration,
     };
+    use tracing::info;
     use web_time::Instant;
 
     pub struct SimulatorLoop {
@@ -255,7 +256,7 @@ mod simulator_loop {
         }
 
         fn thread(running: Arc<AtomicBool>, sim: Arc<Mutex<Simulator>>) {
-            println!("[SimulatorThread] Started");
+            info!("Simulator Thread Started");
 
             // loop taken from : https://www.gafferongames.com/post/fix_your_timestep/
             let dt = 1.0 / 30.0;
@@ -278,7 +279,7 @@ mod simulator_loop {
                 thread::sleep(Duration::from_secs_f64(dt));
             }
 
-            println!("[SimulatorThread] Ended");
+            info!("Simulator Thread Ended");
         }
 
         pub fn stop(self) {

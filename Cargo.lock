@@ -1725,6 +1725,7 @@ dependencies = [
  "nalgebra 0.32.3",
  "pubsub",
  "serde",
+ "tracing",
  "web-time",
 ]
 
@@ -1744,6 +1745,7 @@ dependencies = [
  "pubsub",
  "rand",
  "serde",
+ "tracing",
 ]
 
 [[package]]
