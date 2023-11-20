@@ -73,7 +73,7 @@ impl Intersect for LineSegment {
         let t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom;
         let u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / denom;
 
-        if 0.0 <= t && t <= 1.0 && u > 0.0 {
+        if (0.0..=1.0).contains(&t) && u > 0.0 {
             return Some(u);
         }
         None

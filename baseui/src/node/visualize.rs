@@ -226,15 +226,9 @@ impl Visualize for PointMap {
 
 //////////////// Implementation for GridMap /////////////////
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone, Default)]
 pub struct GridMapVisualizeConfig {
     gridlines: bool,
-}
-
-impl Default for GridMapVisualizeConfig {
-    fn default() -> Self {
-        Self { gridlines: false }
-    }
 }
 
 impl VisualizeParametersUi for GridMapVisualizeConfig {

@@ -136,8 +136,8 @@ impl Simulator {
                         measurements: meas,
                     },
                     Odometry::new(
-                        self.wheel_motion_accumulator.0 as f32,
-                        self.wheel_motion_accumulator.1 as f32,
+                        self.wheel_motion_accumulator.0,
+                        self.wheel_motion_accumulator.1,
                     ),
                 )));
 

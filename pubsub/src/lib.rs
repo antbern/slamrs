@@ -3,7 +3,7 @@ use std::{
     collections::HashMap,
     marker::PhantomData,
     sync::{
-        mpsc::{self, channel, Receiver, SendError, Sender},
+        mpsc::{self, channel, Receiver, Sender},
         Arc,
     },
 };
@@ -178,6 +178,12 @@ impl PubSub {
     /// method directly on the main thread.
     pub fn to_ticker(self, waker: impl FnMut() + Send + 'static) -> ticker::PubSubTicker {
         ticker::PubSubTicker::new(self, waker)
+    }
+}
+
+impl Default for PubSub {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

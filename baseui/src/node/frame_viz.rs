@@ -29,6 +29,7 @@ trait SubViz {
     fn config_ui(&mut self, ui: &mut egui::Ui);
 }
 
+#[allow(unused)]
 pub enum SecondaryValue<T: Send + Sync + 'static + Clone> {
     None,
     Constant(T),
