@@ -100,11 +100,8 @@ impl Node for SerialConnection {
 
 impl Drop for SerialConnection {
     fn drop(&mut self) {
-        match &self.state {
-            State::Running { handle: _, running } => {
-                running.store(false, Ordering::Relaxed);
-            }
-            _ => {}
+        if let State::Running { handle: _, running } = &self.state {
+            running.store(false, Ordering::Relaxed);
         }
     }
 }

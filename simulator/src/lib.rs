@@ -13,7 +13,6 @@ use serde::Deserialize;
 use sim::{SimParameters, Simulator};
 
 mod scene;
-mod sensor;
 mod sim;
 pub struct SimulatorNode {
     scene: Arc<RwLock<Scene>>,

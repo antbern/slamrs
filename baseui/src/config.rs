@@ -24,7 +24,7 @@ pub struct Config {
 
 #[derive(Clone, Deserialize, Default)]
 pub struct Settings {
-    headless: bool,
+    // headless: bool,
 }
 
 #[derive(Clone, Deserialize)]
@@ -70,7 +70,7 @@ impl Config {
     }
 
     pub fn from_contents(contents: &str) -> anyhow::Result<Self> {
-        serde_yaml::from_str(&contents).map_err(|e| anyhow!(e))
+        serde_yaml::from_str(contents).map_err(|e| anyhow!(e))
     }
 
     pub fn instantiate_nodes(&self, pubsub: &mut PubSub) -> Vec<Box<dyn Node>> {

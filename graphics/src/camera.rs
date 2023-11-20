@@ -125,3 +125,9 @@ impl Camera {
         self.combined
     }
 }
+
+impl Default for Camera {
+    fn default() -> Self {
+        Self::new()
+    }
+}

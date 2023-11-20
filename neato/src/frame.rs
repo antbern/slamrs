@@ -41,7 +41,7 @@ impl Default for Revolution {
 }
 
 impl Revolution {
-    fn to_readings(&self) -> NeatoFrame {
+    fn as_readings(&self) -> NeatoFrame {
         // extract all packets in order and insert them into a simpler data structure
 
         let mut distance = [0u16; 360];
@@ -130,7 +130,7 @@ pub fn parse_frame(buf: &[u8]) -> anyhow::Result<NeatoFrame> {
         r.packets[i] = parse_packet(&buf[i * 22..(i + 1) * 22]).ok();
     }
 
-    Ok(r.to_readings())
+    Ok(r.as_readings())
 }
 
 fn parse_packets<R: Read>(reader: &mut R) -> anyhow::Result<Vec<NeatoFrame>> {
@@ -173,7 +173,7 @@ fn parse_packets<R: Read>(reader: &mut R) -> anyhow::Result<Vec<NeatoFrame>> {
                 continue;
             }
 
-            if let None = p.index.checked_sub(0xA0) {
+            if p.index.checked_sub(0xA0).is_none() {
                 println!("Subtract underflow: {p:?}");
                 println!("Skipping...");
                 i += 1;
@@ -185,7 +185,7 @@ fn parse_packets<R: Read>(reader: &mut R) -> anyhow::Result<Vec<NeatoFrame>> {
                 // wrapped around to new revolution, print and instantiate new one
                 // print!("Revolution: ");
 
-                frames.push(r.to_readings());
+                frames.push(r.as_readings());
 
                 r = Revolution::default();
             }

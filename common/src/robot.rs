@@ -150,7 +150,7 @@ impl Odometry {
         // Since the pdf is not really a probability, we will do an unchecked initialization here
         // TODO: improve!
         LogProbability::new_unchecked(self.distribution_center.pdf(center_distance as f64))
-            * LogProbability::new_unchecked(self.distribution_theta.pdf(angle_distance as f64))
+            * LogProbability::new_unchecked(self.distribution_theta.pdf(angle_distance))
     }
 
     /// Samples from the motion model with the specific initial Pose

@@ -49,6 +49,7 @@ impl From<LogOdds> for Probability {
 /// A probability represented in the log space. When many probabilities are multiplied together, this improves performance and numerical stability.
 pub struct LogProbability(f64);
 
+#[allow(clippy::suspicious_arithmetic_impl)]
 impl Mul<LogProbability> for LogProbability {
     type Output = LogProbability;
 
@@ -90,6 +91,7 @@ impl LogProbability {
     }
 }
 
+#[allow(clippy::suspicious_op_assign_impl)]
 impl MulAssign<f64> for LogProbability {
     fn mul_assign(&mut self, rhs: f64) {
         self.0 += rhs.ln();

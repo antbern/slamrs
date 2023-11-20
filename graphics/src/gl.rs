@@ -37,7 +37,7 @@ impl VertexBufferLayout {
     }
 
     pub fn push(&mut self, gl_type: GLType, count: u32) -> &mut Self {
-        assert!(count >= 1 && count <= 4, "count must be 1,2,3 or 4");
+        assert!((1..=4).contains(&count), "count must be 1,2,3 or 4");
         self.elements.push(LayoutElement {
             gl_type,
             count,
@@ -150,7 +150,7 @@ impl VertexBuffer {
         let data = unsafe {
             std::slice::from_raw_parts(
                 vertices.as_ptr() as *const u8,
-                vertices.len() * std::mem::size_of::<f32>(),
+                std::mem::size_of_val(vertices),
             )
         };
         // upload the data

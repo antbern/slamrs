@@ -48,7 +48,7 @@ impl GridMapSlam {
         let update_map = true;
 
         self.filter.update(|(pose, map)| {
-            let initial_pose = pose.clone();
+            let initial_pose = *pose;
 
             // first sample a new pose from the motion model based on the given controls (odometry)
             let new_pose = u.sample(initial_pose);

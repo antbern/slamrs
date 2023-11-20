@@ -287,6 +287,7 @@ impl Vertex3C for PrimitiveRenderer {
         }
 
         // SAFETY: we keep track and make sure we have enough space using index and vertex_count variables
+        #[allow(clippy::identity_op)]
         unsafe {
             *self.vertices.get_unchecked_mut(self.index + 0) = x;
             *self.vertices.get_unchecked_mut(self.index + 1) = y;

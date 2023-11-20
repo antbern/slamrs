@@ -179,7 +179,7 @@ impl App {
         };
 
         let pos = if ui.rect_contains_pointer(rect) {
-            let mut pos = ui.ctx().pointer_hover_pos().unwrap_or(Pos2::default());
+            let mut pos = ui.ctx().pointer_hover_pos().unwrap_or_default();
             // adjust for the position of the allocated space
             pos.x -= rect.left();
             pos.y -= rect.top();

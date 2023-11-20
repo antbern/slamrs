@@ -53,7 +53,7 @@ nodes:
 
         ui.horizontal(|ui| {
             egui::ComboBox::from_label("Preset")
-                .selected_text(format!("{}", self.presets[self.selected as usize].0))
+                .selected_text(self.presets[self.selected as usize].0.to_string())
                 .show_ui(ui, |ui| {
                     for (i, (name, _)) in self.presets.iter().enumerate() {
                         ui.selectable_value(&mut self.selected, i as u32, *name);
