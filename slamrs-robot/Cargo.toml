@@ -37,6 +37,9 @@ esp-backtrace = { version = "0.8.0", features = ["panic-handler", "exception-han
 
 esp-wifi = {  features = ["esp32", "utils", "embassy-net", "embedded-svc", "async", "wifi"], git = "https://github.com/esp-rs/esp-wifi", package = "esp-wifi", rev = "0d502eb66ad0db4607844f81ac2eb5cfedc7e0c3"  }
 
+slamers-message = { path = '../slamers-message'}
+bincode = {version = "2.0.0-rc.3", default-features = false , git="https://github.com/bincode-org/bincode",rev = "aada4bb4cb457677a4b8e47572ae7ca8dd44927c"}
+
 
 [profile.release]
 # Explicitly disable LTO which the Xtensa codegen backend has issues

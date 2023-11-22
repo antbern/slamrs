@@ -14,7 +14,7 @@ use esp32_hal as hal;
 
 use embassy_executor::Executor;
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
-use embassy_time::{Duration, Timer};
+use embassy_time::{Duration, Instant, Timer};
 use embedded_svc::wifi::{ClientConfiguration, Configuration, Wifi};
 use esp_backtrace as _;
 use esp_println::println;
@@ -32,6 +32,7 @@ use hal::uart::{self, TxRxPins, Uart};
 use hal::{embassy, peripherals::Peripherals, prelude::*, timer::TimerGroup, Rtc};
 use hal::{interrupt, Rng, IO};
 
+use slamers_message::{CommandMessage, RobotMessage, ScanFrame};
 use smoltcp::socket::tcp;
 
 type NeatoPwmPin = esp32_hal::mcpwm::operator::PwmPin<
@@ -48,7 +49,7 @@ const PASSWORD: &str = env!("PASSWORD");
 static LAST_RPM: AtomicU16 = AtomicU16::new(0);
 static MOTOR_ON: AtomicBool = AtomicBool::new(false);
 
-static CHANNEL: Channel<CriticalSectionRawMutex, [u8; 1980], 10> = Channel::new();
+static CHANNEL: Channel<CriticalSectionRawMutex, ScanFrame, 10> = Channel::new();
 
 macro_rules! singleton {
     ($val:expr) => {{
@@ -141,7 +142,7 @@ fn main() -> ! {
         &mut system.peripheral_clock_control,
     );
     uart2
-        .set_rx_fifo_full_threshold(64)
+        .set_rx_fifo_full_threshold(32)
         .expect("Could not set rx fifo full threshold");
 
     //////////////////
@@ -230,13 +231,25 @@ async fn net_task(stack: &'static Stack<WifiDevice<'static>>) {
 
 async fn connected_loop(
     socket: &mut TcpSocket<'_>,
-    receiver: &mut Receiver<'static, CriticalSectionRawMutex, [u8; 1980], 10>,
+    receiver: &mut Receiver<'static, CriticalSectionRawMutex, ScanFrame, 10>,
 ) {
+    let mut start = Instant::now();
+
+    // let mut rx_buffer = [0u8; 2048];
+    let mut tx_buffer = [0u8; 2048];
+
     while socket.state() == tcp::State::Established {
-        // read incoming messages (to enable or disable the motor)
+        // read incoming messages (to enable or disable the motor) (no bincode here for now)
         if socket.can_recv() {
             let mut buffer = [0; 16];
+            // TODO: make the read less blocking?
             if let Ok(len) = socket.read(&mut buffer).await {
+                // let (cmd, len): (CommandMessage, usize) =
+                //     bincode::decode_from_slice(&rx_buffer[..], bincode::config::standard())
+                //         .expect("Could not parse");
+
+                // println!("{cmd:?}");
+
                 if len > 0 {
                     match buffer[0] {
                         b'A' => {
@@ -252,13 +265,30 @@ async fn connected_loop(
             }
         }
 
-        // ping message to keep the connection alive
-        let buffer = [0xff; 1];
-        socket.write_all(&buffer).await.ok();
+        // ping message to keep the connection alive every second
+        let now = Instant::now();
+        if (now - start) > Duration::from_millis(1000) {
+            start = now;
+
+            if let Ok(len) = bincode::encode_into_slice(
+                RobotMessage::Pong,
+                &mut tx_buffer,
+                bincode::config::standard(),
+            ) {
+                socket.write_all(&tx_buffer[0..len]).await.ok();
+            }
+        }
 
         // process any parsed packets and send them via the socket
         if let Ok(packet) = receiver.try_recv() {
-            socket.write_all(&packet).await.ok();
+            // println!("Sending: {:?}", &packet);
+            if let Ok(len) = bincode::encode_into_slice(
+                RobotMessage::ScanFrame(packet),
+                &mut tx_buffer,
+                bincode::config::standard(),
+            ) {
+                socket.write_all(&tx_buffer[0..len]).await.ok();
+            }
         }
 
         Timer::after(Duration::from_millis(50)).await;
@@ -271,15 +301,16 @@ async fn connected_loop(
 #[embassy_executor::task]
 async fn neato_serial_read(
     mut neato: Uart<'static, UART2>,
-    sender: Sender<'static, CriticalSectionRawMutex, [u8; 1980], 10>,
+    sender: Sender<'static, CriticalSectionRawMutex, ScanFrame, 10>,
 ) {
     // to hold the whole packet
     let mut buffer = [0u8; 1980];
     let mut state = State::LookingForStart;
-    let mut last_rpm = 0;
+    let mut rpm_accumulator = 0i32;
+    let mut rpm_average = 0i32;
     let mut last_byte = 0u8;
 
-    let mut buff = [0u8; 64];
+    let mut buff = [0u8; 512];
 
     loop {
         while let Ok(len) = embedded_io_async::Read::read(&mut neato, &mut buff).await {
@@ -307,21 +338,26 @@ async fn neato_serial_read(
                         let rpm_low = buffer[2];
                         let rpm_high = buffer[3];
 
-                        let mut rpm = ((rpm_high as u16) << 8) | (rpm_low as u16);
+                        let rpm = ((rpm_high as u16) << 8) | (rpm_low as u16);
 
-                        if (rpm as i16 - last_rpm as i16).abs() > 100 {
-                            rpm = last_rpm;
-                        }
-                        last_rpm = rpm;
+                        // some exponential smoothing
+                        rpm_accumulator += rpm as i32 - rpm_average as i32;
+                        rpm_average = rpm_accumulator >> 2;
 
-                        // if rpm >= 0 && rpm <
+                        let rpm = (rpm_average / 64) as u16;
 
-                        LAST_RPM.store(rpm / 64, core::sync::atomic::Ordering::Relaxed);
+                        LAST_RPM.store(rpm, core::sync::atomic::Ordering::Relaxed);
+
+                        println!("PACKET {}", rpm);
 
                         // write the full packet to a shared Channel or Pipe
-                        // https://docs.embassy.dev/embassy-sync/git/default/index.html
+
                         sender
-                            .try_send(buffer)
+                            .try_send(ScanFrame {
+                                scan_data: buffer,
+                                odometry: [0.0, 0.0],
+                                rpm,
+                            })
                             .expect("Could not send parsed packet");
 
                         state = State::LookingForStart;
@@ -341,7 +377,7 @@ async fn motor_control(mut pwm_pin: NeatoPwmPin) {
     let mut pwm_current: i16 = 0;
 
     loop {
-        Timer::after(Duration::from_millis(150)).await;
+        Timer::after(Duration::from_millis(200)).await;
 
         let rpm_target = if MOTOR_ON.load(Ordering::Relaxed) {
             300
@@ -366,10 +402,10 @@ async fn motor_control(mut pwm_pin: NeatoPwmPin) {
 
         pwm_pin.set_timestamp(pwm as u16);
 
-        println!(
-            "Control, {} rpm, error={error}. New PWM = {}",
-            last_rpm, pwm
-        );
+        // println!(
+        //     "Control, {} rpm, error={error}. New PWM = {}",
+        //     last_rpm, pwm
+        // );
     }
 }
 #[derive(Debug)]
@@ -383,7 +419,7 @@ enum State {
 async fn task(
     stack: &'static Stack<WifiDevice<'static>>,
     mut led: AnyPin<Output<PushPull>>,
-    mut receiver: Receiver<'static, CriticalSectionRawMutex, [u8; 1980], 10>,
+    mut receiver: Receiver<'static, CriticalSectionRawMutex, ScanFrame, 10>,
 ) {
     let mut rx_buffer = [0; 4096];
     let mut tx_buffer = [0; 4096];
@@ -413,7 +449,7 @@ async fn task(
     Timer::after(Duration::from_millis(1_000)).await;
 
     let mut socket = TcpSocket::new(&stack, &mut rx_buffer, &mut tx_buffer);
-    socket.set_timeout(Some(embassy_time::Duration::from_secs(10)));
+    socket.set_timeout(Some(embassy_time::Duration::from_secs(5)));
 
     loop {
         println!("Wait for connection...");

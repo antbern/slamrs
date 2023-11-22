@@ -96,6 +96,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "bincode"
+version = "2.0.0-rc.3"
+source = "git+https://github.com/bincode-org/bincode?rev=aada4bb4cb457677a4b8e47572ae7ca8dd44927c#aada4bb4cb457677a4b8e47572ae7ca8dd44927c"
+dependencies = [
+ "bincode_derive",
+]
+
+[[package]]
+name = "bincode_derive"
+version = "2.0.0-rc.3"
+source = "git+https://github.com/bincode-org/bincode?rev=aada4bb4cb457677a4b8e47572ae7ca8dd44927c#aada4bb4cb457677a4b8e47572ae7ca8dd44927c"
+dependencies = [
+ "virtue",
+]
+
+[[package]]
 name = "bit_field"
 version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1223,9 +1239,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "slamers-message"
+version = "0.1.0"
+dependencies = [
+ "bincode",
+]
+
+[[package]]
 name = "slamers-robot"
 version = "0.1.0"
 dependencies = [
+ "bincode",
  "bleps",
  "defmt",
  "embassy-executor",
@@ -1245,6 +1269,7 @@ dependencies = [
  "futures-util",
  "heapless",
  "log",
+ "slamers-message",
  "smoltcp",
 ]
 
@@ -1449,6 +1474,12 @@ name = "version_check"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
+
+[[package]]
+name = "virtue"
+version = "0.0.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9dcc60c0624df774c82a0ef104151231d37da4962957d691c011c852b2473314"
 
 [[package]]
 name = "void"
