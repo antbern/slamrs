@@ -4,21 +4,21 @@
 
 use core::sync::atomic::{AtomicBool, AtomicU16, Ordering};
 
-use embassy_executor::_export::StaticCell;
+// use embassy_executor::_export::StaticCell;
 use embassy_net::tcp::TcpSocket;
 use embassy_net::{Config, IpListenEndpoint, Stack, StackResources};
 
 use embassy_sync::channel::{Channel, Receiver, Sender};
-use embedded_io::asynch::Write;
+use embedded_io_async::Write;
 use esp32_hal as hal;
 
-use embassy_executor::Executor;
+use embassy_executor::Spawner;
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_time::{Duration, Instant, Timer};
 use embedded_svc::wifi::{ClientConfiguration, Configuration, Wifi};
 use esp_backtrace as _;
 use esp_println::println;
-use esp_wifi::wifi::{WifiController, WifiDevice, WifiEvent, WifiMode, WifiState};
+use esp_wifi::wifi::{WifiController, WifiDevice, WifiEvent, WifiStaDevice, WifiState};
 use esp_wifi::{initialize, EspWifiInitFor};
 use hal::clock::{ClockControl, CpuClock};
 use hal::gpio::Unknown;
@@ -34,6 +34,7 @@ use hal::{interrupt, Rng, IO};
 
 use slamers_message::{CommandMessage, RobotMessage, ScanFrame};
 use smoltcp::socket::tcp;
+use static_cell::make_static;
 
 type NeatoPwmPin = esp32_hal::mcpwm::operator::PwmPin<
     'static,
@@ -51,26 +52,17 @@ static MOTOR_ON: AtomicBool = AtomicBool::new(false);
 
 static CHANNEL: Channel<CriticalSectionRawMutex, ScanFrame, 10> = Channel::new();
 
-macro_rules! singleton {
-    ($val:expr) => {{
-        type T = impl Sized;
-        static STATIC_CELL: StaticCell<T> = StaticCell::new();
-        let (x,) = STATIC_CELL.init(($val,));
-        x
-    }};
-}
+// static EXECUTOR: StaticCell<Executor> = StaticCell::new();
 
-static EXECUTOR: StaticCell<Executor> = StaticCell::new();
-
-#[entry]
-fn main() -> ! {
+#[main]
+async fn main(spawner: Spawner) -> ! {
     esp_println::logger::init_logger(log::LevelFilter::Info);
 
     // esp_wifi::init_heap();
 
     let peripherals = Peripherals::take();
 
-    let mut system = peripherals.DPORT.split();
+    let system = peripherals.SYSTEM.split();
 
     let clocks = ClockControl::configure(system.clock_control, CpuClock::Clock240MHz).freeze();
 
@@ -81,12 +73,7 @@ fn main() -> ! {
     let mut led = io.pins.gpio2.into_push_pull_output().degrade();
     led.set_high().unwrap();
 
-    let timer = TimerGroup::new(
-        peripherals.TIMG1,
-        &clocks,
-        &mut system.peripheral_clock_control,
-    )
-    .timer0;
+    let timer = TimerGroup::new(peripherals.TIMG1, &clocks).timer0;
 
     let init = initialize(
         EspWifiInitFor::Wifi,
@@ -97,15 +84,11 @@ fn main() -> ! {
     )
     .unwrap();
 
-    let (wifi, ..) = peripherals.RADIO.split();
+    let wifi = peripherals.WIFI;
     let (wifi_interface, controller) =
-        esp_wifi::wifi::new_with_mode(&init, wifi, WifiMode::Sta).unwrap();
+        esp_wifi::wifi::new_with_mode(&init, wifi, WifiStaDevice).unwrap();
 
-    let timer_group0 = TimerGroup::new(
-        peripherals.TIMG0,
-        &clocks,
-        &mut system.peripheral_clock_control,
-    );
+    let timer_group0 = TimerGroup::new(peripherals.TIMG0, &clocks);
 
     embassy::init(&clocks, timer_group0.timer0);
 
@@ -114,10 +97,10 @@ fn main() -> ! {
     let seed = 1234; // very random, very secure seed
 
     // Init network stack
-    let stack = &*singleton!(Stack::new(
+    let stack = &*make_static!(Stack::new(
         wifi_interface,
         config,
-        singleton!(StackResources::<3>::new()),
+        make_static!(StackResources::<3>::new()),
         seed
     ));
 
@@ -134,13 +117,7 @@ fn main() -> ! {
         stop_bits: StopBits::STOP1,
     };
 
-    let mut uart2 = Uart::new_with_config(
-        peripherals.UART2,
-        Some(config),
-        Some(pins),
-        &clocks,
-        &mut system.peripheral_clock_control,
-    );
+    let mut uart2 = Uart::new_with_config(peripherals.UART2, config, Some(pins), &clocks);
     uart2
         .set_rx_fifo_full_threshold(32)
         .expect("Could not set rx fifo full threshold");
@@ -151,11 +128,7 @@ fn main() -> ! {
 
     // initialize peripheral
     let clock_cfg = PeripheralClockConfig::with_frequency(&clocks, 40u32.MHz()).unwrap();
-    let mut mcpwm = MCPWM::new(
-        peripherals.MCPWM0,
-        clock_cfg,
-        &mut system.peripheral_clock_control,
-    );
+    let mut mcpwm = MCPWM::new(peripherals.MCPWM0, clock_cfg);
 
     // connect operator0 to timer0
     mcpwm.operator0.set_timer(&mcpwm.timer0);
@@ -178,14 +151,15 @@ fn main() -> ! {
     let sender = CHANNEL.sender();
     let receiver = CHANNEL.receiver();
 
-    let executor = EXECUTOR.init(Executor::new());
-    executor.run(|spawner| {
-        spawner.spawn(connection(controller)).ok();
-        spawner.spawn(net_task(&stack)).ok();
-        spawner.spawn(task(&stack, led, receiver)).ok();
-        spawner.spawn(neato_serial_read(uart2, sender)).ok();
-        spawner.spawn(motor_control(pwm_pin)).ok();
-    });
+    spawner.spawn(connection(controller)).ok();
+    spawner.spawn(net_task(&stack)).ok();
+    spawner.spawn(task(&stack, led, receiver)).ok();
+    spawner.spawn(neato_serial_read(uart2, sender)).ok();
+    spawner.spawn(motor_control(pwm_pin)).ok();
+
+    loop {
+        Timer::after(Duration::from_millis(1000)).await
+    }
 }
 
 #[embassy_executor::task]
@@ -225,7 +199,7 @@ async fn connection(mut controller: WifiController<'static>) {
 }
 
 #[embassy_executor::task]
-async fn net_task(stack: &'static Stack<WifiDevice<'static>>) {
+async fn net_task(stack: &'static Stack<WifiDevice<'static, WifiStaDevice>>) {
     stack.run().await
 }
 
@@ -280,7 +254,7 @@ async fn connected_loop(
         }
 
         // process any parsed packets and send them via the socket
-        if let Ok(packet) = receiver.try_recv() {
+        if let Ok(packet) = receiver.try_receive() {
             // println!("Sending: {:?}", &packet);
             if let Ok(len) = bincode::encode_into_slice(
                 RobotMessage::ScanFrame(packet),
@@ -417,7 +391,7 @@ enum State {
 
 #[embassy_executor::task]
 async fn task(
-    stack: &'static Stack<WifiDevice<'static>>,
+    stack: &'static Stack<WifiDevice<'static, WifiStaDevice>>,
     mut led: AnyPin<Output<PushPull>>,
     mut receiver: Receiver<'static, CriticalSectionRawMutex, ScanFrame, 10>,
 ) {
