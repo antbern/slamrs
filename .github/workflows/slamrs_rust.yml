@@ -4,13 +4,18 @@ on:
   pull_request:
     branches: [ "main" ]
 
-name: CI
+name: "Build: slamrs" 
 
 env:
   # This is required to enable the web_sys clipboard API which egui_web uses
   # https://rustwasm.github.io/wasm-bindgen/api/web_sys/struct.Clipboard.html
   # https://rustwasm.github.io/docs/wasm-bindgen/web-sys/unstable-apis.html
   RUSTFLAGS: --cfg=web_sys_unstable_apis
+
+# all the run steps should execute in the subfolder
+defaults:
+  run:
+    working-directory: ./slamrs
 
 jobs:
   check:
@@ -24,10 +29,7 @@ jobs:
           toolchain: stable
           override: true
       - run: sudo apt install libgtk-3-dev
-      - uses: actions-rs/cargo@v1
-        with:
-          command: check
-          args: --all-features
+      - run: cargo check --all-features
 
   check_wasm:
     name: Check wasm32
@@ -40,10 +42,7 @@ jobs:
           toolchain: stable
           target: wasm32-unknown-unknown
           override: true
-      - uses: actions-rs/cargo@v1
-        with:
-          command: check
-          args: --all-features --lib --target wasm32-unknown-unknown
+      - run: cargo check --all-features --lib --target wasm32-unknown-unknown
 
   test:
     name: Test Suite
@@ -56,10 +55,7 @@ jobs:
           toolchain: stable
           override: true
       - run: sudo apt-get install libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libspeechd-dev libxkbcommon-dev libssl-dev libgtk-3-dev
-      - uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --lib
+      - run: cargo test --lib
 
   fmt:
     name: Rustfmt
@@ -72,10 +68,7 @@ jobs:
           toolchain: stable
           override: true
           components: rustfmt
-      - uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
+      - run: cargo fmt --all -- --check
 
   clippy:
     name: Clippy
@@ -89,10 +82,7 @@ jobs:
           override: true
           components: clippy
       - run: sudo apt install libgtk-3-dev
-      - uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: -- -D warnings
+      - run: cargo clippy -- -D warnings
 
   trunk:
     name: trunk
