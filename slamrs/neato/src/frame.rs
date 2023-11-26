@@ -4,7 +4,7 @@ use std::{fs::File, io::Read, path::PathBuf};
 
 use common::robot::{Measurement, Observation};
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct NeatoFrame {
     pub distance: [u16; 360],
     pub strength: [u16; 360],

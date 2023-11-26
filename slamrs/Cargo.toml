@@ -37,6 +37,10 @@ web-time = "0.2.3" # for using time::instant on wasm
 tracing = "0.1"
 #tracing-subscriber = "0.3"
 
+# for communication with the robot
+bincode = {version = "2.0.0-rc.3" , git="https://github.com/bincode-org/bincode",rev = "aada4bb4cb457677a4b8e47572ae7ca8dd44927c"}
+slamers-message = { path = '../slamrs-message'}
+
 # [profile.release]
 # opt-level = 2 # fast and small wasm
 
