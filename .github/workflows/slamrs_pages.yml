@@ -14,6 +14,10 @@ on:
 permissions:
   contents: write # for committing to gh-pages branch.
 
+defaults:
+  run:
+    working-directory: ./slamrs
+
 jobs:
   build-github-pages:
     runs-on: ubuntu-latest
