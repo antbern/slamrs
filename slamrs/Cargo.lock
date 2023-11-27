@@ -1206,7 +1206,7 @@ dependencies = [
  "rfd",
  "serde",
  "serial2",
- "slamers-message",
+ "slamrs-message",
  "tracing",
 ]
 
@@ -1814,7 +1814,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "slamers-message"
+name = "slamrs-message"
 version = "0.1.0"
 dependencies = [
  "bincode",

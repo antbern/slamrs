@@ -5,7 +5,7 @@ use common::{
 };
 use pubsub::{PubSub, Publisher};
 use serde::Deserialize;
-use slamers_message::{CommandMessage, RobotMessage};
+use slamrs_message::{CommandMessage, RobotMessage};
 use std::io::prelude::*;
 use std::{
     net::TcpStream,

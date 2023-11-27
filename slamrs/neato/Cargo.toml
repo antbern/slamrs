@@ -22,4 +22,4 @@ serial2 = "0.1.7"
 rfd = "0.12.1"
 
 bincode = {workspace = true}
-slamers-message = {workspace = true}
+slamrs-message = {workspace = true}
