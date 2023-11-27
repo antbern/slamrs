@@ -13,7 +13,7 @@ use crate::node::{
 };
 
 #[cfg(not(target_arch = "wasm32"))]
-use neato::{FileLoaderNodeConfig, SerialConnectionNodeConfig};
+use neato::{FileLoaderNodeConfig, NetworkConnectionNodeConfig, SerialConnectionNodeConfig};
 
 #[derive(Clone, Deserialize, Default)]
 pub struct Config {
@@ -37,6 +37,8 @@ pub enum NodeEnum {
     FileLoader(FileLoaderNodeConfig),
     #[cfg(not(target_arch = "wasm32"))]
     SerialConnection(SerialConnectionNodeConfig),
+    #[cfg(not(target_arch = "wasm32"))]
+    NetworkConnection(NetworkConnectionNodeConfig),
     IcpPointMapper(IcpPointMapNodeConfig),
     Visualizer(FrameVizualizerNodeConfig),
     GridMapSlam(GridMapSlamNodeConfig),
@@ -54,6 +56,8 @@ impl NodeEnum {
             FileLoader(c) => c.instantiate(pubsub),
             #[cfg(not(target_arch = "wasm32"))]
             SerialConnection(c) => c.instantiate(pubsub),
+            #[cfg(not(target_arch = "wasm32"))]
+            NetworkConnection(c) => c.instantiate(pubsub),
             IcpPointMapper(c) => c.instantiate(pubsub),
             Visualizer(c) => c.instantiate(pubsub),
             GridMapSlam(c) => c.instantiate(pubsub),
