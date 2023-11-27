@@ -18,8 +18,8 @@ defaults:
     working-directory: ./slamrs
 
 jobs:
-  check:
-    name: Check
+  build:
+    name: Build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -28,11 +28,22 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
-      - run: sudo apt install libgtk-3-dev
-      - run: cargo check --all-features
+      - name: Install dependencies
+        run: sudo apt-get install libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libspeechd-dev libxkbcommon-dev libssl-dev libgtk-3-dev
+        
+      - name: Rust Cache # cache the rust build artefacts
+        uses: Swatinem/rust-cache@v2
+      - name: Check
+        run: cargo check --all-features
+      - name: Build
+        run: cargo build
+      - name: Test
+        run: cargo test --lib
+      - name: Lint
+        run: cargo clippy -- -D warnings
 
-  check_wasm:
-    name: Check wasm32
+  build_wasm:
+    name: Build wasm32
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -42,20 +53,32 @@ jobs:
           toolchain: stable
           target: wasm32-unknown-unknown
           override: true
-      - run: cargo check --all-features --lib --target wasm32-unknown-unknown
+      - name: Rust Cache # cache the rust build artefacts
+        uses: Swatinem/rust-cache@v2
 
-  test:
-    name: Test Suite
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-      - run: sudo apt-get install libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libspeechd-dev libxkbcommon-dev libssl-dev libgtk-3-dev
-      - run: cargo test --lib
+      - name: Check
+        run: cargo check --all-features --lib --target wasm32-unknown-unknown
+
+      - name: Download and install Trunk binary
+        run: wget -qO- https://github.com/thedodd/trunk/releases/latest/download/trunk-x86_64-unknown-linux-gnu.tar.gz | tar -xzf-
+      - name: Build
+        run: ./trunk build baseui/index.html
+
+      - name: Lint
+        run: cargo clippy --target wasm32-unknown-unknown -- -D warnings
+
+  # test:
+  #   name: Test Suite
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: actions-rs/toolchain@v1
+  #       with:
+  #         profile: minimal
+  #         toolchain: stable
+  #         override: true
+  #     - run: sudo apt-get install libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libspeechd-dev libxkbcommon-dev libssl-dev libgtk-3-dev
+  #     - run: cargo test --lib
 
   fmt:
     name: Rustfmt
@@ -70,32 +93,32 @@ jobs:
           components: rustfmt
       - run: cargo fmt --all -- --check
 
-  clippy:
-    name: Clippy
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-          components: clippy
-      - run: sudo apt install libgtk-3-dev
-      - run: cargo clippy -- -D warnings
+  # clippy:
+  #   name: Clippy
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: actions-rs/toolchain@v1
+  #       with:
+  #         profile: minimal
+  #         toolchain: stable
+  #         override: true
+  #         components: clippy
+  #     - run: sudo apt install libgtk-3-dev
+  #     - run: cargo clippy -- -D warnings
 
-  trunk:
-    name: trunk
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: 1.71.0
-          target: wasm32-unknown-unknown
-          override: true
-      - name: Download and install Trunk binary
-        run: wget -qO- https://github.com/thedodd/trunk/releases/latest/download/trunk-x86_64-unknown-linux-gnu.tar.gz | tar -xzf-
-      - name: Build
-        run: ./trunk build baseui/index.html
+  # trunk:
+  #   name: trunk
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: actions-rs/toolchain@v1
+  #       with:
+  #         profile: minimal
+  #         toolchain: 1.71.0
+  #         target: wasm32-unknown-unknown
+  #         override: true
+  #     - name: Download and install Trunk binary
+  #       run: wget -qO- https://github.com/thedodd/trunk/releases/latest/download/trunk-x86_64-unknown-linux-gnu.tar.gz | tar -xzf-
+  #     - name: Build
+  #       run: ./trunk build baseui/index.html
