@@ -1324,14 +1324,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "slamers-message"
+name = "slamrs-message"
 version = "0.1.0"
 dependencies = [
  "bincode",
 ]
 
 [[package]]
-name = "slamers-robot"
+name = "slamrs-robot"
 version = "0.1.0"
 dependencies = [
  "bincode",
@@ -1354,7 +1354,7 @@ dependencies = [
  "futures-util",
  "heapless",
  "log",
- "slamers-message",
+ "slamrs-message",
  "smoltcp",
  "static_cell",
 ]

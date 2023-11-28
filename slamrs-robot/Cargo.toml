@@ -1,5 +1,5 @@
 [package]
-name = "slamers-robot"
+name = "slamrs-robot"
 version = "0.1.0"
 edition = "2021"
 resolver = "2"
@@ -37,7 +37,7 @@ esp-backtrace = { version = "0.9.0", features = ["panic-handler", "exception-han
 
 esp-wifi = {  features = ["esp32", "utils", "embassy-net", "embedded-svc", "async", "wifi"], git = "https://github.com/esp-rs/esp-wifi", package = "esp-wifi", rev = "8574d00cab3f88feac9c1afc19932dd02a9d83d6"  }
 
-slamers-message = { path = '../slamers-message'}
+slamrs-message = { path = '../slamrs-message'}
 bincode = {version = "2.0.0-rc.3", default-features = false , git="https://github.com/bincode-org/bincode",rev = "aada4bb4cb457677a4b8e47572ae7ca8dd44927c"}
 static_cell = {version = "2.0.0", features = ["nightly"] }
 
