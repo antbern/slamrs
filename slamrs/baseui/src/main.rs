@@ -24,8 +24,9 @@ fn main() -> Result<(), eframe::Error> {
     };
 
     let native_options = eframe::NativeOptions {
-        initial_window_size: Some(egui::vec2(1280.0, 720.0)),
-        resizable: true,
+        viewport: egui::ViewportBuilder::default()
+            .with_inner_size([1280.0, 720.])
+            .with_resizable(true),
         //multisampling: 8, // does not seem to work on my laptop
         renderer: eframe::Renderer::Glow,
         ..Default::default()
