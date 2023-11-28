@@ -75,7 +75,7 @@ impl eframe::App for App {
                 #[cfg(not(target_arch = "wasm32"))] // no File->Quit on web pages!
                 ui.menu_button("File", |ui| {
                     if ui.button("Quit").clicked() {
-                        _frame.close();
+                        ctx.send_viewport_cmd(egui::ViewportCommand::Close)
                     }
                 });
 
