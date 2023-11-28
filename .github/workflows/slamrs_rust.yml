@@ -33,6 +33,9 @@ jobs:
         
       - name: Rust Cache # cache the rust build artefacts
         uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "./slamrs -> target"
+
       - name: Check
         run: cargo check --all-features
       - name: Build
@@ -55,6 +58,8 @@ jobs:
           override: true
       - name: Rust Cache # cache the rust build artefacts
         uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "./slamrs -> target"
 
       - name: Check
         run: cargo check --all-features --lib --target wasm32-unknown-unknown
