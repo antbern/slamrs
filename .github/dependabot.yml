@@ -10,10 +10,16 @@ updates:
     schedule:
       interval: "weekly"
 
-  - package-ecosystem: "cargo" # See documentation for possible values
-    directory: "slamrs-message/" # Location of package manifests
+  - package-ecosystem: "cargo"
+    directory: "slamrs-message/"
     schedule:
       interval: "weekly"
+
+  - package-ecosystem: "cargo"
+    directory: "slamrs-robot/"
+    schedule:
+      interval: "weekly"
+
 
   - package-ecosystem: "github-actions"
     directory: "/"
