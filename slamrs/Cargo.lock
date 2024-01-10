@@ -946,9 +946,9 @@ dependencies = [
 
 [[package]]
 name = "kd-tree"
-version = "0.5.1"
+version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f54287107c30b23cf7a32e394c68b9472220a090c897d916dfdf467caef88864"
+checksum = "c12a5c8da4557f8573c26673f1db6fab935255c5cf62a82d2df33d1fba07a409"
 dependencies = [
  "num-traits",
  "ordered-float",
