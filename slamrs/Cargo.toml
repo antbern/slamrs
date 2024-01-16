@@ -19,8 +19,8 @@ neato = {path = "./neato"}
 simulator = {path = "./simulator"}
 slam = {path = "./slam"}
 
-egui = "0.24.0"
-glow = "0.12.0" # needs to be the same version as used in egui
+egui = "0.25.0"
+glow = "0.13.0" # needs to be the same version as used in egui
 nalgebra = {version = "0.32.3", features = ["serde-serialize"] }
 anyhow = "1.0.79"
 log = "0.4"
@@ -31,7 +31,7 @@ serde_yaml = "0.9"
 rand = "0.8.5"
 statrs = "0.16.0"
 
-web-time = "0.2.4" # for using time::instant on wasm
+web-time = "1.0.0" # for using time::instant on wasm
 
 # for instrumented logging capabilities
 tracing = "0.1"
