@@ -19,7 +19,7 @@ tracing = {workspace = true}
 # special dependencies for this crate
 serial2 = "0.1.7"
 
-rfd = "0.12.1"
+rfd = "0.13.0"
 
 bincode = {workspace = true}
 slamrs-message = {workspace = true}
