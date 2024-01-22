@@ -9,7 +9,8 @@ use slam::{GridMapSlamNodeConfig, IcpPointMapNodeConfig};
 
 use crate::node::{
     controls::ControlsNodeConfig, frame_viz::FrameVizualizerNodeConfig,
-    mouse_position::MousePositionNodeConfig, shape_rendering::ShapeRenderingNodeConfig,
+    gaussian::GaussianNodeConfig, mouse_position::MousePositionNodeConfig,
+    shape_rendering::ShapeRenderingNodeConfig,
 };
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -42,6 +43,7 @@ pub enum NodeEnum {
     IcpPointMapper(IcpPointMapNodeConfig),
     Visualizer(FrameVizualizerNodeConfig),
     GridMapSlam(GridMapSlamNodeConfig),
+    GaussianTest(GaussianNodeConfig),
 }
 
 impl NodeEnum {
@@ -61,6 +63,7 @@ impl NodeEnum {
             IcpPointMapper(c) => c.instantiate(pubsub),
             Visualizer(c) => c.instantiate(pubsub),
             GridMapSlam(c) => c.instantiate(pubsub),
+            GaussianTest(c) => c.instantiate(pubsub),
         }
     }
 }

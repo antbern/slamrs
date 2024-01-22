@@ -1,5 +1,6 @@
 use std::{fmt::Display, time::Duration};
 
+pub mod gaussian;
 pub mod math;
 pub mod node;
 pub mod robot;
