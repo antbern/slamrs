@@ -150,7 +150,7 @@ impl Simulator {
                             id: self.scan_counter,
                             measurements: meas,
                         },
-                        odometry.clone(),
+                        odometry,
                     )));
 
                     self.scan_counter += 1;
@@ -185,7 +185,7 @@ impl Simulator {
                         LandmarkObservations {
                             landmarks: observations,
                         },
-                        odometry.clone(),
+                        odometry,
                     )));
                 }
             }

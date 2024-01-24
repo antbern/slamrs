@@ -56,18 +56,18 @@ impl Split {
                 scanner,
                 odometry,
             } => Box::new(OneToTwoSplitter {
-                input: pubsub.subscribe::<(Observation, Odometry)>(&input),
-                out1: pubsub.publish(&scanner),
-                out2: pubsub.publish(&odometry),
+                input: pubsub.subscribe::<(Observation, Odometry)>(input),
+                out1: pubsub.publish(scanner),
+                out2: pubsub.publish(odometry),
             }),
             Split::LandmarkOdometry {
                 input,
                 landmark,
                 odometry,
             } => Box::new(OneToTwoSplitter {
-                input: pubsub.subscribe::<(LandmarkObservations, Odometry)>(&input),
-                out1: pubsub.publish(&landmark),
-                out2: pubsub.publish(&odometry),
+                input: pubsub.subscribe::<(LandmarkObservations, Odometry)>(input),
+                out1: pubsub.publish(landmark),
+                out2: pubsub.publish(odometry),
             }),
         }
     }
