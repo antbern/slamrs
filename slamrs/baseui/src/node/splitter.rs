@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use common::{
     node::{Node, NodeConfig},
-    robot::{LandmarkObservation, Observation, Odometry},
+    robot::{LandmarkObservations, Observation, Odometry},
 };
 use pubsub::{Publisher, Subscription};
 use serde::Deserialize;
@@ -65,7 +65,7 @@ impl Split {
                 landmark,
                 odometry,
             } => Box::new(OneToTwoSplitter {
-                input: pubsub.subscribe::<(LandmarkObservation, Odometry)>(&input),
+                input: pubsub.subscribe::<(LandmarkObservations, Odometry)>(&input),
                 out1: pubsub.publish(&landmark),
                 out2: pubsub.publish(&odometry),
             }),
