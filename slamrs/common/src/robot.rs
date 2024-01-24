@@ -101,9 +101,9 @@ pub struct LandmarkObservations {
 #[derive(Debug, Clone, Copy)]
 pub struct LandmarkObservation {
     /// Angle in radians for the direction of the landmark
-    angle: f32,
+    pub angle: f32,
     /// Distance in meters to the observed landmark
-    distance: f32,
+    pub distance: f32,
 }
 
 /// Observed (measured) motion of the left and right wheel

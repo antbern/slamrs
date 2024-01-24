@@ -1,4 +1,4 @@
-use common::robot::{Observation, Pose};
+use common::robot::{LandmarkObservations, Observation, Pose};
 use egui::Slider;
 use graphics::{
     primitiverenderer::{Color, PrimitiveType},
@@ -275,6 +275,69 @@ impl Visualize for GridMapMessage {
                     y as f32 * self.resolution + self.position.y,
                     Color::BLACK,
                 );
+            }
+
+            sr.end();
+        }
+    }
+}
+
+//////////////// Implementation for Gaussian2D /////////////////
+
+#[derive(Deserialize, Debug, Clone)]
+#[serde(default)]
+pub struct LandmarkObservationVisualizeConfig {
+    color: [f32; 3],
+    radius: f32,
+}
+
+impl Default for LandmarkObservationVisualizeConfig {
+    fn default() -> Self {
+        Self {
+            radius: 0.02,
+            color: Default::default(),
+        }
+    }
+}
+
+impl VisualizeParametersUi for LandmarkObservationVisualizeConfig {
+    fn ui(&mut self, ui: &mut egui::Ui) {
+        ui.horizontal(|ui| {
+            ui.label("Radius: ");
+            ui.add(
+                Slider::new(&mut self.radius, 0.001..=0.02)
+                    .step_by(0.001)
+                    .fixed_decimals(3),
+            );
+        });
+
+        ui.horizontal(|ui| {
+            ui.label("Color: ");
+            ui.color_edit_button_rgb(&mut self.color);
+        });
+    }
+}
+
+impl Visualize for LandmarkObservations {
+    type Parameters = LandmarkObservationVisualizeConfig;
+    type Secondary = Pose;
+
+    fn visualize(
+        &self,
+        sr: &mut ShapeRenderer,
+        c: &Self::Parameters,
+        pose: &Option<Self::Secondary>,
+    ) {
+        if let Some(pose) = pose {
+            sr.begin(PrimitiveType::Filled);
+
+            let color = Color::from(c.color);
+            for l in &self.landmarks {
+                let angle = pose.theta + l.angle;
+                let x = pose.x + l.distance * angle.cos();
+                let y = pose.y + l.distance * angle.sin();
+
+                sr.circle(x, y, c.radius, color);
             }
 
             sr.end();

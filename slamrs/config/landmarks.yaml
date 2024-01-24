@@ -14,8 +14,8 @@ nodes:
 
 - !Simulator
   running: true
-  topic_observation_landmark: "robot/observation_odometry"
-  topic_pose: "robot/pose"
+  topic_observation_landmarks: "robot/observation_odometry"
+  topic_pose: "simulator/pose"
   topic_command: "robot/command"
 
   parameters:
@@ -48,17 +48,14 @@ nodes:
   #     size: 0.01
   #     point_color: [0.0, 1.0, 0.0]
     
-  # - !Observation
-  #   topic: "robot/observation"
-  #   topic_pose: "robot/pose"
-  #   config:
-  #     draw_lines: true
-  #     size: 0.01
-  #     point_color: [0.0, 1.0, 0.0]
-
-  - !Pose
-    topic: "robot/pose"
+  - !LandmarkObservation
+    topic: "robot/landmarks"
+    topic_pose: "simulator/pose"
     config:
-      color: [0.0, 1.0, 1.0]
-      radius: 0.1
+      
+  # - !Pose
+  #   topic: "robot/pose"
+  #   config:
+  #     color: [0.0, 1.0, 1.0]
+  #     radius: 0.1
         

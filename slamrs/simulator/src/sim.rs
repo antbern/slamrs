@@ -155,6 +155,39 @@ impl Simulator {
 
                     self.scan_counter += 1;
                 }
+
+                // if the landmark sensor is enabled, perform a scan
+                if let Some(pub_obs) = &mut self.pub_obs_landmarks {
+                    let mut observations = Vec::new();
+
+                    // go through all the landmarks and find the ones that are in the field of view infrontof the robot
+
+                    for l in self.scene.read().landmarks() {
+                        let dist_sq = (self.pose.x - l.x).powi(2) + (self.pose.y - l.y).powi(2);
+                        if dist_sq > self.parameters.scanner_range {
+                            continue;
+                        }
+
+                        // within range, create observation
+                        let angle = (l.y - self.pose.y).atan2(l.x - self.pose.x);
+
+                        // TODO: filter based on angle difference
+
+                        observations.push(LandmarkObservation {
+                            angle: angle - self.pose.theta,
+                            distance: dist_sq.sqrt(),
+                        })
+                    }
+
+                    tracing::debug!("Publishing landmarks: {observations:?}");
+
+                    pub_obs.publish(Arc::new((
+                        LandmarkObservations {
+                            landmarks: observations,
+                        },
+                        odometry.clone(),
+                    )));
+                }
             }
         }
     }

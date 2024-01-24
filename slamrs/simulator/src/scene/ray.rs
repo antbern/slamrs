@@ -112,6 +112,10 @@ impl Scene {
         self
     }
 
+    pub fn landmarks(&self) -> impl Iterator<Item = &Landmark> {
+        self.landmarks.iter()
+    }
+
     pub fn add(&mut self, obj: Box<dyn SceneObject + Send + Sync>) -> &mut Self {
         self.objects.push(obj);
         self

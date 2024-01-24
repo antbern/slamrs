@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use common::{
     node::{Node, NodeConfig},
-    robot::{Observation, Pose},
+    robot::{LandmarkObservations, Observation, Pose},
     world::WorldObj,
 };
 use egui::CollapsingHeader;
@@ -13,8 +13,8 @@ use serde::Deserialize;
 use slam::{GridMapMessage, PointMap};
 
 use super::visualize::{
-    GridMapVisualizeConfig, ObservationVisualizeConfig, PointMapVisualizeConfig,
-    PoseVisualizeConfig, Visualize, VisualizeParametersUi,
+    GridMapVisualizeConfig, LandmarkObservationVisualizeConfig, ObservationVisualizeConfig,
+    PointMapVisualizeConfig, PoseVisualizeConfig, Visualize, VisualizeParametersUi,
 };
 
 pub struct FrameVizualizer {
@@ -134,6 +134,11 @@ enum VizType {
         topic_pose: String,
         config: ObservationVisualizeConfig,
     },
+    LandmarkObservation {
+        topic: String,
+        topic_pose: String,
+        config: LandmarkObservationVisualizeConfig,
+    },
     PointMap {
         topic: String,
         config: PointMapVisualizeConfig,
@@ -157,6 +162,15 @@ impl VizType {
                 config,
             } => Box::new(SubscriptionVisualizer::new_with_secondary(
                 pubsub.subscribe::<Observation>(topic),
+                config.clone(),
+                SecondaryValue::Subscription(pubsub.subscribe::<Pose>(topic_pose)),
+            )),
+            VizType::LandmarkObservation {
+                topic,
+                topic_pose,
+                config,
+            } => Box::new(SubscriptionVisualizer::new_with_secondary(
+                pubsub.subscribe::<LandmarkObservations>(topic),
                 config.clone(),
                 SecondaryValue::Subscription(pubsub.subscribe::<Pose>(topic_pose)),
             )),
