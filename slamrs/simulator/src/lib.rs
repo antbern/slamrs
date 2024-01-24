@@ -26,8 +26,8 @@ pub struct SimulatorNode {
 
 #[derive(Clone, Deserialize)]
 pub struct SimulatorNodeConfig {
-    topic_observation: String,
-    topic_observation_odometry: String,
+    topic_observation_scanner: Option<String>,
+    topic_observation_landmarks: Option<String>,
     topic_command: String,
     running: bool,
 
@@ -84,8 +84,12 @@ impl NodeConfig for SimulatorNodeConfig {
 
         let scene = Arc::new(RwLock::new(scene));
         let simulator = Arc::new(Mutex::new(Simulator::new(
-            pubsub.publish(&self.topic_observation),
-            pubsub.publish(&self.topic_observation_odometry),
+            self.topic_observation_scanner
+                .as_ref()
+                .map(|topic| pubsub.publish(topic)),
+            self.topic_observation_landmarks
+                .as_ref()
+                .map(|topic| pubsub.publish(topic)),
             pubsub.subscribe(&self.topic_command),
             scene.clone(),
             self.parameters,

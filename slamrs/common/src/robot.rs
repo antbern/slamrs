@@ -93,6 +93,19 @@ pub struct Measurement {
     pub valid: bool,
 }
 
+#[derive(Debug, Clone)]
+pub struct LandmarkObservations {
+    pub landmarks: Vec<LandmarkObservation>,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct LandmarkObservation {
+    /// Angle in radians for the direction of the landmark
+    angle: f32,
+    /// Distance in meters to the observed landmark
+    distance: f32,
+}
+
 /// Observed (measured) motion of the left and right wheel
 #[derive(Debug, Clone, Copy)]
 pub struct Odometry {

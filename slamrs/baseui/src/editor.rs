@@ -29,6 +29,7 @@ nodes:
                 ("Shape Test", include_str!("../../config/shape_test.yaml")),
                 ("Grid Slam", include_str!("../../config/grid_slam.yaml")),
                 ("Neato ICP", include_str!("../../config/neato.yaml")),
+                ("Simulator ICP", include_str!("../../config/icp_test.yaml")),
             ],
             parsed_config: None,
         };
