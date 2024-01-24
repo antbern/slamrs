@@ -1,0 +1,64 @@
+settings:
+  headless: false
+
+nodes:
+
+- !MousePosition
+
+- !Splitter
+  splits:
+  - !LandmarkOdometry
+    input: "robot/observation_odometry"
+    landmark: "robot/landmarks"
+    odometry: "robot/odometry"
+
+- !Simulator
+  running: true
+  topic_observation_landmark: "robot/observation_odometry"
+  topic_pose: "robot/pose"
+  topic_command: "robot/command"
+
+  parameters:
+    wheel_base: 0.1
+    update_period: 0.2
+    scanner_range: 1.0
+
+  landmarks:
+  - !Landmark {x: -1.0, y: -1.0}
+  - !Landmark {x:  1.0, y:  1.0}
+  - !Landmark {x: -0.1, y: -0.4}
+  - !Landmark {x: -0.6, y:  0.4}
+  - !Landmark {x: -0.6, y: -0.4}
+  - !Landmark {x:  0.6, y:  0.4}
+  - !Landmark {x:  0.6, y: -0.4}
+
+
+- !Controls
+  topic_command: "robot/command"
+  keyboard_enabled: true
+  max_speed: 0.1
+
+
+- !Visualizer
+  topics:
+  
+  # - !PointMap
+  #   topic: "slam/map"
+  #   config:
+  #     size: 0.01
+  #     point_color: [0.0, 1.0, 0.0]
+    
+  # - !Observation
+  #   topic: "robot/observation"
+  #   topic_pose: "robot/pose"
+  #   config:
+  #     draw_lines: true
+  #     size: 0.01
+  #     point_color: [0.0, 1.0, 0.0]
+
+  - !Pose
+    topic: "robot/pose"
+    config:
+      color: [0.0, 1.0, 1.0]
+      radius: 0.1
+        

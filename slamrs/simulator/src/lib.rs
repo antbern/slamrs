@@ -9,7 +9,10 @@ use nalgebra::{Point2, Vector2};
 use simulator_loop::SimulatorLoop;
 use std::sync::Arc;
 
-use scene::ray::{Draw, LineSegment, Scene};
+use scene::{
+    landmark::Landmark,
+    ray::{Draw, LineSegment, Scene},
+};
 use serde::Deserialize;
 use sim::{SimParameters, Simulator};
 
@@ -33,6 +36,9 @@ pub struct SimulatorNodeConfig {
 
     #[serde(default)]
     scene: Vec<SceneObject>,
+
+    #[serde(default)]
+    landmarks: Vec<Landmark>,
 
     #[serde(default = "_default_true")]
     draw_scene: bool,
@@ -65,6 +71,8 @@ enum SceneObject {
 impl NodeConfig for SimulatorNodeConfig {
     fn instantiate(&self, pubsub: &mut pubsub::PubSub) -> Box<dyn Node> {
         let mut scene = Scene::new();
+
+        scene.add_landmarks(&self.landmarks);
 
         for o in &self.scene {
             match *o {

@@ -6,6 +6,8 @@ use nalgebra::{Point2, Vector2};
 
 use graphics::{primitiverenderer::Color, shaperenderer::ShapeRenderer};
 
+use super::landmark::Landmark;
+
 pub struct Ray {
     origin: Point2<f32>,
     direction: Vector2<f32>,
@@ -94,13 +96,20 @@ pub trait SceneObject: Intersect + Draw {}
 impl<T: Intersect + Draw> SceneObject for T {}
 pub struct Scene {
     objects: Vec<Box<dyn SceneObject + Send + Sync>>,
+    landmarks: Vec<Landmark>,
 }
 
 impl Scene {
     pub fn new() -> Self {
         Self {
             objects: Vec::new(),
+            landmarks: Vec::new(),
         }
+    }
+
+    pub fn add_landmarks(&mut self, landmarks: &[Landmark]) -> &mut Self {
+        self.landmarks.extend(landmarks);
+        self
     }
 
     pub fn add(&mut self, obj: Box<dyn SceneObject + Send + Sync>) -> &mut Self {
@@ -140,6 +149,10 @@ impl Draw for Scene {
     fn draw(&self, r: &mut ShapeRenderer, color: Color) {
         for o in &self.objects {
             o.draw(r, color);
+        }
+
+        for l in &self.landmarks {
+            l.draw(r, color);
         }
     }
 }
