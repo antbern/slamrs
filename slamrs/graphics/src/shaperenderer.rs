@@ -1,3 +1,7 @@
+use std::f32::consts::PI;
+
+use nalgebra::{Matrix2, Vector2};
+
 use crate::primitiverenderer::Color;
 
 use super::primitiverenderer::{PrimitiveRenderer, PrimitiveType, Vertex2C};
@@ -218,6 +222,42 @@ impl ShapeRenderer {
             }
             _ => {}
         }
+    }
+
+    /// Use the information in the Gaussian2D component to draw the correct ellipse around the uncertainty as well as a center piece
+    pub fn gaussian2d(&mut self, mean: &Vector2<f32>, covariance: &Matrix2<f32>, p: f32) {
+        self.begin(PrimitiveType::Filled);
+        self.circle(mean.x, mean.y, 0.01, Color::BLUE);
+        self.end();
+
+        // Matlab reference (Source: https://www.xarg.org/2018/04/how-to-plot-a-covariance-error-ellipse/)
+        // s = -2 * log(1 - p);
+        // [V, D] = eig(Sigma * s);
+        // t = linspace(0, 2 * pi);
+        // a = (V * sqrt(D)) * [cos(t(:))'; sin(t(:))'];
+        // plot(a(1, :) + mu(1), a(2, :) + mu(2));
+
+        // update the ellipse radii
+
+        let s = -2.0 * (1.0 - p).ln();
+
+        let eigen = (covariance * s).symmetric_eigen();
+
+        let d = Matrix2::from_diagonal(&eigen.eigenvalues.map(|v| v.sqrt()));
+        let v = eigen.eigenvectors;
+
+        self.begin(PrimitiveType::Line);
+        let steps = 25;
+        for i in 0..steps {
+            let angle = i as f32 * PI * 2.0 / steps as f32;
+            let start = mean + (v * d) * Vector2::new(angle.cos(), angle.sin());
+
+            let angle = ((i + 1) % steps) as f32 * PI * 2.0 / steps as f32;
+            let end = mean + (v * d) * Vector2::new(angle.cos(), angle.sin());
+            self.line(start.x, start.y, end.x, end.y, Color::BLACK);
+        }
+
+        self.end();
     }
 
     pub fn destroy(&self, gl: &glow::Context) {
