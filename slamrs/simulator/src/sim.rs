@@ -1,6 +1,8 @@
 use std::sync::Arc;
 
-use common::robot::{Command, LandmarkObservations, Measurement, Observation, Odometry, Pose};
+use common::robot::{
+    Command, LandmarkObservation, LandmarkObservations, Measurement, Observation, Odometry, Pose,
+};
 use egui::mutex::RwLock;
 use nalgebra::{Point2, Vector2};
 use pubsub::{Publisher, Subscription};
@@ -11,6 +13,7 @@ use crate::scene::ray::{Intersect, Ray, Scene};
 pub struct Simulator {
     pub_obs_scanner: Option<Publisher<(Observation, Odometry)>>,
     pub_obs_landmarks: Option<Publisher<(LandmarkObservations, Odometry)>>,
+    pub_pose: Option<Publisher<Pose>>,
     sub_cmd: Subscription<Command>,
     scene: Arc<RwLock<Scene>>,
     parameters: SimParameters,
@@ -49,6 +52,7 @@ impl Simulator {
     pub fn new(
         pub_obs_scanner: Option<Publisher<(Observation, Odometry)>>,
         pub_obs_landmarks: Option<Publisher<(LandmarkObservations, Odometry)>>,
+        pub_pose: Option<Publisher<Pose>>,
         sub_cmd: Subscription<Command>,
         scene: Arc<RwLock<Scene>>,
         parameters: SimParameters,
@@ -56,6 +60,7 @@ impl Simulator {
         Self {
             pub_obs_scanner,
             pub_obs_landmarks,
+            pub_pose,
             sub_cmd,
             scene,
             parameters,
@@ -102,6 +107,10 @@ impl Simulator {
 
                 // reset the accumulator
                 self.wheel_motion_accumulator = (0.0, 0.0);
+
+                if let Some(pub_pose) = &mut self.pub_pose {
+                    pub_pose.publish(Arc::new(self.pose));
+                }
 
                 // if the laser scanner is enabled, perform a scan
                 if let Some(pub_obs) = &mut self.pub_obs_scanner {

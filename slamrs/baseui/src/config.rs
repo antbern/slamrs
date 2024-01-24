@@ -17,6 +17,7 @@ use crate::node::{
 use neato::{FileLoaderNodeConfig, NetworkConnectionNodeConfig, SerialConnectionNodeConfig};
 
 #[derive(Clone, Deserialize, Default)]
+#[serde(deny_unknown_fields)]
 pub struct Config {
     pub settings: Settings,
 

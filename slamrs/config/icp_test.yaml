@@ -23,7 +23,6 @@ nodes:
 - !Simulator
   running: true
   topic_observation_scanner: "robot/observation_odometry"
-  topic_pose: "robot/pose"
   topic_command: "robot/command"
 
   parameters:

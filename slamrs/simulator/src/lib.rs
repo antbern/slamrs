@@ -28,9 +28,11 @@ pub struct SimulatorNode {
 }
 
 #[derive(Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct SimulatorNodeConfig {
     topic_observation_scanner: Option<String>,
     topic_observation_landmarks: Option<String>,
+    topic_pose: Option<String>,
     topic_command: String,
     running: bool,
 
@@ -98,6 +100,7 @@ impl NodeConfig for SimulatorNodeConfig {
             self.topic_observation_landmarks
                 .as_ref()
                 .map(|topic| pubsub.publish(topic)),
+            self.topic_pose.as_ref().map(|topic| pubsub.publish(topic)),
             pubsub.subscribe(&self.topic_command),
             scene.clone(),
             self.parameters,
