@@ -9,6 +9,8 @@ use pubsub::{Publisher, Subscription};
 use serde::Deserialize;
 
 use crate::scene::ray::{Intersect, Ray, Scene};
+use rand::distributions::Distribution;
+use statrs::distribution::Normal;
 
 pub struct Simulator {
     pub_obs_scanner: Option<Publisher<(Observation, Odometry)>>,
@@ -26,6 +28,7 @@ pub struct Simulator {
 }
 
 #[derive(Clone, Copy, Deserialize)]
+#[serde(default)]
 pub struct SimParameters {
     /// The wheel base (in meters) of the differential robot used in the simulator, i.e,
     /// the distance between the wheels.
@@ -36,6 +39,12 @@ pub struct SimParameters {
 
     /// Laser range scanner maximum distance in meters.
     pub(crate) scanner_range: f32,
+
+    /// The uncertainty for the sensor in the angle direction
+    pub(crate) angle_uncertainty: f32,
+
+    /// The uncertainty for the sensor in the distance measurement
+    pub(crate) distance_uncertainty: f32,
 }
 
 impl Default for SimParameters {
@@ -44,6 +53,8 @@ impl Default for SimParameters {
             wheel_base: 0.1,
             update_period: 0.2,
             scanner_range: 1.0,
+            angle_uncertainty: 0.05,
+            distance_uncertainty: 0.02,
         }
     }
 }
@@ -160,6 +171,9 @@ impl Simulator {
                 if let Some(pub_obs) = &mut self.pub_obs_landmarks {
                     let mut observations = Vec::new();
 
+                    let normal = Normal::new(0.0, 1.0).unwrap();
+                    let rng = &mut rand::thread_rng();
+
                     // go through all the landmarks and find the ones that are in the field of view infrontof the robot
 
                     for l in self.scene.read().landmarks() {
@@ -174,8 +188,10 @@ impl Simulator {
                         // TODO: filter based on angle difference
 
                         observations.push(LandmarkObservation {
-                            angle: angle - self.pose.theta,
-                            distance: dist_sq.sqrt(),
+                            angle: angle - self.pose.theta
+                                + normal.sample(rng) as f32 * self.parameters.angle_uncertainty,
+                            distance: dist_sq.sqrt()
+                                + normal.sample(rng) as f32 * self.parameters.distance_uncertainty,
                         })
                     }
 
