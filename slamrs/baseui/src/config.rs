@@ -9,13 +9,15 @@ use slam::{GridMapSlamNodeConfig, IcpPointMapNodeConfig};
 
 use crate::node::{
     controls::ControlsNodeConfig, frame_viz::FrameVizualizerNodeConfig,
-    mouse_position::MousePositionNodeConfig, shape_rendering::ShapeRenderingNodeConfig,
+    gaussian::GaussianNodeConfig, mouse_position::MousePositionNodeConfig,
+    shape_rendering::ShapeRenderingNodeConfig, splitter::SplitterNodeConfig,
 };
 
 #[cfg(not(target_arch = "wasm32"))]
 use neato::{FileLoaderNodeConfig, NetworkConnectionNodeConfig, SerialConnectionNodeConfig};
 
 #[derive(Clone, Deserialize, Default)]
+#[serde(deny_unknown_fields)]
 pub struct Config {
     pub settings: Settings,
 
@@ -42,6 +44,8 @@ pub enum NodeEnum {
     IcpPointMapper(IcpPointMapNodeConfig),
     Visualizer(FrameVizualizerNodeConfig),
     GridMapSlam(GridMapSlamNodeConfig),
+    GaussianTest(GaussianNodeConfig),
+    Splitter(SplitterNodeConfig),
 }
 
 impl NodeEnum {
@@ -61,6 +65,8 @@ impl NodeEnum {
             IcpPointMapper(c) => c.instantiate(pubsub),
             Visualizer(c) => c.instantiate(pubsub),
             GridMapSlam(c) => c.instantiate(pubsub),
+            GaussianTest(c) => c.instantiate(pubsub),
+            Splitter(c) => c.instantiate(pubsub),
         }
     }
 }

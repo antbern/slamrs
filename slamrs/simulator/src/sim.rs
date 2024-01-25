@@ -1,16 +1,21 @@
 use std::sync::Arc;
 
-use common::robot::{Command, Measurement, Observation, Odometry, Pose};
+use common::robot::{
+    Command, LandmarkObservation, LandmarkObservations, Measurement, Observation, Odometry, Pose,
+};
 use egui::mutex::RwLock;
 use nalgebra::{Point2, Vector2};
 use pubsub::{Publisher, Subscription};
 use serde::Deserialize;
 
 use crate::scene::ray::{Intersect, Ray, Scene};
+use rand::distributions::Distribution;
+use statrs::distribution::Normal;
 
 pub struct Simulator {
-    pub_obs: Publisher<Observation>,
-    pub_obs_odometry: Publisher<(Observation, Odometry)>,
+    pub_obs_scanner: Option<Publisher<(Observation, Odometry)>>,
+    pub_obs_landmarks: Option<Publisher<(LandmarkObservations, Odometry)>>,
+    pub_pose: Option<Publisher<Pose>>,
     sub_cmd: Subscription<Command>,
     scene: Arc<RwLock<Scene>>,
     parameters: SimParameters,
@@ -23,6 +28,7 @@ pub struct Simulator {
 }
 
 #[derive(Clone, Copy, Deserialize)]
+#[serde(default)]
 pub struct SimParameters {
     /// The wheel base (in meters) of the differential robot used in the simulator, i.e,
     /// the distance between the wheels.
@@ -33,6 +39,12 @@ pub struct SimParameters {
 
     /// Laser range scanner maximum distance in meters.
     pub(crate) scanner_range: f32,
+
+    /// The uncertainty for the sensor in the angle direction
+    pub(crate) angle_uncertainty: f32,
+
+    /// The uncertainty for the sensor in the distance measurement
+    pub(crate) distance_uncertainty: f32,
 }
 
 impl Default for SimParameters {
@@ -41,21 +53,25 @@ impl Default for SimParameters {
             wheel_base: 0.1,
             update_period: 0.2,
             scanner_range: 1.0,
+            angle_uncertainty: 0.05,
+            distance_uncertainty: 0.02,
         }
     }
 }
 
 impl Simulator {
     pub fn new(
-        pub_obs: Publisher<Observation>,
-        pub_obs_odometry: Publisher<(Observation, Odometry)>,
+        pub_obs_scanner: Option<Publisher<(Observation, Odometry)>>,
+        pub_obs_landmarks: Option<Publisher<(LandmarkObservations, Odometry)>>,
+        pub_pose: Option<Publisher<Pose>>,
         sub_cmd: Subscription<Command>,
         scene: Arc<RwLock<Scene>>,
         parameters: SimParameters,
     ) -> Self {
         Self {
-            pub_obs,
-            pub_obs_odometry,
+            pub_obs_scanner,
+            pub_obs_landmarks,
+            pub_pose,
             sub_cmd,
             scene,
             parameters,
@@ -77,13 +93,12 @@ impl Simulator {
     }
 
     pub fn tick(&mut self, dt: f32) {
+        // consume any incoming motion commands
         while let Some(c) = self.sub_cmd.try_recv() {
             self.wheel_velocity = Vector2::new(c.speed_left, c.speed_right);
         }
 
         if self.active {
-            self.scan_update_timer += dt;
-
             // make the robot move
             self.motion_model(self.wheel_velocity.x * dt, self.wheel_velocity.y * dt);
 
@@ -91,60 +106,104 @@ impl Simulator {
             self.wheel_motion_accumulator.1 += self.wheel_velocity.y * dt;
 
             // if it's time for a scan, perform it!
+            self.scan_update_timer += dt;
             if self.scan_update_timer > self.parameters.update_period {
                 self.scan_update_timer -= self.parameters.update_period;
 
-                // take a reading and send it to the drawing node
-                let mut meas: Vec<Measurement> = Vec::with_capacity(10);
-                let origin = Point2::new(self.pose.x, self.pose.y);
-
-                for angle in 0..360 {
-                    let angle = (angle as f32).to_radians();
-
-                    // let angle = 0.0;
-                    if let Some(v) = self
-                        .scene
-                        .read()
-                        .intersect(&Ray::from_origin_angle(origin, angle + self.pose.theta))
-                    {
-                        if v < self.parameters.scanner_range {
-                            meas.push(Measurement {
-                                angle: angle as f64,
-                                distance: v as f64,
-                                strength: 1.0,
-                                valid: true,
-                            });
-                        } else {
-                            meas.push(Measurement {
-                                angle: angle as f64,
-                                distance: self.parameters.scanner_range as f64,
-                                strength: 1.0,
-                                valid: false, // Treat the valid flag as a hit/no hit for now
-                            });
-                        }
-                    }
-                }
-
-                self.pub_obs.publish(Arc::new(Observation {
-                    id: self.scan_counter,
-                    measurements: meas.clone(),
-                }));
-
-                self.pub_obs_odometry.publish(Arc::new((
-                    Observation {
-                        id: self.scan_counter,
-                        measurements: meas,
-                    },
-                    Odometry::new(
-                        self.wheel_motion_accumulator.0,
-                        self.wheel_motion_accumulator.1,
-                    ),
-                )));
+                // new scan will be taken, prepare an odometry measurement
+                let odometry = Odometry::new(
+                    self.wheel_motion_accumulator.0,
+                    self.wheel_motion_accumulator.1,
+                );
 
                 // reset the accumulator
                 self.wheel_motion_accumulator = (0.0, 0.0);
 
-                self.scan_counter += 1;
+                if let Some(pub_pose) = &mut self.pub_pose {
+                    pub_pose.publish(Arc::new(self.pose));
+                }
+
+                // if the laser scanner is enabled, perform a scan
+                if let Some(pub_obs) = &mut self.pub_obs_scanner {
+                    // take a reading and send it to the drawing node
+                    let mut meas: Vec<Measurement> = Vec::with_capacity(360);
+                    let origin = Point2::new(self.pose.x, self.pose.y);
+
+                    for angle in 0..360 {
+                        let angle = (angle as f32).to_radians();
+
+                        // let angle = 0.0;
+                        if let Some(v) = self
+                            .scene
+                            .read()
+                            .intersect(&Ray::from_origin_angle(origin, angle + self.pose.theta))
+                        {
+                            if v < self.parameters.scanner_range {
+                                meas.push(Measurement {
+                                    angle: angle as f64,
+                                    distance: v as f64,
+                                    strength: 1.0,
+                                    valid: true,
+                                });
+                            } else {
+                                meas.push(Measurement {
+                                    angle: angle as f64,
+                                    distance: self.parameters.scanner_range as f64,
+                                    strength: 1.0,
+                                    valid: false, // Treat the valid flag as a hit/no hit for now
+                                });
+                            }
+                        }
+                    }
+
+                    pub_obs.publish(Arc::new((
+                        Observation {
+                            id: self.scan_counter,
+                            measurements: meas,
+                        },
+                        odometry,
+                    )));
+
+                    self.scan_counter += 1;
+                }
+
+                // if the landmark sensor is enabled, perform a scan
+                if let Some(pub_obs) = &mut self.pub_obs_landmarks {
+                    let mut observations = Vec::new();
+
+                    let normal = Normal::new(0.0, 1.0).unwrap();
+                    let rng = &mut rand::thread_rng();
+
+                    // go through all the landmarks and find the ones that are in the field of view infrontof the robot
+
+                    for l in self.scene.read().landmarks() {
+                        let dist_sq = (self.pose.x - l.x).powi(2) + (self.pose.y - l.y).powi(2);
+                        if dist_sq > self.parameters.scanner_range {
+                            continue;
+                        }
+
+                        // within range, create observation
+                        let angle = (l.y - self.pose.y).atan2(l.x - self.pose.x);
+
+                        // TODO: filter based on angle difference
+
+                        observations.push(LandmarkObservation {
+                            angle: angle - self.pose.theta
+                                + normal.sample(rng) as f32 * self.parameters.angle_uncertainty,
+                            distance: dist_sq.sqrt()
+                                + normal.sample(rng) as f32 * self.parameters.distance_uncertainty,
+                        })
+                    }
+
+                    tracing::debug!("Publishing landmarks: {observations:?}");
+
+                    pub_obs.publish(Arc::new((
+                        LandmarkObservations {
+                            landmarks: observations,
+                        },
+                        odometry,
+                    )));
+                }
             }
         }
     }

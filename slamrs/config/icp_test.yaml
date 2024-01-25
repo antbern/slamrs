@@ -11,12 +11,18 @@ nodes:
 - !FileLoader
   topic_observation: "robot/observation"
   topic_pose: "robot/pose"
+
+- !Splitter
+  splits:
+  - !ScannerOdometry
+    input: "robot/observation_odometry"
+    scanner: "robot/observation"
+    odometry: "robot/odometry"
   
 
 - !Simulator
   running: true
-  topic_observation: "robot/observation"
-  topic_pose: "robot/pose"
+  topic_observation_scanner: "robot/observation_odometry"
   topic_command: "robot/command"
 
   parameters:
@@ -65,15 +71,4 @@ nodes:
     config:
       color: [0.0, 1.0, 1.0]
       radius: 0.1
-
-  
-
-
-#   scanner:
-#     rate: 5
-#     fov: 360
-
-# - IcpPointMapper
-#   icp_threshold: 300
-
         

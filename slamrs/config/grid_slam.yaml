@@ -24,6 +24,12 @@ nodes:
     resolution: 0.02
     n_particles: 10
 
+- !Splitter
+  splits:
+  - !ScannerOdometry
+    input: "robot/observation_odometry"
+    scanner: "robot/observation"
+    odometry: "robot/odometry"
 
 - !Visualizer
   topics:
@@ -51,8 +57,7 @@ nodes:
 
 - !Simulator
   running: true
-  topic_observation: "robot/observation"
-  topic_observation_odometry: "robot/observation_odometry"
+  topic_observation_scanner: "robot/observation_odometry"
   topic_command: "robot/command"
 
   parameters:

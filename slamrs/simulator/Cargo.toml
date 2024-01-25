@@ -17,6 +17,8 @@ egui = {workspace = true}
 nalgebra = {workspace = true}
 serde = {workspace = true}
 tracing = {workspace = true}
+rand = {workspace = true}
+statrs = {workspace = true}
 
 # special dependencies for this crate
 web-time = { workspace = true }
