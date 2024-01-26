@@ -53,9 +53,18 @@ nodes:
     topic_pose: "simulator/pose"
     config:
       
-  # - !Pose
-  #   topic: "robot/pose"
-  #   config:
-  #     color: [0.0, 1.0, 1.0]
-  #     radius: 0.1
+  - !LandmarkMap
+    topic: "slam/map"
+    config:
+      
+  - !Pose
+    topic: "slam/pose"
+    config:
+      color: [0.0, 1.0, 1.0]
+      radius: 0.1
         
+- !EKFLandmarkSlam
+  topic_observation_landmark: "robot/observation_odometry"
+  topic_pose: "slam/pose"
+  topic_map: "slam/map"
+  config:

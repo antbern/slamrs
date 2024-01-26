@@ -6,7 +6,7 @@ use graphics::{
     shaperenderer::ShapeRenderer,
 };
 use serde::Deserialize;
-use slam::{GridMapMessage, PointMap};
+use slam::{GridMapMessage, LandmarkMapMessage, PointMap};
 
 pub trait Visualize {
     type Parameters;
@@ -283,7 +283,7 @@ impl Visualize for GridMapMessage {
     }
 }
 
-//////////////// Implementation for Gaussian2D /////////////////
+//////////////// Implementation for LandmarkObsercations /////////////////
 
 #[derive(Deserialize, Debug, Clone)]
 #[serde(default)]
@@ -342,6 +342,44 @@ impl Visualize for LandmarkObservations {
             }
 
             sr.end();
+        }
+    }
+}
+
+//////////////// Implementation for LandmarkMapMessage /////////////////
+
+#[derive(Deserialize, Debug, Clone)]
+#[serde(default)]
+pub struct LandmarkMapMessageVisualizeConfig {
+    p: f32,
+}
+
+impl Default for LandmarkMapMessageVisualizeConfig {
+    fn default() -> Self {
+        Self { p: 0.95 }
+    }
+}
+
+impl VisualizeParametersUi for LandmarkMapMessageVisualizeConfig {
+    fn ui(&mut self, ui: &mut egui::Ui) {
+        ui.horizontal(|ui| {
+            ui.label("P: ");
+            ui.add(
+                Slider::new(&mut self.p, 0.001..=1.0)
+                    .step_by(0.001)
+                    .fixed_decimals(3),
+            );
+        });
+    }
+}
+
+impl Visualize for LandmarkMapMessage {
+    type Parameters = LandmarkMapMessageVisualizeConfig;
+    type Secondary = ();
+
+    fn visualize(&self, sr: &mut ShapeRenderer, c: &Self::Parameters, _: &Option<Self::Secondary>) {
+        for l in &self.landmarks {
+            sr.gaussian2d(&l.mean, &l.covariance, c.p);
         }
     }
 }

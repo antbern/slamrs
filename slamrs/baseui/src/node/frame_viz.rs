@@ -11,11 +11,12 @@ use pubsub::{PubSub, Subscription};
 
 use graphics::shaperenderer::ShapeRenderer;
 use serde::Deserialize;
-use slam::{GridMapMessage, PointMap};
+use slam::{GridMapMessage, LandmarkMapMessage, PointMap};
 
 use super::visualize::{
-    GridMapVisualizeConfig, LandmarkObservationVisualizeConfig, ObservationVisualizeConfig,
-    PointMapVisualizeConfig, PoseVisualizeConfig, Visualize, VisualizeParametersUi,
+    GridMapVisualizeConfig, LandmarkMapMessageVisualizeConfig, LandmarkObservationVisualizeConfig,
+    ObservationVisualizeConfig, PointMapVisualizeConfig, PoseVisualizeConfig, Visualize,
+    VisualizeParametersUi,
 };
 
 pub struct FrameVizualizer {
@@ -148,6 +149,10 @@ enum VizType {
         topic: String,
         config: GridMapVisualizeConfig,
     },
+    LandmarkMap {
+        topic: String,
+        config: LandmarkMapMessageVisualizeConfig,
+    },
 }
 
 impl VizType {
@@ -181,6 +186,10 @@ impl VizType {
             )),
             VizType::GridMap { topic, config } => Box::new(SubscriptionVisualizer::new(
                 pubsub.subscribe::<GridMapMessage>(topic),
+                config.clone(),
+            )),
+            VizType::LandmarkMap { topic, config } => Box::new(SubscriptionVisualizer::new(
+                pubsub.subscribe::<LandmarkMapMessage>(topic),
                 config.clone(),
             )),
         }
