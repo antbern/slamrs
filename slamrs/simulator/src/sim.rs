@@ -177,7 +177,7 @@ impl Simulator {
 
                     // go through all the landmarks and find the ones that are in the field of view infrontof the robot
 
-                    for l in self.scene.read().landmarks() {
+                    for (i, l) in self.scene.read().landmarks().enumerate() {
                         let dist_sq = (self.pose.x - l.x).powi(2) + (self.pose.y - l.y).powi(2);
                         if dist_sq > self.parameters.scanner_range {
                             continue;
@@ -193,6 +193,7 @@ impl Simulator {
                                 + normal.sample(rng) as f32 * self.parameters.angle_uncertainty,
                             distance: dist_sq.sqrt()
                                 + normal.sample(rng) as f32 * self.parameters.distance_uncertainty,
+                            association: Some(i),
                         })
                     }
 

@@ -104,6 +104,10 @@ pub struct LandmarkObservation {
     pub angle: f32,
     /// Distance in meters to the observed landmark
     pub distance: f32,
+
+    /// An optional association ID which uniquely identifies the observed landmark.
+    /// This is mostly populated when using the simulator.
+    pub association: Option<usize>,
 }
 
 /// Observed (measured) motion of the left and right wheel
