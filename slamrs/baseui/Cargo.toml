@@ -35,7 +35,12 @@ slam = {workspace = true}
 
 # native:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-tracing-subscriber = "0.3"
+
+tracing-subscriber = { version = "0.3", features = ["registry", "env-filter"] }
+tracing-opentelemetry = "0.22"
+opentelemetry_sdk = { version = "0.21", features = ["rt-tokio"] }
+opentelemetry = { version = "=0.21", default-features = false, features = [ "trace" ]}
+opentelemetry-otlp = { version = "=0.14", features = ["reqwest-client", "reqwest-rustls", "http-proto", "tls"]}
 
 # neato package connects to serial port and allows openin files so skip it on
 # the web for now

@@ -4,16 +4,38 @@
 // When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]
 fn main() -> Result<(), eframe::Error> {
-    // Log to stdout (if you run with `RUST_LOG=debug`).
-    tracing_subscriber::fmt::fmt()
-        .with_span_events(FmtSpan::CLOSE)
-        //.with_target(false)
-        //.with_level(false)
-        .init();
-
     use baseui::config::Config;
     use egui::{Style, Visuals};
-    use tracing_subscriber::fmt::format::FmtSpan;
+    use tracing_subscriber::prelude::*;
+
+    // Log to stdout (if you run with `RUST_LOG=debug`).
+    let fmt_layer = tracing_subscriber::fmt::layer();
+
+    let tracer = opentelemetry_otlp::new_pipeline()
+        .tracing()
+        .with_exporter(opentelemetry_otlp::new_exporter().tonic())
+        // .install_batch(opentelemetry_sdk::runtime::Tokio)
+        .install_simple()
+        .expect("Couldn't create OTLP tracer");
+
+    let telemetry_layer = tracing_opentelemetry::layer().with_tracer(tracer);
+
+    tracing_subscriber::registry()
+        .with(tracing_subscriber::EnvFilter::from_default_env())
+        .with(fmt_layer)
+        .with(telemetry_layer)
+        .init();
+
+    // tracing_subscriber::registry()
+    //     .with(fmt_layer)
+    //     .with(tracing_subscriber::EnvFilter::from_default_env())
+    //     .init();
+
+    // tracing_subscriber::fmt::fmt()
+    //     .with_span_events(FmtSpan::CLOSE)
+    //     //.with_target(false)
+    //     //.with_level(false)
+    //     .init();
 
     // load configuration file
     let mut args = std::env::args();
