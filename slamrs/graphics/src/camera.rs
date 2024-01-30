@@ -55,8 +55,12 @@ impl Camera {
         self.has_changed = true;
     }
 
-    pub fn zoom(&mut self, amount: f32) {
-        self.zoom *= 1.0 - 0.1 * amount;
+    pub fn zoom(&mut self, factor: f32) {
+        if factor == 1.0 {
+            return;
+        }
+
+        self.zoom *= factor;
 
         // clamp zoom
         if self.zoom < 0.1 {
