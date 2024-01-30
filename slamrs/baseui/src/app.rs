@@ -172,10 +172,14 @@ impl App {
             egui::Sense::drag(),
         );
 
-        let scroll = if ui.rect_contains_pointer(rect) {
-            ui.ctx().input(|i| i.scroll_delta.y / 50.0)
+        let zoom_factor = if ui.rect_contains_pointer(rect) {
+            // combine the zoom_delta and the scroll amount to support multitouch gestures as well as normal scroll zoom
+
+            let (scroll_delta, zoom_delta) = ui.ctx().input(|i| (i.scroll_delta.y, i.zoom_delta()));
+
+            1.0 / (zoom_delta + 0.1 * scroll_delta / 50.0)
         } else {
-            0.0
+            1.0
         };
 
         let pos = if ui.rect_contains_pointer(rect) {
@@ -201,7 +205,7 @@ impl App {
             callback: std::sync::Arc::new(egui_glow::CallbackFn::new(move |_info, painter| {
                 world_renderer
                     .lock()
-                    .paint(painter.gl(), pos, size, drag_delta, scroll);
+                    .paint(painter.gl(), pos, size, drag_delta, zoom_factor);
             })),
         };
         ui.painter().add(callback);
@@ -236,11 +240,18 @@ impl WorldRenderer {
         }
     }
 
-    fn paint(&mut self, gl: &glow::Context, pos: Option<Pos2>, size: Vec2, pan: Vec2, scroll: f32) {
+    fn paint(
+        &mut self,
+        gl: &glow::Context,
+        pos: Option<Pos2>,
+        size: Vec2,
+        pan: Vec2,
+        zoom_factor: f32,
+    ) {
         // first update the camera with any zoom and resize change
         self.camera.resize(size);
         self.camera.pan(pan);
-        self.camera.zoom(scroll);
+        self.camera.zoom(zoom_factor);
         self.camera.update();
 
         // set the correct MVP matrix for the shape renderer
