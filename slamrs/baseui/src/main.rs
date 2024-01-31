@@ -1,6 +1,15 @@
 #![warn(clippy::all, rust_2018_idioms)]
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
+use egui::{Style, Visuals};
+fn set_style(ctx: &egui::Context) {
+    let style = Style {
+        visuals: Visuals::light(),
+        ..Style::default()
+    };
+    ctx.set_style(style);
+}
+
 // When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]
 fn main() -> Result<(), eframe::Error> {
@@ -12,7 +21,6 @@ fn main() -> Result<(), eframe::Error> {
         .init();
 
     use baseui::config::Config;
-    use egui::{Style, Visuals};
     use tracing_subscriber::fmt::format::FmtSpan;
 
     // load configuration file
@@ -36,11 +44,7 @@ fn main() -> Result<(), eframe::Error> {
         "Base UI",
         native_options,
         Box::new(|cc| {
-            let style = Style {
-                visuals: Visuals::light(),
-                ..Style::default()
-            };
-            cc.egui_ctx.set_style(style);
+            set_style(&cc.egui_ctx);
             Box::new(baseui::App::new(cc, config))
         }),
     )
@@ -66,7 +70,10 @@ fn main() {
             .start(
                 "the_canvas_id", // hardcode it
                 web_options,
-                Box::new(|cc| Box::new(baseui::App::new(cc, config))),
+                Box::new(|cc| {
+                    set_style(&cc.egui_ctx);
+                    Box::new(baseui::App::new(cc, config))
+                }),
             )
             .await
             .expect("failed to start eframe");
