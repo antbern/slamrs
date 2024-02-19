@@ -1,11 +1,11 @@
 use std::{sync::Arc, time::Instant};
 
-use eframe::egui;
 use common::{
     node::{Node, NodeConfig},
     robot::{Observation, Pose},
     PerfStats,
 };
+use eframe::egui;
 use egui::{Label, RichText, Sense};
 
 use nalgebra::Matrix2xX;
