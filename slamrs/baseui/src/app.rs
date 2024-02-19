@@ -175,7 +175,9 @@ impl App {
         let zoom_factor = if ui.rect_contains_pointer(rect) {
             // combine the zoom_delta and the scroll amount to support multitouch gestures as well as normal scroll zoom
 
-            let (scroll_delta, zoom_delta) = ui.ctx().input(|i| (i.scroll_delta.y, i.zoom_delta()));
+            let (scroll_delta, zoom_delta) = ui
+                .ctx()
+                .input(|i| (i.smooth_scroll_delta.y, i.zoom_delta()));
 
             1.0 / (zoom_delta + 0.1 * scroll_delta / 50.0)
         } else {
