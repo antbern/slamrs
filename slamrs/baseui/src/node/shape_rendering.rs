@@ -1,3 +1,4 @@
+use eframe::egui;
 use std::f32::consts::{FRAC_PI_3, FRAC_PI_6, PI};
 
 use common::{

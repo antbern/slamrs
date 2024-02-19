@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use common::node::NodeConfig;
 use common::{node::Node, robot::Command};
+use eframe::egui;
 use egui::{Button, Key, Rgba, RichText, Slider};
 use pubsub::Publisher;
 use serde::Deserialize;
