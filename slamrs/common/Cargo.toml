@@ -11,7 +11,7 @@ pubsub = {workspace = true}
 graphics = {workspace = true}
 
 # inherited dependencies
-egui = {workspace = true}
+eframe = {workspace = true}
 nalgebra = {workspace = true}
 statrs = {workspace = true}
 rand = {workspace = true}

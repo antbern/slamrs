@@ -19,8 +19,8 @@ neato = {path = "./neato"}
 simulator = {path = "./simulator"}
 slam = {path = "./slam"}
 
-egui = "0.25.0"
-
+# we only depend on `egui` since it exports the versions of
+# `eframe` and `glow` that we need.
 eframe = { version = "0.25.0", default-features = false, features = [
     #"accesskit",     # Make egui comptaible with screen readers. NOTE: adds a lot of dependencies.
     "default_fonts", # Embed the default egui fonts.
@@ -28,7 +28,6 @@ eframe = { version = "0.25.0", default-features = false, features = [
     # "persistence",   # Enable restoring app state when restarting the app.
 ] }
 
-glow = "0.13.1" # needs to be the same version as used in egui
 nalgebra = {version = "0.32.4", features = ["serde-serialize"] }
 anyhow = "1.0.80"
 log = "0.4"

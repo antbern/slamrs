@@ -1,5 +1,6 @@
 use std::{sync::Arc, time::Instant};
 
+use eframe::egui;
 use common::{
     node::{Node, NodeConfig},
     robot::{Observation, Pose},

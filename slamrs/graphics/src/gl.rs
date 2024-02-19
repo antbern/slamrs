@@ -1,3 +1,5 @@
+use eframe::glow;
+
 pub struct VertexBufferLayout {
     elements: Vec<LayoutElement>,
     stride: u32,

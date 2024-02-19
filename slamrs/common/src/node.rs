@@ -1,5 +1,5 @@
 use pubsub::PubSub;
-
+use eframe::egui;
 use crate::world::WorldObj;
 
 /// A Node is an entity that can publish and react to subscibed messages as well as draw itself.

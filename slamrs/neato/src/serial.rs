@@ -3,6 +3,7 @@ use common::{
     robot::Observation,
     world::WorldObj,
 };
+use eframe::egui;
 use pubsub::{PubSub, Publisher};
 use serde::Deserialize;
 use std::{

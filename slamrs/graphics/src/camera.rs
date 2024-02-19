@@ -1,4 +1,5 @@
 use nalgebra::{Isometry3, Matrix4, Orthographic3, Point2, Vector2, Vector3};
+use eframe::egui;
 
 pub struct Camera {
     position: Vector2<f32>,

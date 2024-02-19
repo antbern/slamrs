@@ -4,6 +4,7 @@ use common::{
     node::{Node, NodeConfig},
     robot::{Observation, Odometry, Pose},
 };
+use eframe::egui;
 use nalgebra::Vector2;
 use pubsub::{Publisher, Subscription};
 use serde::Deserialize;

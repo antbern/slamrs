@@ -9,8 +9,7 @@ edition = "2021"
 # local dependencies
 
 # inherited dependencies
-glow = {workspace = true}
-egui = {workspace = true}
+eframe = {workspace = true}
 nalgebra = {workspace = true}
 
 # special dependencies for this crate
