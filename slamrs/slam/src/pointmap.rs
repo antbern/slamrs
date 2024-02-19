@@ -5,6 +5,7 @@ use common::{
     robot::{Observation, Pose},
     PerfStats,
 };
+use eframe::egui;
 use egui::{Label, RichText, Sense};
 
 use nalgebra::Matrix2xX;

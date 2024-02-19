@@ -3,6 +3,7 @@ use std::sync::Arc;
 use common::robot::{
     Command, LandmarkObservation, LandmarkObservations, Measurement, Observation, Odometry, Pose,
 };
+use eframe::egui;
 use egui::mutex::RwLock;
 use nalgebra::{Point2, Vector2};
 use pubsub::{Publisher, Subscription};

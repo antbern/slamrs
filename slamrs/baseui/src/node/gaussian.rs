@@ -5,6 +5,7 @@ use common::{
     node::{Node, NodeConfig},
     world::WorldObj,
 };
+use eframe::egui;
 use egui::DragValue;
 
 use pubsub::{PubSub, Publisher};

@@ -1,4 +1,5 @@
 use common::robot::{LandmarkObservations, Observation, Pose};
+use eframe::egui;
 use egui::Slider;
 use graphics::{
     primitiverenderer::{Color, PrimitiveType},

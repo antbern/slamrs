@@ -1,3 +1,5 @@
+use eframe::glow;
+
 /// Builds upon `glow::Program` to easily construct a new shader program in a safe way
 pub struct Program {
     program: glow::Program,

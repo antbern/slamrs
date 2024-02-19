@@ -1,4 +1,5 @@
 use crate::config::Config;
+use eframe::egui;
 
 pub struct ConfigEditor {
     selected: u32,

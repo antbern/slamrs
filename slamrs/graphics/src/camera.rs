@@ -1,3 +1,4 @@
+use eframe::egui;
 use nalgebra::{Isometry3, Matrix4, Orthographic3, Point2, Vector2, Vector3};
 
 pub struct Camera {

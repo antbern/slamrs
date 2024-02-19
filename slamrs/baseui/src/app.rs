@@ -3,7 +3,7 @@ use web_time::Instant;
 
 use crate::config::Config;
 use common::{node::Node, world::WorldObj, PerfStats};
-use eframe::egui_glow;
+use eframe::{egui, egui_glow, glow};
 use egui::{mutex::Mutex, Label, Pos2, RichText, Sense, Vec2};
 use graphics::{camera::Camera, shaperenderer::ShapeRenderer};
 use nalgebra::{Matrix4, Point2};

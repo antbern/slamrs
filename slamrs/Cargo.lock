@@ -134,9 +134,7 @@ dependencies = [
  "common",
  "console_error_panic_hook",
  "eframe",
- "egui",
  "getrandom",
- "glow",
  "graphics",
  "log",
  "nalgebra 0.32.4",
@@ -389,7 +387,7 @@ name = "common"
 version = "0.1.0"
 dependencies = [
  "approx",
- "egui",
+ "eframe",
  "graphics",
  "nalgebra 0.32.4",
  "pubsub",
@@ -881,8 +879,7 @@ dependencies = [
 name = "graphics"
 version = "0.1.0"
 dependencies = [
- "egui",
- "glow",
+ "eframe",
  "nalgebra 0.32.4",
 ]
 
@@ -1260,7 +1257,7 @@ dependencies = [
  "anyhow",
  "bincode",
  "common",
- "egui",
+ "eframe",
  "pubsub",
  "rfd",
  "serde",
@@ -1831,7 +1828,7 @@ name = "simulator"
 version = "0.1.0"
 dependencies = [
  "common",
- "egui",
+ "eframe",
  "graphics",
  "nalgebra 0.32.4",
  "pubsub",
@@ -1858,7 +1855,7 @@ dependencies = [
  "anyhow",
  "approx",
  "common",
- "egui",
+ "eframe",
  "graphics",
  "itertools",
  "kd-tree",

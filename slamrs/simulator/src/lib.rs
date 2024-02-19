@@ -1,4 +1,5 @@
 use common::node::{Node, NodeConfig};
+use eframe::egui;
 use egui::{
     mutex::{Mutex, RwLock},
     Slider,
@@ -165,7 +166,7 @@ mod simulator_loop {
 
     use std::sync::Arc;
 
-    use egui::mutex::{Mutex, MutexGuard};
+    use eframe::egui::mutex::{Mutex, MutexGuard};
     use web_time::Instant;
 
     use crate::sim::Simulator;
@@ -213,7 +214,7 @@ mod simulator_loop {
     // On desktop targets we run the simulator in a separate background thread,
     // while the actual game loop is the same.
     use crate::Simulator;
-    use egui::mutex::{Mutex, MutexGuard};
+    use eframe::egui::mutex::{Mutex, MutexGuard};
     use std::{
         sync::{
             atomic::{AtomicBool, Ordering},

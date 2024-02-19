@@ -5,6 +5,7 @@ use common::{
     robot::{LandmarkObservations, Observation, Pose},
     world::WorldObj,
 };
+use eframe::egui;
 use egui::CollapsingHeader;
 use pubsub::{PubSub, Subscription};
 

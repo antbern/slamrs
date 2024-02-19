@@ -12,7 +12,7 @@ common = {workspace = true}
 
 # inherited dependencies
 anyhow = {workspace = true}
-egui = {workspace = true}
+eframe = {workspace = true}
 serde = {workspace = true}
 tracing = {workspace = true}
 

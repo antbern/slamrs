@@ -1,6 +1,7 @@
 #![warn(clippy::all, rust_2018_idioms)]
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
+use eframe::egui;
 use egui::{Style, Visuals};
 fn set_style(ctx: &egui::Context) {
     let style = Style {

@@ -2,6 +2,7 @@ use common::{
     node::{Node, NodeConfig},
     world::WorldObj,
 };
+use eframe::egui;
 use pubsub::PubSub;
 use serde::Deserialize;
 pub struct MousePosition {}

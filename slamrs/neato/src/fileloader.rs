@@ -8,6 +8,7 @@ use serde::Deserialize;
 use std::sync::Arc;
 
 use super::frame;
+use eframe::egui;
 
 pub struct FileLoader {
     picked_path: Option<String>,
