@@ -21,7 +21,7 @@ slam = {path = "./slam"}
 
 egui = "0.25.0"
 glow = "0.13.1" # needs to be the same version as used in egui
-nalgebra = {version = "0.32.3", features = ["serde-serialize"] }
+nalgebra = {version = "0.32.4", features = ["serde-serialize"] }
 anyhow = "1.0.80"
 log = "0.4"
 
