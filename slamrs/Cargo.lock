@@ -137,7 +137,7 @@ dependencies = [
  "getrandom",
  "graphics",
  "log",
- "nalgebra 0.32.4",
+ "nalgebra 0.32.5",
  "neato",
  "pubsub",
  "serde",
@@ -389,7 +389,7 @@ dependencies = [
  "approx",
  "eframe",
  "graphics",
- "nalgebra 0.32.4",
+ "nalgebra 0.32.5",
  "pubsub",
  "rand",
  "statrs",
@@ -892,7 +892,7 @@ name = "graphics"
 version = "0.1.0"
 dependencies = [
  "eframe",
- "nalgebra 0.32.4",
+ "nalgebra 0.32.5",
 ]
 
 [[package]]
@@ -1125,7 +1125,7 @@ version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8b2591c55069b74283fbdd97167b402b69c534ba6b2c037847cbcae7e14471d8"
 dependencies = [
- "nalgebra 0.32.4",
+ "nalgebra 0.32.5",
 ]
 
 [[package]]
@@ -1210,9 +1210,9 @@ dependencies = [
 
 [[package]]
 name = "nalgebra"
-version = "0.32.4"
+version = "0.32.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4541eb06dce09c0241ebbaab7102f0a01a0c8994afed2e5d0d66775016e25ac2"
+checksum = "3ea4908d4f23254adda3daa60ffef0f1ac7b8c3e9a864cf3cc154b251908a2ef"
 dependencies = [
  "approx",
  "matrixmultiply",
@@ -1864,7 +1864,7 @@ dependencies = [
  "common",
  "eframe",
  "graphics",
- "nalgebra 0.32.4",
+ "nalgebra 0.32.5",
  "pubsub",
  "rand",
  "serde",
@@ -1894,7 +1894,7 @@ dependencies = [
  "itertools",
  "kd-tree",
  "lstsq",
- "nalgebra 0.32.4",
+ "nalgebra 0.32.5",
  "pubsub",
  "rand",
  "serde",

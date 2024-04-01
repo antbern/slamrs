@@ -28,7 +28,7 @@ eframe = { version = "0.26.2", default-features = false, features = [
     # "persistence",   # Enable restoring app state when restarting the app.
 ] }
 
-nalgebra = {version = "0.32.4", features = ["serde-serialize"] }
+nalgebra = {version = "0.32.5", features = ["serde-serialize"] }
 anyhow = "1.0.81"
 log = "0.4"
 
