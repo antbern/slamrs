@@ -1,6 +1,6 @@
 [target.'cfg(all(target_arch = "arm", target_os = "none"))']
 runner = "probe-rs run --chip RP2040"
-linker = "flip-link"
+# linker = "flip-link"
 
 [build]
 target = "thumbv6m-none-eabi"
