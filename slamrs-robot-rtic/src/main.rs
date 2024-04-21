@@ -10,9 +10,12 @@ use panic_probe as _;
 #[derive(defmt::Format, Copy, Clone, PartialEq)]
 enum EspMessage {
     Ok,
+    Error,
     Ready,
     WifiConnected,
     GotIP,
+    ClientConnect,
+    ClientDisconnect,
 }
 
 impl FromStr for EspMessage {
@@ -21,9 +24,12 @@ impl FromStr for EspMessage {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "OK" => Ok(EspMessage::Ok),
+            "ERROR" => Ok(EspMessage::Error),
             "ready" => Ok(EspMessage::Ready),
             "WIFI CONNECTED" => Ok(EspMessage::WifiConnected),
             "WIFI GOT IP" => Ok(EspMessage::GotIP),
+            "0,CONNECT" => Ok(EspMessage::ClientConnect),
+            "0,CLOSED" => Ok(EspMessage::ClientDisconnect),
             _ => Err(()),
         }
     }
@@ -158,6 +164,9 @@ mod app {
                     clocks.peripheral_clock.freq(),
                 )
                 .unwrap();
+
+        // TODO: should we setup DMA for reading the serial input??
+        uart.set_fifos(true);
         uart.enable_rx_interrupt();
 
         let (rx, tx) = uart.split();
@@ -199,15 +208,46 @@ mod app {
 
         wait_for_message(&mut cx.local.esp_receiver, EspMessage::Ready).await;
 
+        // configure some stuff
+        cx.local.uart1_tx.write_full_blocking(b"AT+SYSMSG=0\r\n");
+
+        enum State {
+            Ready,
+            WifiConnectedAndIp,
+            Listening,
+            ClientConnected,
+        }
+
+        let mut state = State::Ready;
+
         info!("Done, starting message loop");
         loop {
             while let Ok(m) = cx.local.esp_receiver.recv().await {
                 info!("Got message: {}", m);
                 match m {
-                    EspMessage::Ready => {
-                        cx.local.uart1_tx.write_full_blocking(b"AT\r\n");
-                    }
+                    EspMessage::GotIP => {
+                        state = State::WifiConnectedAndIp;
+                        // start the server
 
+                        info!("Enabling Multiple Connections");
+                        cx.local.uart1_tx.write_full_blocking(b"AT+CIPMUX=1\r\n");
+                        wait_for_message(&mut cx.local.esp_receiver, EspMessage::Ok).await;
+                        Timer::delay(1.secs()).await;
+
+                        cx.local
+                            .uart1_tx
+                            .write_full_blocking(b"AT+CIPSERVERMAXCONN=1\r\n");
+                        wait_for_message(&mut cx.local.esp_receiver, EspMessage::Ok).await;
+
+                        info!("Starting server");
+                        cx.local
+                            .uart1_tx
+                            .write_full_blocking(b"AT+CIPSERVER=1,80\r\n");
+                        wait_for_message(&mut cx.local.esp_receiver, EspMessage::Ok).await;
+
+                        state = State::Listening;
+                        info!("Listening");
+                    }
                     _ => {}
                 }
             }
@@ -225,17 +265,17 @@ mod app {
     }
 
     /// Hardware task that reads bytes from the UART an publishes messages!
-    #[task(binds = UART1_IRQ, local = [uart1_rx, esp_sender])]
+    #[task(binds = UART1_IRQ, local = [uart1_rx, esp_sender, buf: [u8; 256] = [0; 256], index: usize = 0])]
     fn uart1_esp32(cx: uart1_esp32::Context) {
-        let mut buf = [0; 256];
-        let mut index = 0;
+        let buf = cx.local.buf;
+        let index = cx.local.index;
 
-        match cx.local.uart1_rx.read_raw(&mut buf) {
+        match cx.local.uart1_rx.read_raw(&mut buf[*index..]) {
             Ok(n) => {
                 // info!("RX: '{}'", core::str::from_utf8(&buf[..n]).unwrap());
-                index += n;
+                *index += n;
 
-                if index >= buf.len() - 1 {
+                if *index >= buf.len() - 1 {
                     warn!("Buffer reached end without finding a newline!");
                 }
 
@@ -268,7 +308,7 @@ mod app {
                                         _ => {}
                                     }
                                 } else {
-                                    debug!("unrecognized command'{}'", cmd);
+                                    warn!("unrecognized command'{}'", s);
                                 }
                             } else {
                                 debug!("invalid utf8 received");
@@ -277,8 +317,8 @@ mod app {
                             // reset the buffer by moving the remaining bytes to the front
                             let first_other_byte = i + 2;
                             // info!("copy range: {}", first_other_byte..index);
-                            buf.copy_within(first_other_byte..index, 0);
-                            index = index - first_other_byte;
+                            buf.copy_within(first_other_byte..*index, 0);
+                            *index = *index - first_other_byte;
 
                             found = true;
                             break; // break the for loop and restart it
