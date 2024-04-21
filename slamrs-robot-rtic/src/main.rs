@@ -86,7 +86,6 @@ mod app {
     // Local resources go here
     #[local]
     struct Local {
-        // TODO: Add resources
         led: gpio::Pin<Gpio10, FunctionSioOutput, PullDown>,
 
         // the uart reader part used in the IRQ hardware task
@@ -194,7 +193,10 @@ mod app {
     }
 
     /// Task that initializes and handles the ESP wifi connection
-    #[task(priority = 1, local = [esp_mode, esp_reset, uart1_tx, esp_receiver])]
+    #[task(
+        priority = 1,
+        local = [esp_mode, esp_reset, uart1_tx, esp_receiver],
+    )]
     async fn init_esp(mut cx: init_esp::Context) {
         info!("Reseting the ESP");
         cx.local.esp_mode.set_high().ok();
@@ -206,7 +208,7 @@ mod app {
 
         // read messages from the device and advance the inner state machine
 
-        wait_for_message(&mut cx.local.esp_receiver, EspMessage::Ready).await;
+        wait_for_message(cx.local.esp_receiver, EspMessage::Ready).await;
 
         // configure some stuff
         cx.local.uart1_tx.write_full_blocking(b"AT+SYSMSG=0\r\n");
@@ -231,22 +233,29 @@ mod app {
 
                         info!("Enabling Multiple Connections");
                         cx.local.uart1_tx.write_full_blocking(b"AT+CIPMUX=1\r\n");
-                        wait_for_message(&mut cx.local.esp_receiver, EspMessage::Ok).await;
+                        wait_for_message(cx.local.esp_receiver, EspMessage::Ok).await;
                         Timer::delay(1.secs()).await;
 
                         cx.local
                             .uart1_tx
                             .write_full_blocking(b"AT+CIPSERVERMAXCONN=1\r\n");
-                        wait_for_message(&mut cx.local.esp_receiver, EspMessage::Ok).await;
+                        wait_for_message(cx.local.esp_receiver, EspMessage::Ok).await;
 
                         info!("Starting server");
                         cx.local
                             .uart1_tx
                             .write_full_blocking(b"AT+CIPSERVER=1,80\r\n");
-                        wait_for_message(&mut cx.local.esp_receiver, EspMessage::Ok).await;
+                        wait_for_message(cx.local.esp_receiver, EspMessage::Ok).await;
 
                         state = State::Listening;
                         info!("Listening");
+                    }
+                    EspMessage::ClientConnect => {
+                        state = State::ClientConnected;
+                        // TODO: do a new receive loop here that waits for data and parses it?
+                    }
+                    EspMessage::ClientDisconnect => {
+                        state = State::Listening;
                     }
                     _ => {}
                 }
@@ -265,7 +274,15 @@ mod app {
     }
 
     /// Hardware task that reads bytes from the UART an publishes messages!
-    #[task(binds = UART1_IRQ, local = [uart1_rx, esp_sender, buf: [u8; 256] = [0; 256], index: usize = 0])]
+    #[task(
+        binds = UART1_IRQ,
+        local = [
+            uart1_rx,
+            esp_sender,
+            buf: [u8; 256] = [0; 256],
+            index: usize = 0
+        ],
+    )]
     fn uart1_esp32(cx: uart1_esp32::Context) {
         let buf = cx.local.buf;
         let index = cx.local.index;
@@ -292,23 +309,38 @@ mod app {
                             // found!, extract without the \r\n
                             let cmd = &buf[0..i];
 
+                            // first check if the buffer contains any "URC"s
+                            if cmd.len() > 7 && &cmd[..7] == b"+IPD,0," {
+                                info!("FOUND +IDP URC!");
+
+                                match parse_ipd(cmd) {
+                                    Ok(data) => {
+                                        info!("Received data: {}", data);
+                                    }
+                                    Err(e) => {
+                                        error!("Error parsing IPD: ")
+                                    }
+                                }
+                            }
                             // search the recently added bytes to find "\r\n"
-                            if let Ok(s) = from_utf8(&cmd) {
-                                if let Ok(m) = s.parse() {
-                                    match cx.local.esp_sender.try_send(m) {
-                                        Err(TrySendError::Full(m)) => {
-                                            warn!("ESP channel full, failed to send: {}", m)
-                                        }
-                                        Err(TrySendError::NoReceiver(m)) => {
-                                            warn!(
+                            if let Ok(s) = from_utf8(cmd) {
+                                if !s.is_empty() {
+                                    if let Ok(m) = s.parse() {
+                                        match cx.local.esp_sender.try_send(m) {
+                                            Err(TrySendError::Full(m)) => {
+                                                warn!("ESP channel full, failed to send: {}", m)
+                                            }
+                                            Err(TrySendError::NoReceiver(m)) => {
+                                                warn!(
                                                 "ESP channel has no receiver, failed to send: {}",
                                                 m
                                             )
+                                            }
+                                            _ => {}
                                         }
-                                        _ => {}
+                                    } else {
+                                        warn!("unrecognized command'{}'", s);
                                     }
-                                } else {
-                                    warn!("unrecognized command'{}'", s);
                                 }
                             } else {
                                 debug!("invalid utf8 received");
@@ -339,8 +371,32 @@ mod app {
                     ReadErrorType::Parity => error!("Parity"),
                     ReadErrorType::Framing => error!("Framing"),
                 };
-                error!("Data: '{}'", core::str::from_utf8(&e.discarded).unwrap());
+                error!("Data: '{}'", core::str::from_utf8(e.discarded).unwrap());
             }
+        }
+    }
+
+    fn parse_ipd<'a>(cmd: &'a [u8]) -> Result<&'a [u8], ()> {
+        let separator = cmd
+            .iter()
+            .enumerate()
+            .find(|x| x.1 == &b':')
+            .ok_or_else(|| error!("No separator found"))?
+            .0;
+
+        let length_str = core::str::from_utf8(&cmd[7..separator])
+            .map_err(|e| error!("Length string not valid Utf8 "))?;
+
+        let length_usize = length_str
+            .parse::<usize>()
+            .map_err(|e| error!("Length string '{}' not valid usize", length_str))?;
+
+        let remaining_data = &cmd[separator + 1..];
+        if remaining_data.len() <= length_usize {
+            Ok(&remaining_data[..length_usize])
+        } else {
+            error!("All data not present");
+            Err(())
         }
     }
 
