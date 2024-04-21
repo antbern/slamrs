@@ -4,7 +4,7 @@ runner = "probe-rs run --chip RP2040"
 
 [build]
 target = "thumbv6m-none-eabi"
-
+target-dir = "../target"
 
 rustflags = [
   "-C", "link-arg=--nmagic",

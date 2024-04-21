@@ -304,24 +304,35 @@ mod app {
                     // );
                     let mut found = false;
 
+                    let current_data = &buf[0..*index];
+
+                    // check if the current line starts with any URC (even though we haven't hit
+                    // \r\n yet
+                    if current_data.len() > 7 && &current_data[..7] == b"+IPD,0," {
+                        info!("FOUND +IDP URC!");
+
+                        match parse_ipd(current_data) {
+                            Ok((used, data)) => {
+                                info!("Received data: {}", data);
+                                // reset the buffer by moving the remaining bytes to the front
+                                let first_other_byte = used;
+                                // info!("copy range: {}", first_other_byte..index);
+                                buf.copy_within(first_other_byte..*index, 0);
+                                *index = *index - first_other_byte;
+
+                                found = true;
+                            }
+                            Err(()) => {
+                                error!("Error parsing IPD: ")
+                            }
+                        }
+                    }
+
                     for i in 0..index.saturating_sub(1) {
                         if buf[i] == b'\r' && buf[i + 1] == b'\n' {
                             // found!, extract without the \r\n
                             let cmd = &buf[0..i];
 
-                            // first check if the buffer contains any "URC"s
-                            if cmd.len() > 7 && &cmd[..7] == b"+IPD,0," {
-                                info!("FOUND +IDP URC!");
-
-                                match parse_ipd(cmd) {
-                                    Ok(data) => {
-                                        info!("Received data: {}", data);
-                                    }
-                                    Err(e) => {
-                                        error!("Error parsing IPD: ")
-                                    }
-                                }
-                            }
                             // search the recently added bytes to find "\r\n"
                             if let Ok(s) = from_utf8(cmd) {
                                 if !s.is_empty() {
@@ -376,7 +387,9 @@ mod app {
         }
     }
 
-    fn parse_ipd<'a>(cmd: &'a [u8]) -> Result<&'a [u8], ()> {
+    /// tries to parse the +IPD message and returns a tuple with the number of bytes used as well
+    /// as a slice containing the data bytes.
+    fn parse_ipd<'a>(cmd: &'a [u8]) -> Result<(usize, &'a [u8]), ()> {
         let separator = cmd
             .iter()
             .enumerate()
@@ -392,8 +405,8 @@ mod app {
             .map_err(|_| error!("Length string '{}' not valid usize", length_str))?;
 
         let remaining_data = &cmd[separator + 1..];
-        if remaining_data.len() <= length_usize {
-            Ok(&remaining_data[..length_usize])
+        if remaining_data.len() >= length_usize {
+            Ok((7 + length_usize, &remaining_data[..length_usize]))
         } else {
             error!("All data not present");
             Err(())
