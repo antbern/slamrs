@@ -648,6 +648,7 @@ dependencies = [
  "defmt",
  "defmt-rtt",
  "embedded-hal 0.2.7",
+ "library",
  "nb 0.1.3",
  "panic-probe",
  "rp-pico",

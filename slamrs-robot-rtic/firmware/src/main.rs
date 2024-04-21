@@ -311,7 +311,7 @@ mod app {
                     if current_data.len() > 7 && &current_data[..7] == b"+IPD,0," {
                         info!("FOUND +IDP URC!");
 
-                        match parse_ipd(current_data) {
+                        match library::parse_ipd(current_data) {
                             Ok((used, data)) => {
                                 info!("Received data: {}", data);
                                 // reset the buffer by moving the remaining bytes to the front
@@ -322,8 +322,8 @@ mod app {
 
                                 found = true;
                             }
-                            Err(()) => {
-                                error!("Error parsing IPD: ")
+                            Err(err) => {
+                                error!("Error parsing IPD: {}", err);
                             }
                         }
                     }
@@ -384,32 +384,6 @@ mod app {
                 };
                 error!("Data: '{}'", core::str::from_utf8(e.discarded).unwrap());
             }
-        }
-    }
-
-    /// tries to parse the +IPD message and returns a tuple with the number of bytes used as well
-    /// as a slice containing the data bytes.
-    fn parse_ipd<'a>(cmd: &'a [u8]) -> Result<(usize, &'a [u8]), ()> {
-        let separator = cmd
-            .iter()
-            .enumerate()
-            .find(|x| x.1 == &b':')
-            .ok_or_else(|| error!("No separator found"))?
-            .0;
-
-        let length_str = core::str::from_utf8(&cmd[7..separator])
-            .map_err(|_| error!("Length string not valid Utf8 "))?;
-
-        let length_usize = length_str
-            .parse::<usize>()
-            .map_err(|_| error!("Length string '{}' not valid usize", length_str))?;
-
-        let remaining_data = &cmd[separator + 1..];
-        if remaining_data.len() >= length_usize {
-            Ok((7 + length_usize, &remaining_data[..length_usize]))
-        } else {
-            error!("All data not present");
-            Err(())
         }
     }
 

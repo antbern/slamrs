@@ -6,6 +6,7 @@ authors = ["antbern <40672068+antbern@users.noreply.github.com>"]
 resolver = "2"
 
 [dependencies]
+library = { path = "../library" }
 defmt = "0.3"
 defmt-rtt = "0.4"
 panic-probe = { version = "0.3", features = ["print-defmt"] }
