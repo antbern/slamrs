@@ -197,7 +197,7 @@ mod app {
         priority = 1,
         local = [esp_mode, esp_reset, uart1_tx, esp_receiver],
     )]
-    async fn init_esp(mut cx: init_esp::Context) {
+    async fn init_esp(cx: init_esp::Context) {
         info!("Reseting the ESP");
         cx.local.esp_mode.set_high().ok();
         cx.local.esp_reset.set_low().ok();
@@ -385,11 +385,11 @@ mod app {
             .0;
 
         let length_str = core::str::from_utf8(&cmd[7..separator])
-            .map_err(|e| error!("Length string not valid Utf8 "))?;
+            .map_err(|_| error!("Length string not valid Utf8 "))?;
 
         let length_usize = length_str
             .parse::<usize>()
-            .map_err(|e| error!("Length string '{}' not valid usize", length_str))?;
+            .map_err(|_| error!("Length string '{}' not valid usize", length_str))?;
 
         let remaining_data = &cmd[separator + 1..];
         if remaining_data.len() <= length_usize {
