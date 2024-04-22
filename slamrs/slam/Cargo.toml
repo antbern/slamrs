@@ -25,7 +25,7 @@ tracing = {workspace = true}
 lstsq = "0.5.0"
 # the feature is using a different nalgebra version which makes it useles...
 # kd-tree = { version = "0.5.1", features = ["nalgebra"] }
-kd-tree = { version = "0.5.3"}
+kd-tree = { version = "0.6.0"}
 itertools = "0.12.1"
 
 [dev-dependencies]
