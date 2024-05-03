@@ -208,6 +208,9 @@ mod tests {
                 current_byte: 0,
             }
         }
+        fn is_exhausted(&self) -> bool {
+            self.current_word >= self.strings.len()
+        }
     }
 
     impl embedded_hal::serial::Read<u8> for VecReader {
@@ -232,7 +235,7 @@ mod tests {
 
     #[test]
     fn test_vecreader() {
-        let mut reader = VecReader::new(&["one", "two"]);
+        let mut reader = VecReader::new(&["one", "two", "e"]);
         assert_eq!(reader.read(), nb::Result::Ok(b'o'));
         assert_eq!(reader.read(), nb::Result::Ok(b'n'));
         assert_eq!(reader.read(), nb::Result::Ok(b'e'));
@@ -240,6 +243,8 @@ mod tests {
         assert_eq!(reader.read(), nb::Result::Ok(b't'));
         assert_eq!(reader.read(), nb::Result::Ok(b'w'));
         assert_eq!(reader.read(), nb::Result::Ok(b'o'));
+        assert_eq!(reader.read(), nb::Result::Err(nb::Error::WouldBlock));
+        assert_eq!(reader.read(), nb::Result::Ok(b'e'));
         assert_eq!(reader.read(), nb::Result::Err(nb::Error::WouldBlock));
         assert_eq!(reader.read(), nb::Result::Err(nb::Error::WouldBlock));
     }
@@ -262,16 +267,46 @@ mod tests {
 
     #[test]
     fn test_consume_strings() {
-        let input = &["ready\r\n", "hello\r\n"];
+        let input = &[
+            "OK\r\n",
+            "ERROR\r\n",
+            "ready\r\n",
+            "WIFI CONNECTED\r\n",
+            "WIFI",
+            " CONNECTED\r\n",
+            "WIFI GOT IP\r\n",
+            "0,CONNECT\r\n",
+            "0,CLOSED\r\n",
+            "0,CLOSED\r",
+            "\n",
+            "OK\r\nERROR\r\n",
+        ];
+
         let mut reader = VecReader::new(input);
         let mut found_values = Vec::new();
 
         let mut parser: AtParser<256> = AtParser::new();
-        parser.consume(&mut reader, |m| match m {
-            ParsedMessage::Simple(m) => found_values.push(m),
-            o => panic!("Unexpected parsed message: {:?}", o),
-        });
-
-        assert_eq!(found_values, vec![EspMessage::Ready]);
+        while !reader.is_exhausted() {
+            parser.consume(&mut reader, |m| match m {
+                ParsedMessage::Simple(m) => found_values.push(m),
+                o => panic!("Unexpected parsed message: {:?}", o),
+            });
+        }
+        assert_eq!(
+            found_values,
+            vec![
+                EspMessage::Ok,
+                EspMessage::Error,
+                EspMessage::Ready,
+                EspMessage::WifiConnected,
+                EspMessage::WifiConnected,
+                EspMessage::GotIP,
+                EspMessage::ClientConnect,
+                EspMessage::ClientDisconnect,
+                EspMessage::ClientDisconnect,
+                EspMessage::Ok,
+                EspMessage::Error,
+            ]
+        );
     }
 }
