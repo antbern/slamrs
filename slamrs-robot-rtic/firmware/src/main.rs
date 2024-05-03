@@ -1,39 +1,9 @@
 #![no_main]
 #![no_std]
 
-use core::str::FromStr;
-
 // use rp_pico::hal as _;
 use defmt_rtt as _;
 use panic_probe as _;
-
-#[derive(defmt::Format, Copy, Clone, PartialEq)]
-enum EspMessage {
-    Ok,
-    Error,
-    Ready,
-    WifiConnected,
-    GotIP,
-    ClientConnect,
-    ClientDisconnect,
-}
-
-impl FromStr for EspMessage {
-    type Err = ();
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "OK" => Ok(EspMessage::Ok),
-            "ERROR" => Ok(EspMessage::Error),
-            "ready" => Ok(EspMessage::Ready),
-            "WIFI CONNECTED" => Ok(EspMessage::WifiConnected),
-            "WIFI GOT IP" => Ok(EspMessage::GotIP),
-            "0,CONNECT" => Ok(EspMessage::ClientConnect),
-            "0,CLOSED" => Ok(EspMessage::ClientDisconnect),
-            _ => Err(()),
-        }
-    }
-}
 
 // TODO(7) Configure the `rtic::app` macro
 #[rtic::app(
@@ -45,11 +15,10 @@ impl FromStr for EspMessage {
     peripherals = true
 )]
 mod app {
-    use core::str::from_utf8;
 
-    use crate::EspMessage;
     use defmt::{debug, error, info, warn};
     use embedded_hal::digital::v2::{OutputPin, ToggleableOutputPin};
+    use library::parse_at::{AtParser, EspMessage, ParsedMessage};
 
     use rp_pico::hal::{
         self, clocks,
@@ -60,7 +29,7 @@ mod app {
             FunctionSioOutput, PullDown,
         },
         sio::Sio,
-        uart::{DataBits, ReadErrorType, Reader, StopBits, Writer},
+        uart::{DataBits, Reader, StopBits, Writer},
         watchdog::Watchdog,
         Clock,
     };
@@ -279,112 +248,47 @@ mod app {
         local = [
             uart1_rx,
             esp_sender,
-            buf: [u8; 256] = [0; 256],
-            index: usize = 0
+            parser: AtParser<256> = AtParser::new(),
         ],
     )]
     fn uart1_esp32(cx: uart1_esp32::Context) {
-        let buf = cx.local.buf;
-        let index = cx.local.index;
-
-        match cx.local.uart1_rx.read_raw(&mut buf[*index..]) {
-            Ok(n) => {
-                // info!("RX: '{}'", core::str::from_utf8(&buf[..n]).unwrap());
-                *index += n;
-
-                if *index >= buf.len() - 1 {
-                    warn!("Buffer reached end without finding a newline!");
+        let sender = cx.local.esp_sender;
+        let rx = cx.local.uart1_rx;
+        cx.local.parser.consume(rx, move |message| match message {
+            ParsedMessage::Simple(m) => match sender.try_send(m) {
+                Err(TrySendError::Full(m)) => {
+                    warn!("ESP channel full, failed to send: {}", m)
                 }
-
-                loop {
-                    // info!(
-                    //     "Index: {}, Buffer: '{}'",
-                    //     index,
-                    //     from_utf8(&buf[..index]).unwrap()
-                    // );
-                    let mut found = false;
-
-                    let current_data = &buf[0..*index];
-
-                    // check if the current line starts with any URC (even though we haven't hit
-                    // \r\n yet
-                    if current_data.len() > 7 && &current_data[..7] == b"+IPD,0," {
-                        info!("FOUND +IDP URC!");
-
-                        match library::parse_ipd(current_data) {
-                            Ok((used, data)) => {
-                                info!("Received data: {}", data);
-                                // reset the buffer by moving the remaining bytes to the front
-                                let first_other_byte = used;
-                                // info!("copy range: {}", first_other_byte..index);
-                                buf.copy_within(first_other_byte..*index, 0);
-                                *index = *index - first_other_byte;
-
-                                found = true;
-                            }
-                            Err(err) => {
-                                error!("Error parsing IPD: {}", err);
-                            }
-                        }
-                    }
-
-                    for i in 0..index.saturating_sub(1) {
-                        if buf[i] == b'\r' && buf[i + 1] == b'\n' {
-                            // found!, extract without the \r\n
-                            let cmd = &buf[0..i];
-
-                            // search the recently added bytes to find "\r\n"
-                            if let Ok(s) = from_utf8(cmd) {
-                                if !s.is_empty() {
-                                    if let Ok(m) = s.parse() {
-                                        match cx.local.esp_sender.try_send(m) {
-                                            Err(TrySendError::Full(m)) => {
-                                                warn!("ESP channel full, failed to send: {}", m)
-                                            }
-                                            Err(TrySendError::NoReceiver(m)) => {
-                                                warn!(
-                                                "ESP channel has no receiver, failed to send: {}",
-                                                m
-                                            )
-                                            }
-                                            _ => {}
-                                        }
-                                    } else {
-                                        warn!("unrecognized command'{}'", s);
-                                    }
-                                }
-                            } else {
-                                debug!("invalid utf8 received");
-                            }
-
-                            // reset the buffer by moving the remaining bytes to the front
-                            let first_other_byte = i + 2;
-                            // info!("copy range: {}", first_other_byte..index);
-                            buf.copy_within(first_other_byte..*index, 0);
-                            *index = *index - first_other_byte;
-
-                            found = true;
-                            break; // break the for loop and restart it
-                        }
-                    }
-
-                    if !found {
-                        // break the outer loop if none was found
-                        break;
-                    }
+                Err(TrySendError::NoReceiver(m)) => {
+                    warn!("ESP channel has no receiver, failed to send: {}", m)
                 }
+                _ => {}
+            },
+            ParsedMessage::ReceivedData(data) => {
+                info!("got data: {}", data);
             }
-            Err(nb::Error::WouldBlock) => info!("Would Block"),
-            Err(nb::Error::Other(e)) => {
-                match e.err_type {
-                    ReadErrorType::Overrun => error!("Overrun"),
-                    ReadErrorType::Break => error!("Break"),
-                    ReadErrorType::Parity => error!("Parity"),
-                    ReadErrorType::Framing => error!("Framing"),
-                };
-                error!("Data: '{}'", core::str::from_utf8(e.discarded).unwrap());
-            }
-        }
+        });
+
+        // match cx.local.uart1_rx.read_raw(&mut buf[*index..]) {
+        //     Ok(n) => {
+        //         // info!("RX: '{}'", core::str::from_utf8(&buf[..n]).unwrap());
+        //         *index += n;
+        //
+        //         if *index >= buf.len() - 1 {
+        //             warn!("Buffer reached end without finding a newline!");
+        //         }
+        //     }
+        //     Err(nb::Error::WouldBlock) => info!("Would Block"),
+        //     Err(nb::Error::Other(e)) => {
+        //         match e.err_type {
+        //             ReadErrorType::Overrun => error!("Overrun"),
+        //             ReadErrorType::Break => error!("Break"),
+        //             ReadErrorType::Parity => error!("Parity"),
+        //             ReadErrorType::Framing => error!("Framing"),
+        //         };
+        //         error!("Data: '{}'", core::str::from_utf8(e.discarded).unwrap());
+        //     }
+        // }
     }
 
     #[task(local = [led])]
