@@ -3,7 +3,11 @@ name = "slamrs-message"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+defmt = ["dep:defmt"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 bincode = {version = "2.0.0-rc.3", default-features = false , features = ["derive"], git="https://github.com/bincode-org/bincode",rev = "aada4bb4cb457677a4b8e47572ae7ca8dd44927c"}
+
+defmt = { version = "0.3", optional = true }

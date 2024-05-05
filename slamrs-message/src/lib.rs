@@ -2,7 +2,8 @@
 
 use bincode::{Decode, Encode};
 
-#[derive(Copy, Clone, Encode, Decode, Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+#[derive(Copy, Clone, Encode, Decode, Debug, PartialEq)]
 pub enum CommandMessage {
     Ping,
     NeatoOn,

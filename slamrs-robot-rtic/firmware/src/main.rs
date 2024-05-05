@@ -18,6 +18,7 @@ mod app {
 
     use defmt::{debug, error, info, warn};
     use embedded_hal::digital::v2::{OutputPin, ToggleableOutputPin};
+    use library::event::Event;
     use library::parse_at::{AtParser, EspMessage, ParsedMessage};
 
     use rp_pico::hal::{
@@ -35,16 +36,17 @@ mod app {
     };
     use rp_pico::XOSC_CRYSTAL_FREQ;
     use rtic_monotonics::rp2040::*;
-    use rtic_sync::channel::TrySendError;
+    use rtic_sync::channel::{Sender, TrySendError};
 
     type Uart1Pins = (
         hal::gpio::Pin<Gpio4, hal::gpio::FunctionUart, hal::gpio::PullNone>,
         hal::gpio::Pin<Gpio5, hal::gpio::FunctionUart, hal::gpio::PullNone>,
     );
 
-    const ESP_CHANNEL_CAPACTIY: usize = 32;
+    const ESP_CHANNEL_CAPACITY: usize = 32;
+    const EVENT_CHANNEL_CAPACITY: usize = 32;
     type EspChannelReceiver =
-        rtic_sync::channel::Receiver<'static, EspMessage, ESP_CHANNEL_CAPACTIY>;
+        rtic_sync::channel::Receiver<'static, EspMessage, ESP_CHANNEL_CAPACITY>;
 
     // Shared resources go here
     #[shared]
@@ -66,8 +68,10 @@ mod app {
         esp_reset: gpio::Pin<Gpio19, FunctionSioOutput, PullDown>,
 
         // channel ends for transmitting esp messages
-        esp_sender: rtic_sync::channel::Sender<'static, EspMessage, ESP_CHANNEL_CAPACTIY>,
+        esp_sender: rtic_sync::channel::Sender<'static, EspMessage, ESP_CHANNEL_CAPACITY>,
         esp_receiver: EspChannelReceiver,
+        // channel for sending events from the ESP handler
+        esp_event_sender: rtic_sync::channel::Sender<'static, Event, EVENT_CHANNEL_CAPACITY>,
     }
 
     #[init]
@@ -140,7 +144,8 @@ mod app {
         let (rx, tx) = uart.split();
 
         // create a channel for comminicating ESP messages
-        let (s, r) = rtic_sync::make_channel!(EspMessage, ESP_CHANNEL_CAPACTIY);
+        let (esp_sender, esp_receiver) = rtic_sync::make_channel!(EspMessage, ESP_CHANNEL_CAPACITY);
+        let (s, r) = rtic_sync::make_channel!(Event, EVENT_CHANNEL_CAPACITY);
 
         init_esp::spawn().ok();
         heartbeat::spawn().ok();
@@ -155,16 +160,26 @@ mod app {
                 uart1_tx: tx,
                 esp_mode,
                 esp_reset,
-                esp_sender: s,
-                esp_receiver: r,
+                esp_sender,
+                esp_receiver,
+                esp_event_sender: s,
             },
         )
     }
 
+    // TODO create a task that listens for messages and status updates from the ESP task and the
+    // serial communication task (for usability also over a serial connection)
+
     /// Task that initializes and handles the ESP wifi connection
     #[task(
         priority = 1,
-        local = [esp_mode, esp_reset, uart1_tx, esp_receiver],
+        local = [
+            esp_mode,
+            esp_reset,
+            uart1_tx,
+            esp_receiver,
+            esp_event_sender,
+        ],
     )]
     async fn init_esp(cx: init_esp::Context) {
         info!("Reseting the ESP");
@@ -221,10 +236,11 @@ mod app {
                     }
                     EspMessage::ClientConnect => {
                         state = State::ClientConnected;
-                        // TODO: do a new receive loop here that waits for data and parses it?
+                        channel_send(cx.local.esp_event_sender, Event::Connected, "ESP");
                     }
                     EspMessage::ClientDisconnect => {
                         state = State::Listening;
+                        channel_send(cx.local.esp_event_sender, Event::Disconnected, "ESP");
                     }
                     _ => {}
                 }
@@ -242,6 +258,27 @@ mod app {
         }
     }
 
+    /// Helper function for trying to send something to a Sender MPSC channel, or print a warning
+    /// message if an error occurred
+    fn channel_send<T: defmt::Format, const N: usize>(
+        sender: &mut Sender<'static, T, N>,
+        value: T,
+        context: &str,
+    ) {
+        match sender.try_send(value) {
+            Err(TrySendError::Full(m)) => {
+                warn!("ESP channel full, failed to send: {} ({})", m, context)
+            }
+            Err(TrySendError::NoReceiver(m)) => {
+                warn!(
+                    "ESP channel has no receiver, failed to send: {} ({})",
+                    m, context
+                )
+            }
+            _ => {}
+        }
+    }
+
     /// Hardware task that reads bytes from the UART an publishes messages!
     #[task(
         binds = UART1_IRQ,
@@ -255,40 +292,11 @@ mod app {
         let sender = cx.local.esp_sender;
         let rx = cx.local.uart1_rx;
         cx.local.parser.consume(rx, move |message| match message {
-            ParsedMessage::Simple(m) => match sender.try_send(m) {
-                Err(TrySendError::Full(m)) => {
-                    warn!("ESP channel full, failed to send: {}", m)
-                }
-                Err(TrySendError::NoReceiver(m)) => {
-                    warn!("ESP channel has no receiver, failed to send: {}", m)
-                }
-                _ => {}
-            },
+            ParsedMessage::Simple(m) => channel_send(sender, m, "uart1_esp32"),
             ParsedMessage::ReceivedData(data) => {
                 info!("got data: {}", data);
             }
         });
-
-        // match cx.local.uart1_rx.read_raw(&mut buf[*index..]) {
-        //     Ok(n) => {
-        //         // info!("RX: '{}'", core::str::from_utf8(&buf[..n]).unwrap());
-        //         *index += n;
-        //
-        //         if *index >= buf.len() - 1 {
-        //             warn!("Buffer reached end without finding a newline!");
-        //         }
-        //     }
-        //     Err(nb::Error::WouldBlock) => info!("Would Block"),
-        //     Err(nb::Error::Other(e)) => {
-        //         match e.err_type {
-        //             ReadErrorType::Overrun => error!("Overrun"),
-        //             ReadErrorType::Break => error!("Break"),
-        //             ReadErrorType::Parity => error!("Parity"),
-        //             ReadErrorType::Framing => error!("Framing"),
-        //         };
-        //         error!("Data: '{}'", core::str::from_utf8(e.discarded).unwrap());
-        //     }
-        // }
     }
 
     #[task(local = [led])]
