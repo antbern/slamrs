@@ -72,6 +72,12 @@ mod app {
         esp_receiver: EspChannelReceiver,
         // channel for sending events from the ESP handler
         esp_event_sender: rtic_sync::channel::Sender<'static, Event, EVENT_CHANNEL_CAPACITY>,
+
+        /// Channel receiver where all `Event` objects are sent
+        event_receiver: rtic_sync::channel::Receiver<'static, Event, EVENT_CHANNEL_CAPACITY>,
+
+        /// Channel for sending events from the data handler
+        data_event_sender: rtic_sync::channel::Sender<'static, Event, EVENT_CHANNEL_CAPACITY>,
     }
 
     #[init]
@@ -145,8 +151,10 @@ mod app {
 
         // create a channel for comminicating ESP messages
         let (esp_sender, esp_receiver) = rtic_sync::make_channel!(EspMessage, ESP_CHANNEL_CAPACITY);
-        let (s, r) = rtic_sync::make_channel!(Event, EVENT_CHANNEL_CAPACITY);
+        let (event_sender, event_receiver) =
+            rtic_sync::make_channel!(Event, EVENT_CHANNEL_CAPACITY);
 
+        event_loop::spawn().ok();
         init_esp::spawn().ok();
         heartbeat::spawn().ok();
         (
@@ -162,13 +170,43 @@ mod app {
                 esp_reset,
                 esp_sender,
                 esp_receiver,
-                esp_event_sender: s,
+                esp_event_sender: event_sender.clone(),
+                event_receiver,
+                data_event_sender: event_sender,
             },
         )
     }
 
     // TODO create a task that listens for messages and status updates from the ESP task and the
     // serial communication task (for usability also over a serial connection)
+    #[task(priority = 1, local = [event_receiver])]
+    async fn event_loop(cx: event_loop::Context) {
+        loop {
+            match cx.local.event_receiver.recv().await {
+                Ok(event) => {
+                    // TODO! Handle the event
+                    info!("Received event: {}", event);
+                }
+                Err(e) => {
+                    warn!(
+                        "Error receiveing event: {}",
+                        match e {
+                            rtic_sync::channel::ReceiveError::NoSender => "NoSender",
+                            rtic_sync::channel::ReceiveError::Empty => "Empty",
+                        }
+                    );
+                }
+            }
+        }
+    }
+
+    /// This task receives data chunks and emitts [`Event`] to the [`event_loop`]
+    #[task(priority = 1, local = [data_event_sender])]
+    async fn data_handler(cx: data_handler::Context) {
+        // Instantiate some kind of buffer
+
+        // continously read the data events and parse them to generate events for the event loop
+    }
 
     /// Task that initializes and handles the ESP wifi connection
     #[task(
