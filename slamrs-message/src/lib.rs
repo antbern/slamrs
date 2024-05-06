@@ -1,5 +1,8 @@
 #![no_std]
 
+// export `bincode` so that the same version is available to all users of this crate
+pub use bincode;
+
 use bincode::{Decode, Encode};
 
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]

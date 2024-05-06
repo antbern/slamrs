@@ -6,7 +6,7 @@ use common::{
 use eframe::egui;
 use pubsub::{PubSub, Publisher};
 use serde::Deserialize;
-use slamrs_message::{CommandMessage, RobotMessage};
+use slamrs_message::{bincode, CommandMessage, RobotMessage};
 use std::io::prelude::*;
 use std::{
     net::TcpStream,

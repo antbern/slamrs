@@ -32,7 +32,7 @@ use hal::uart::{self, TxRxPins, Uart};
 use hal::{embassy, peripherals::Peripherals, prelude::*, timer::TimerGroup, Rtc};
 use hal::{interrupt, Rng, IO};
 
-use slamrs_message::{CommandMessage, RobotMessage, ScanFrame};
+use slamrs_message::{bincode, CommandMessage, RobotMessage, ScanFrame};
 use smoltcp::socket::tcp;
 use static_cell::make_static;
 
