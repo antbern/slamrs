@@ -117,9 +117,13 @@ fn open_and_stream(
 
     let mut stream = TcpStream::connect(host)?;
 
-    stream.write_all(&[b'A'])?;
+    // stream.write_all(&[b'A'])?;
     //port.flush()?;
-
+    bincode::encode_into_std_write(
+        CommandMessage::NeatoOn,
+        &mut stream,
+        bincode::config::standard(),
+    )?;
     // let mut buffer = [0u8; 1024];
     // let mut parser = RunningParser::new();
 
@@ -171,7 +175,12 @@ fn open_and_stream(
     }
 
     // doesn't really matter if this succeeds or not since the connection might be broken already
-    stream.write_all(&[b'D'])?;
+    // stream.write_all(&[b'D'])?;
+    bincode::encode_into_std_write(
+        CommandMessage::NeatoOff,
+        &mut stream,
+        bincode::config::standard(),
+    )?;
 
     println!("Closing!");
 

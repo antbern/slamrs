@@ -8,23 +8,24 @@ mod util;
 use defmt_rtt as _;
 use panic_probe as _;
 
-// TODO(7) Configure the `rtic::app` macro
 #[rtic::app(
-    // TODO: Replace `some_hal::pac` with the path to the PAC
     device = rp_pico::hal::pac,
-    // TODO: Replace the `FreeInterrupt1, ...` with free interrupt vectors if software tasks are used
+    // Replace the `FreeInterrupt1, ...` with free interrupt vectors if software tasks are used
     // You can usually find the names of the interrupt vectors in the some_hal::pac::interrupt enum.
     dispatchers = [TIMER_IRQ_1],
     peripherals = true
 )]
 mod app {
     use crate::tasks::esp::{init_esp, uart1_esp32};
+    use crate::util::channel_send;
 
     use defmt::{debug, error, info, warn};
     use embedded_hal::digital::v2::{OutputPin, ToggleableOutputPin};
     use library::event::Event;
     use library::parse_at::{AtParser, EspMessage};
 
+    use library::slamrs_message::bincode::config::Config;
+    use library::slamrs_message::CommandMessage;
     use rp_pico::hal::{
         self, clocks,
         fugit::{ExtU64, RateExtU32},
@@ -50,6 +51,9 @@ mod app {
     const EVENT_CHANNEL_CAPACITY: usize = 32;
     pub type EspChannelReceiver =
         rtic_sync::channel::Receiver<'static, EspMessage, ESP_CHANNEL_CAPACITY>;
+
+    const DATA_CHANNEL_CAPACITY: usize = 16;
+    const DATA_PACKET_SIZE: usize = 64;
 
     // Shared resources go here
     #[shared]
@@ -81,6 +85,19 @@ mod app {
 
         /// Channel for sending events from the data handler
         data_event_sender: rtic_sync::channel::Sender<'static, Event, EVENT_CHANNEL_CAPACITY>,
+
+        /// Channel receiver where all data packets are sent
+        data_receiver: rtic_sync::channel::Receiver<
+            'static,
+            (usize, [u8; DATA_PACKET_SIZE]),
+            DATA_CHANNEL_CAPACITY,
+        >,
+        /// Channel sender for the ESP
+        esp_data_sender: rtic_sync::channel::Sender<
+            'static,
+            (usize, [u8; DATA_PACKET_SIZE]),
+            DATA_CHANNEL_CAPACITY,
+        >,
     }
 
     #[init]
@@ -157,6 +174,11 @@ mod app {
         let (event_sender, event_receiver) =
             rtic_sync::make_channel!(Event, EVENT_CHANNEL_CAPACITY);
 
+        // create a channel for comminicating data packets
+        let (data_sender, data_receiver) =
+            rtic_sync::make_channel!((usize, [u8; DATA_PACKET_SIZE]), DATA_CHANNEL_CAPACITY);
+
+        data_handler::spawn().ok();
         event_loop::spawn().ok();
         init_esp::spawn().ok();
         heartbeat::spawn().ok();
@@ -176,6 +198,8 @@ mod app {
                 esp_event_sender: event_sender.clone(),
                 event_receiver,
                 data_event_sender: event_sender,
+                data_receiver,
+                esp_data_sender: data_sender,
             },
         )
     }
@@ -204,10 +228,42 @@ mod app {
     }
 
     /// This task receives data chunks and emitts [`Event`] to the [`event_loop`]
-    #[task(priority = 1, local = [data_event_sender])]
+    #[task(priority = 1, local = [data_event_sender, data_receiver])]
     async fn data_handler(cx: data_handler::Context) {
-        // Instantiate some kind of buffer
-
+        loop {
+            match cx.local.data_receiver.recv().await {
+                Ok((size, data)) => {
+                    let data = &data[..size];
+                    match library::slamrs_message::bincode::decode_from_slice::<CommandMessage, _>(
+                        data,
+                        library::slamrs_message::bincode::config::standard(),
+                    ) {
+                        Ok((event, len)) => {
+                            if len != size {
+                                warn!("Data packet was not fully consumed");
+                            }
+                            channel_send(
+                                cx.local.data_event_sender,
+                                Event::Command(event),
+                                "data_handler",
+                            );
+                        }
+                        Err(_e) => {
+                            warn!("Failed to deserialize data");
+                        }
+                    }
+                }
+                Err(e) => {
+                    warn!(
+                        "Error receiveing data packet: {}",
+                        match e {
+                            rtic_sync::channel::ReceiveError::NoSender => "NoSender",
+                            rtic_sync::channel::ReceiveError::Empty => "Empty",
+                        }
+                    );
+                }
+            }
+        }
         // continously read the data events and parse them to generate events for the event loop
     }
 
@@ -231,6 +287,7 @@ mod app {
             local = [
                 uart1_rx,
                 esp_sender,
+                esp_data_sender,
                 parser: AtParser<256> = AtParser::new(),
             ],
         )]

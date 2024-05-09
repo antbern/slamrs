@@ -28,6 +28,7 @@ pub async fn init_esp(cx: init_esp::Context<'_>) {
 
     // configure some stuff
     cx.local.uart1_tx.write_full_blocking(b"AT+SYSMSG=0\r\n");
+    wait_for_message(cx.local.esp_receiver, EspMessage::Ok).await;
 
     enum State {
         Ready,
@@ -45,6 +46,11 @@ pub async fn init_esp(cx: init_esp::Context<'_>) {
             match m {
                 EspMessage::GotIP => {
                     state = State::WifiConnectedAndIp;
+                    // enable mdns
+                    cx.local
+                        .uart1_tx
+                        .write_full_blocking(b"AT+MDNS=1,\"robot\",\"_tcp\",8080\r\n");
+                    wait_for_message(cx.local.esp_receiver, EspMessage::Ok).await;
                     // start the server
 
                     info!("Enabling Multiple Connections");
@@ -60,7 +66,7 @@ pub async fn init_esp(cx: init_esp::Context<'_>) {
                     info!("Starting server");
                     cx.local
                         .uart1_tx
-                        .write_full_blocking(b"AT+CIPSERVER=1,80\r\n");
+                        .write_full_blocking(b"AT+CIPSERVER=1,8080\r\n");
                     wait_for_message(cx.local.esp_receiver, EspMessage::Ok).await;
 
                     state = State::Listening;
@@ -88,6 +94,18 @@ pub fn uart1_esp32(cx: uart1_esp32::Context<'_>) {
         ParsedMessage::Simple(m) => channel_send(sender, m, "uart1_esp32"),
         ParsedMessage::ReceivedData(data) => {
             info!("got data: {}", data);
+            // this is not very efficient , but it works for now
+            let mut buffer = [0u8; 64];
+            if data.len() > buffer.len() {
+                warn!("Data too long, ignoring");
+                return;
+            }
+            buffer[..data.len()].copy_from_slice(data);
+            channel_send(
+                cx.local.esp_data_sender,
+                (data.len(), buffer),
+                "uart1_esp32",
+            );
         }
     });
 }

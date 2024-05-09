@@ -44,6 +44,9 @@ debug-assertions = false
 opt-level = 0
 overflow-checks = false
 
+[profile.release]
+debug = 2
+
 # cargo test
 [profile.test]
 codegen-units = 1
