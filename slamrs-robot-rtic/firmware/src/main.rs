@@ -426,17 +426,24 @@ mod app {
                     // Do nothing
                 }
                 Ok(count) => {
-                    // Convert to upper case
-                    buf.iter_mut().take(count).for_each(|b| {
-                        b.make_ascii_uppercase();
-                    });
-
-                    // Send back to the host
-                    let mut wr_ptr = &buf[..count];
-                    while !wr_ptr.is_empty() {
-                        let _ = serial.write(wr_ptr).map(|len| {
-                            wr_ptr = &wr_ptr[len..];
-                        });
+                    let data = &buf[..count];
+                    match library::slamrs_message::bincode::decode_from_slice::<CommandMessage, _>(
+                        data,
+                        library::slamrs_message::bincode::config::standard(),
+                    ) {
+                        Ok((event, len)) => {
+                            if len != count {
+                                warn!("Data packet was not fully consumed");
+                            }
+                            channel_send(
+                                cx.local.usb_event_sender,
+                                Event::Command(event),
+                                "usb_irq",
+                            );
+                        }
+                        Err(_e) => {
+                            warn!("Failed to deserialize data");
+                        }
                     }
                 }
             }
