@@ -1334,7 +1334,6 @@ dependencies = [
 name = "slamrs-robot"
 version = "0.1.0"
 dependencies = [
- "bincode",
  "bleps",
  "defmt",
  "embassy-executor",

@@ -1,0 +1,70 @@
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+name: "Build: slamrs-robot-rtic"
+
+
+# Since `espup` queries the GitHub API, we strongly recommend you provide this
+# action with an API token to avoid transient errors.
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # needed by the code for compilation since the Wifi details are baked into the binary
+  SSID: DUMMY_SSID
+  PASSWORD: DUMMY_PASSWORD
+
+jobs:
+  build_robot:
+    name: Build robot rtic
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./slamrs-robot-rtic/firmware
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+          targets: thumbv6m-none-eabi
+
+      - name: Rust Cache # cache the rust build artefacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "./slamrs-robot-rtic/firmware -> ../target"
+
+      - name: Check
+        run: cargo check
+
+      - name: Build
+        run: cargo build
+  
+  test_library:
+    name: Test library
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./slamrs-robot-rtic/library
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Rust Cache # cache the rust build artefacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "./slamrs-robot-rtic/library -> ../target"
+
+      - name: Check
+        run: cargo check
+
+      - name: Build
+        run: cargo build
+
+      - name: Test
+        run: cargo test --lib

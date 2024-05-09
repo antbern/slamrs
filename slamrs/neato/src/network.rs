@@ -6,8 +6,7 @@ use common::{
 use eframe::egui;
 use pubsub::{PubSub, Publisher};
 use serde::Deserialize;
-use slamrs_message::{CommandMessage, RobotMessage};
-use std::io::prelude::*;
+use slamrs_message::{bincode, CommandMessage, RobotMessage};
 use std::{
     net::TcpStream,
     sync::{
@@ -43,7 +42,7 @@ impl NodeConfig for NetworkConnectionNodeConfig {
     fn instantiate(&self, pubsub: &mut PubSub) -> Box<dyn Node> {
         Box::new(NetworkConnection {
             state: State::Idle,
-            host: "192.168.1.114:8080".into(),
+            host: "robot:8080".into(),
             pub_obs: pubsub.publish(&self.topic_observation),
         })
     }
@@ -117,11 +116,21 @@ fn open_and_stream(
 
     let mut stream = TcpStream::connect(host)?;
 
-    stream.write_all(&[b'A'])?;
+    // stream.write_all(&[b'A'])?;
     //port.flush()?;
-
+    bincode::encode_into_std_write(
+        CommandMessage::NeatoOn,
+        &mut stream,
+        bincode::config::standard(),
+    )?;
     // let mut buffer = [0u8; 1024];
     // let mut parser = RunningParser::new();
+    //
+    bincode::encode_into_std_write(
+        CommandMessage::Ping,
+        &mut stream,
+        bincode::config::standard(),
+    )?;
 
     while running.load(Ordering::Relaxed) {
         // read bytes into the buffer
@@ -135,7 +144,9 @@ fn open_and_stream(
                 println!("Received: {:?}", &scan_frame.rpm);
                 pub_obs.publish(Arc::new(parsed.into()));
             }
-            RobotMessage::Pong => {}
+            RobotMessage::Pong => {
+                println!("Received: Pong");
+            }
         }
 
         // send ping
@@ -171,7 +182,12 @@ fn open_and_stream(
     }
 
     // doesn't really matter if this succeeds or not since the connection might be broken already
-    stream.write_all(&[b'D'])?;
+    // stream.write_all(&[b'D'])?;
+    bincode::encode_into_std_write(
+        CommandMessage::NeatoOff,
+        &mut stream,
+        bincode::config::standard(),
+    )?;
 
     println!("Closing!");
 
