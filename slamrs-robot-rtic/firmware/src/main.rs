@@ -17,6 +17,7 @@ use panic_probe as _;
 )]
 mod app {
     use crate::tasks::esp::{init_esp, uart1_esp32};
+    use crate::tasks::usb::usb_irq;
     use crate::util::channel_send;
 
     use defmt::{debug, error, info, warn};
@@ -120,12 +121,12 @@ mod app {
 
     static mut USB_BUS: Option<UsbBusAllocator<hal::usb::UsbBus>> = None;
 
-    struct UsbState<'a> {
+    pub struct UsbState<'a> {
         /// The USB Device Driver (shared with the interrupt).
-        usb_device: UsbDevice<'a, hal::usb::UsbBus>,
+        pub usb_device: UsbDevice<'a, hal::usb::UsbBus>,
 
         /// The USB Serial Device Driver (shared with the interrupt).
-        usb_serial: SerialPort<'a, hal::usb::UsbBus>,
+        pub usb_serial: SerialPort<'a, hal::usb::UsbBus>,
     }
 
     #[init]
@@ -392,9 +393,9 @@ mod app {
             ],
         )]
         fn uart1_esp32(cx: uart1_esp32::Context);
-    }
 
-    #[task(
+        // Hardware task that reads bytes from the USB and publishes messages!
+        #[task(
             binds = USBCTRL_IRQ,
             local = [
                 usb_state,
@@ -402,52 +403,7 @@ mod app {
                 was_connected: bool = false,
             ],
         )]
-    fn usb_irq(cx: usb_irq::Context) {
-        let usb_dev = &mut cx.local.usb_state.usb_device;
-        let serial = &mut cx.local.usb_state.usb_serial;
-
-        // check if we are conected or not and emitt the right event
-        let is_connected = serial.dtr() && usb_dev.state() == UsbDeviceState::Configured;
-        if is_connected && !*cx.local.was_connected {
-            channel_send(cx.local.usb_event_sender, Event::Connected, "usb_irq");
-        } else if !is_connected && *cx.local.was_connected {
-            channel_send(cx.local.usb_event_sender, Event::Disconnected, "usb_irq");
-        }
-        *cx.local.was_connected = is_connected;
-
-        // Poll the USB driver with all of our supported USB Classes
-        if usb_dev.poll(&mut [serial]) {
-            let mut buf = [0u8; 64];
-            match serial.read(&mut buf) {
-                Err(_e) => {
-                    // Do nothing
-                }
-                Ok(0) => {
-                    // Do nothing
-                }
-                Ok(count) => {
-                    let data = &buf[..count];
-                    match library::slamrs_message::bincode::decode_from_slice::<CommandMessage, _>(
-                        data,
-                        library::slamrs_message::bincode::config::standard(),
-                    ) {
-                        Ok((event, len)) => {
-                            if len != count {
-                                warn!("Data packet was not fully consumed");
-                            }
-                            channel_send(
-                                cx.local.usb_event_sender,
-                                Event::Command(event),
-                                "usb_irq",
-                            );
-                        }
-                        Err(_e) => {
-                            warn!("Failed to deserialize data");
-                        }
-                    }
-                }
-            }
-        }
+        fn usb_irq(cx: usb_irq::Context);
     }
 
     #[task(local = [led])]
