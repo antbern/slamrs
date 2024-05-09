@@ -20,6 +20,23 @@ pub enum EspMessage {
     GotIP,
     ClientConnect,
     ClientDisconnect,
+    WifiStatus(WifiStatus),
+}
+/// Enum to describe the  Wifi status
+/// From the docs:
+/// 0: ESP32 station has not started any Wi-Fi connection.
+/// 1: ESP32 station has connected to an AP, but does not get an IPv4 address yet.
+/// 2: ESP32 station has connected to an AP, and got an IPv4 address.
+/// 3: ESP32 station is in Wi-Fi connecting or reconnecting state.
+/// 4: ESP32 station is in Wi-Fi disconnected state.
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum WifiStatus {
+    NotConnected,
+    ConnectedNoIp,
+    ConnectedWithIp,
+    Connecting,
+    Disconnected,
 }
 
 impl FromStr for EspMessage {
@@ -34,7 +51,22 @@ impl FromStr for EspMessage {
             "WIFI GOT IP" => Ok(EspMessage::GotIP),
             "0,CONNECT" => Ok(EspMessage::ClientConnect),
             "0,CLOSED" => Ok(EspMessage::ClientDisconnect),
-            _ => Err(()),
+            other => {
+                if other.starts_with("+CWSTATE:") {
+                    if let Some(status) = other.chars().nth(9) {
+                        return match status {
+                            '0' => Ok(EspMessage::WifiStatus(WifiStatus::NotConnected)),
+                            '1' => Ok(EspMessage::WifiStatus(WifiStatus::ConnectedNoIp)),
+                            '2' => Ok(EspMessage::WifiStatus(WifiStatus::ConnectedWithIp)),
+                            '3' => Ok(EspMessage::WifiStatus(WifiStatus::Connecting)),
+                            '4' => Ok(EspMessage::WifiStatus(WifiStatus::Disconnected)),
+                            _ => Err(()),
+                        };
+                    }
+                }
+
+                Err(())
+            }
         }
     }
 }
@@ -129,7 +161,8 @@ impl<const N: usize> AtParser<N> {
                             if let Ok(m) = s.parse() {
                                 callback(ParsedMessage::Simple(m));
                             } else {
-                                // warn!("unrecognized command'{}'", s);
+                                #[cfg(feature = "defmt")]
+                                defmt::warn!("unrecognized command'{}'", s);
                             }
                         }
                     } else {

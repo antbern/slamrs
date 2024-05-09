@@ -1,4 +1,4 @@
-use defmt::info;
+use defmt::{info, warn};
 use embedded_hal::digital::v2::OutputPin;
 use library::{
     event::Event,
@@ -29,6 +29,8 @@ pub async fn init_esp(cx: init_esp::Context<'_>) {
     // configure some stuff
     cx.local.uart1_tx.write_full_blocking(b"AT+SYSMSG=0\r\n");
     wait_for_message(cx.local.esp_receiver, EspMessage::Ok).await;
+
+    cx.local.uart1_tx.write_full_blocking(b"AT+CWSTATE?\r\n");
 
     enum State {
         Ready,
