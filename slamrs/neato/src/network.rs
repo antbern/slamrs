@@ -7,7 +7,6 @@ use eframe::egui;
 use pubsub::{PubSub, Publisher};
 use serde::Deserialize;
 use slamrs_message::{bincode, CommandMessage, RobotMessage};
-use std::io::prelude::*;
 use std::{
     net::TcpStream,
     sync::{
@@ -132,7 +131,6 @@ fn open_and_stream(
         &mut stream,
         bincode::config::standard(),
     )?;
-
 
     while running.load(Ordering::Relaxed) {
         // read bytes into the buffer
