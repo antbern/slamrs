@@ -3,5 +3,6 @@
 
 pub mod event;
 pub mod parse_at;
+pub mod util;
 
 pub use slamrs_message;

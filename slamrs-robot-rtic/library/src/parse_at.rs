@@ -21,6 +21,8 @@ pub enum EspMessage {
     ClientConnect,
     ClientDisconnect,
     WifiStatus(WifiStatus),
+    DataPrompt,
+    SendOk,
 }
 /// Enum to describe the  Wifi status
 /// From the docs:
@@ -51,6 +53,8 @@ impl FromStr for EspMessage {
             "WIFI GOT IP" => Ok(EspMessage::GotIP),
             "0,CONNECT" => Ok(EspMessage::ClientConnect),
             "0,CLOSED" => Ok(EspMessage::ClientDisconnect),
+            ">" => Ok(EspMessage::DataPrompt),
+            "SEND OK" => Ok(EspMessage::SendOk),
             other => {
                 if other.starts_with("+CWSTATE:") {
                     if let Some(status) = other.chars().nth(9) {

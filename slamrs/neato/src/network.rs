@@ -43,7 +43,7 @@ impl NodeConfig for NetworkConnectionNodeConfig {
     fn instantiate(&self, pubsub: &mut PubSub) -> Box<dyn Node> {
         Box::new(NetworkConnection {
             state: State::Idle,
-            host: "192.168.1.114:8080".into(),
+            host: "robot:8080".into(),
             pub_obs: pubsub.publish(&self.topic_observation),
         })
     }
@@ -126,6 +126,13 @@ fn open_and_stream(
     )?;
     // let mut buffer = [0u8; 1024];
     // let mut parser = RunningParser::new();
+    //
+    bincode::encode_into_std_write(
+        CommandMessage::Ping,
+        &mut stream,
+        bincode::config::standard(),
+    )?;
+
 
     while running.load(Ordering::Relaxed) {
         // read bytes into the buffer
@@ -139,7 +146,9 @@ fn open_and_stream(
                 println!("Received: {:?}", &scan_frame.rpm);
                 pub_obs.publish(Arc::new(parsed.into()));
             }
-            RobotMessage::Pong => {}
+            RobotMessage::Pong => {
+                println!("Received: Pong");
+            }
         }
 
         // send ping

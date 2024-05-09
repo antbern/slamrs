@@ -21,11 +21,11 @@ mod app {
 
     use defmt::{debug, error, info, warn};
     use embedded_hal::digital::v2::{OutputPin, ToggleableOutputPin};
+    use futures::FutureExt;
     use library::event::Event;
     use library::parse_at::{AtParser, EspMessage};
 
-    use library::slamrs_message::bincode::config::Config;
-    use library::slamrs_message::CommandMessage;
+    use library::slamrs_message::{CommandMessage, RobotMessage};
     use rp_pico::hal::{
         self, clocks,
         fugit::{ExtU64, RateExtU32},
@@ -54,6 +54,8 @@ mod app {
 
     const DATA_CHANNEL_CAPACITY: usize = 16;
     const DATA_PACKET_SIZE: usize = 64;
+
+    const ROBOT_MESSAGE_CAPACITY: usize = 16;
 
     // Shared resources go here
     #[shared]
@@ -98,6 +100,13 @@ mod app {
             (usize, [u8; DATA_PACKET_SIZE]),
             DATA_CHANNEL_CAPACITY,
         >,
+
+        /// Sender for the robot messages
+        robot_message_sender:
+            rtic_sync::channel::Sender<'static, RobotMessage, ROBOT_MESSAGE_CAPACITY>,
+        /// Receiver for the robot messages
+        robot_message_receiver:
+            rtic_sync::channel::Receiver<'static, RobotMessage, ROBOT_MESSAGE_CAPACITY>,
     }
 
     #[init]
@@ -178,6 +187,9 @@ mod app {
         let (data_sender, data_receiver) =
             rtic_sync::make_channel!((usize, [u8; DATA_PACKET_SIZE]), DATA_CHANNEL_CAPACITY);
 
+        let (robot_message_sender, robot_message_receiver) =
+            rtic_sync::make_channel!(RobotMessage, ROBOT_MESSAGE_CAPACITY);
+
         data_handler::spawn().ok();
         event_loop::spawn().ok();
         init_esp::spawn().ok();
@@ -200,19 +212,43 @@ mod app {
                 data_event_sender: event_sender,
                 data_receiver,
                 esp_data_sender: data_sender,
+                robot_message_sender,
+                robot_message_receiver,
             },
         )
     }
 
     // TODO create a task that listens for messages and status updates from the ESP task and the
     // serial communication task (for usability also over a serial connection)
-    #[task(priority = 1, local = [event_receiver])]
+    #[task(priority = 1, local = [event_receiver, robot_message_sender])]
     async fn event_loop(cx: event_loop::Context) {
+        let mut is_connected = false;
         loop {
-            match cx.local.event_receiver.recv().await {
+            futures::select_biased! {
+
+            _ = Timer::delay(1000.millis()).fuse() => {
+                if is_connected {
+                    // Send a ping message to the robot
+                    channel_send(cx.local.robot_message_sender, RobotMessage::Pong, "event_loop");
+                }
+            },
+            event = cx.local.event_receiver.recv().fuse() => match event {
                 Ok(event) => {
                     // TODO! Handle the event
                     info!("Received event: {}", event);
+
+                    match event {
+                        Event::Connected => {is_connected = true;}
+                        Event::Disconnected => {is_connected = false;}
+                        // Event::Command(CommandMessage::Ping) => {
+                        //     channel_send(
+                        //         cx.local.robot_message_sender,
+                        //         RobotMessage::Pong,
+                        //         "event_loop",
+                        //     );
+                        // }
+                        _ => {}
+                    }
                 }
                 Err(e) => {
                     warn!(
@@ -223,6 +259,7 @@ mod app {
                         }
                     );
                 }
+            },
             }
         }
     }
@@ -277,6 +314,7 @@ mod app {
                 uart1_tx,
                 esp_receiver,
                 esp_event_sender,
+                robot_message_receiver,
             ],
         )]
         async fn init_esp(_: init_esp::Context);

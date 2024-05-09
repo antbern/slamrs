@@ -1,5 +1,6 @@
 use defmt::{info, warn};
 use embedded_hal::digital::v2::OutputPin;
+use futures::FutureExt;
 use library::{
     event::Event,
     parse_at::{EspMessage, ParsedMessage},
@@ -43,48 +44,75 @@ pub async fn init_esp(cx: init_esp::Context<'_>) {
 
     info!("Done, starting message loop");
     loop {
-        while let Ok(m) = cx.local.esp_receiver.recv().await {
-            info!("Got message: {}", m);
-            match m {
-                EspMessage::GotIP => {
-                    state = State::WifiConnectedAndIp;
-                    // enable mdns
-                    cx.local
-                        .uart1_tx
-                        .write_full_blocking(b"AT+MDNS=1,\"robot\",\"_tcp\",8080\r\n");
-                    wait_for_message(cx.local.esp_receiver, EspMessage::Ok).await;
-                    // start the server
-
-                    info!("Enabling Multiple Connections");
-                    cx.local.uart1_tx.write_full_blocking(b"AT+CIPMUX=1\r\n");
-                    wait_for_message(cx.local.esp_receiver, EspMessage::Ok).await;
-                    Timer::delay(1.secs()).await;
-
-                    cx.local
-                        .uart1_tx
-                        .write_full_blocking(b"AT+CIPSERVERMAXCONN=1\r\n");
-                    wait_for_message(cx.local.esp_receiver, EspMessage::Ok).await;
-
-                    info!("Starting server");
-                    cx.local
-                        .uart1_tx
-                        .write_full_blocking(b"AT+CIPSERVER=1,8080\r\n");
-                    wait_for_message(cx.local.esp_receiver, EspMessage::Ok).await;
-
-                    state = State::Listening;
-                    info!("Listening");
+        futures::select_biased! {
+            value = cx.local.robot_message_receiver.recv().fuse() => {
+                if let Ok(value) = value {
+                    info!("Sending: {:?}", value);
+                    let mut buffer = [0u8;64];
+                    match library::slamrs_message::bincode::encode_into_slice(value, &mut buffer, library::slamrs_message::bincode::config::standard()) {
+                        Ok(len) => {
+                            let mut len_buffer = [0u8; 10];
+                            let len_length = library::util::format_base_10(len as u32, &mut len_buffer).unwrap();
+                            info!("Encoded message: {:?} with length: {}", &buffer[..len], &len_buffer[..len_length]);
+                            cx.local.uart1_tx.write_full_blocking(b"AT+CIPSEND=0,");
+                            cx.local.uart1_tx.write_full_blocking(&len_buffer[..len_length]);
+                            cx.local.uart1_tx.write_full_blocking(b"\r\n");
+                            wait_for_message(cx.local.esp_receiver, EspMessage::Ok).await;
+                            // wait_for_message(cx.local.esp_receiver, EspMessage::DataPrompt).await;
+                            cx.local.uart1_tx.write_full_blocking(&buffer[..len]);
+                            wait_for_message(cx.local.esp_receiver, EspMessage::SendOk).await;
+                        }
+                        Err(_e) => {
+                            warn!("Error encoding message");
+                        }
+                    }
                 }
-                EspMessage::ClientConnect => {
-                    state = State::ClientConnected;
-                    channel_send(cx.local.esp_event_sender, Event::Connected, "ESP");
+            },
+            value = cx.local.esp_receiver.recv().fuse() => {
+                if let Ok(m) = value {
+                    info!("Got message: {}", m);
+                    match m {
+                        EspMessage::GotIP => {
+                            state = State::WifiConnectedAndIp;
+                            // enable mdns
+                            cx.local
+                                .uart1_tx
+                                .write_full_blocking(b"AT+MDNS=1,\"robot\",\"_tcp\",8080\r\n");
+                            wait_for_message(cx.local.esp_receiver, EspMessage::Ok).await;
+                            // start the server
+
+                            info!("Enabling Multiple Connections");
+                            cx.local.uart1_tx.write_full_blocking(b"AT+CIPMUX=1\r\n");
+                            wait_for_message(cx.local.esp_receiver, EspMessage::Ok).await;
+                            Timer::delay(1.secs()).await;
+
+                            cx.local
+                                .uart1_tx
+                                .write_full_blocking(b"AT+CIPSERVERMAXCONN=1\r\n");
+                            wait_for_message(cx.local.esp_receiver, EspMessage::Ok).await;
+
+                            info!("Starting server");
+                            cx.local
+                                .uart1_tx
+                                .write_full_blocking(b"AT+CIPSERVER=1,8080\r\n");
+                            wait_for_message(cx.local.esp_receiver, EspMessage::Ok).await;
+
+                            state = State::Listening;
+                            info!("Listening");
+                        }
+                        EspMessage::ClientConnect => {
+                            state = State::ClientConnected;
+                            channel_send(cx.local.esp_event_sender, Event::Connected, "ESP");
+                        }
+                        EspMessage::ClientDisconnect => {
+                            state = State::Listening;
+                            channel_send(cx.local.esp_event_sender, Event::Disconnected, "ESP");
+                        }
+                        _ => {}
+                    }
                 }
-                EspMessage::ClientDisconnect => {
-                    state = State::Listening;
-                    channel_send(cx.local.esp_event_sender, Event::Disconnected, "ESP");
-                }
-                _ => {}
-            }
-        }
+            },
+        };
     }
 }
 
