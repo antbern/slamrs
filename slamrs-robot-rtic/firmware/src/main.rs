@@ -42,6 +42,12 @@ mod app {
     use rp_pico::XOSC_CRYSTAL_FREQ;
     use rtic_monotonics::rp2040::*;
 
+    // USB Device support
+    use usb_device::{class_prelude::*, prelude::*};
+
+    // USB Communications Class Device support
+    use usbd_serial::SerialPort;
+
     type Uart1Pins = (
         hal::gpio::Pin<Gpio4, hal::gpio::FunctionUart, hal::gpio::PullNone>,
         hal::gpio::Pin<Gpio5, hal::gpio::FunctionUart, hal::gpio::PullNone>,
@@ -107,6 +113,19 @@ mod app {
         /// Receiver for the robot messages
         robot_message_receiver:
             rtic_sync::channel::Receiver<'static, RobotMessage, ROBOT_MESSAGE_CAPACITY>,
+
+        usb_state: UsbState<'static>,
+        usb_event_sender: rtic_sync::channel::Sender<'static, Event, EVENT_CHANNEL_CAPACITY>,
+    }
+
+    static mut USB_BUS: Option<UsbBusAllocator<hal::usb::UsbBus>> = None;
+
+    struct UsbState<'a> {
+        /// The USB Device Driver (shared with the interrupt).
+        usb_device: UsbDevice<'a, hal::usb::UsbBus>,
+
+        /// The USB Serial Device Driver (shared with the interrupt).
+        usb_serial: SerialPort<'a, hal::usb::UsbBus>,
     }
 
     #[init]
@@ -178,6 +197,47 @@ mod app {
 
         let (rx, tx) = uart.split();
 
+        let usb_state = {
+            // Set up the USB driver
+            let usb_bus = UsbBusAllocator::new(hal::usb::UsbBus::new(
+                ctx.device.USBCTRL_REGS,
+                ctx.device.USBCTRL_DPRAM,
+                clocks.usb_clock,
+                true,
+                &mut ctx.device.RESETS,
+            ));
+            unsafe {
+                // Safety: This is safe as interrupts haven't been started yet
+                USB_BUS = Some(usb_bus);
+            }
+            // Grab a reference to the USB Bus allocator. We are promising to the
+            // compiler not to take mutable access to this global variable whilst this
+            // reference exists!
+            let bus_ref = unsafe { USB_BUS.as_ref().unwrap() };
+
+            let serial = SerialPort::new(&bus_ref);
+
+            // Create a USB device with a fake VID and PID
+            let usb_dev = UsbDeviceBuilder::new(&bus_ref, UsbVidPid(0x16c0, 0x27dd))
+                .manufacturer("Fake company")
+                .product("Serial port")
+                .serial_number("TEST")
+                .device_class(2) // from: https://www.usb.org/defined-class-codes
+                .build();
+
+            // Enable the USB interrupt
+            unsafe {
+                hal::pac::NVIC::unmask(hal::pac::Interrupt::USBCTRL_IRQ);
+            };
+
+            // No more USB code after this point in main! We can do anything we want in
+            // here since USB is handled in the interrupt
+            UsbState {
+                usb_device: usb_dev,
+                usb_serial: serial,
+            }
+        };
+
         // create a channel for comminicating ESP messages
         let (esp_sender, esp_receiver) = rtic_sync::make_channel!(EspMessage, ESP_CHANNEL_CAPACITY);
         let (event_sender, event_receiver) =
@@ -209,11 +269,13 @@ mod app {
                 esp_receiver,
                 esp_event_sender: event_sender.clone(),
                 event_receiver,
-                data_event_sender: event_sender,
+                data_event_sender: event_sender.clone(),
                 data_receiver,
                 esp_data_sender: data_sender,
                 robot_message_sender,
                 robot_message_receiver,
+                usb_state,
+                usb_event_sender: event_sender,
             },
         )
     }
@@ -330,6 +392,55 @@ mod app {
             ],
         )]
         fn uart1_esp32(cx: uart1_esp32::Context);
+    }
+
+    #[task(
+            binds = USBCTRL_IRQ,
+            local = [
+                usb_state,
+                usb_event_sender,
+                was_connected: bool = false,
+            ],
+        )]
+    fn usb_irq(cx: usb_irq::Context) {
+        let usb_dev = &mut cx.local.usb_state.usb_device;
+        let serial = &mut cx.local.usb_state.usb_serial;
+
+        // check if we are conected or not and emitt the right event
+        let is_connected = serial.dtr() && usb_dev.state() == UsbDeviceState::Configured;
+        if is_connected && !*cx.local.was_connected {
+            channel_send(cx.local.usb_event_sender, Event::Connected, "usb_irq");
+        } else if !is_connected && *cx.local.was_connected {
+            channel_send(cx.local.usb_event_sender, Event::Disconnected, "usb_irq");
+        }
+        *cx.local.was_connected = is_connected;
+
+        // Poll the USB driver with all of our supported USB Classes
+        if usb_dev.poll(&mut [serial]) {
+            let mut buf = [0u8; 64];
+            match serial.read(&mut buf) {
+                Err(_e) => {
+                    // Do nothing
+                }
+                Ok(0) => {
+                    // Do nothing
+                }
+                Ok(count) => {
+                    // Convert to upper case
+                    buf.iter_mut().take(count).for_each(|b| {
+                        b.make_ascii_uppercase();
+                    });
+
+                    // Send back to the host
+                    let mut wr_ptr = &buf[..count];
+                    while !wr_ptr.is_empty() {
+                        let _ = serial.write(wr_ptr).map(|len| {
+                            wr_ptr = &wr_ptr[len..];
+                        });
+                    }
+                }
+            }
+        }
     }
 
     #[task(local = [led])]
