@@ -18,7 +18,7 @@ use std::{
 
 use serial2::SerialPort;
 
-use crate::frame::{self, NeatoFrame};
+use crate::frame;
 
 pub struct SerialConnection {
     state: State,
@@ -164,59 +164,4 @@ fn open_and_stream(
     drop(port);
 
     Ok(())
-}
-
-enum RunningParserState {
-    LookingForStart { previous_byte: u8 },
-    CollectingBytes { index: usize },
-}
-
-struct RunningParser {
-    buffer: [u8; 1980],
-    state: RunningParserState,
-}
-
-impl RunningParser {
-    pub fn new() -> Self {
-        Self {
-            buffer: [0u8; 1980],
-            state: RunningParserState::LookingForStart { previous_byte: 0 },
-        }
-    }
-
-    pub fn update(&mut self, byte: u8) -> Option<NeatoFrame> {
-        use RunningParserState::*;
-
-        let mut result = None;
-        self.state = match self.state {
-            LookingForStart {
-                previous_byte: last_byte,
-            } => {
-                if last_byte == 0xFA && byte == 0xA0 {
-                    self.buffer[0] = last_byte;
-                    self.buffer[1] = byte;
-                    CollectingBytes { index: 2 }
-                } else {
-                    LookingForStart {
-                        previous_byte: byte,
-                    }
-                }
-            }
-            CollectingBytes { index } => {
-                self.buffer[index] = byte;
-
-                if index < self.buffer.len() - 1 {
-                    CollectingBytes { index: index + 1 }
-                } else {
-                    // buffer is full -> parse and return it!
-                    result = frame::parse_frame(&self.buffer).ok();
-
-                    // next restart looking for frame start
-                    LookingForStart { previous_byte: 0 }
-                }
-            }
-        };
-
-        result
-    }
 }
