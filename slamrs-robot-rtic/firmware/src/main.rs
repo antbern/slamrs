@@ -17,7 +17,7 @@ use panic_probe as _;
 )]
 mod app {
     use crate::tasks::esp::{init_esp, uart1_esp32};
-    use crate::tasks::usb::usb_irq;
+    use crate::tasks::usb::{usb_irq, usb_sender};
     use crate::util::channel_send;
 
     use defmt::{debug, error, info, warn};
@@ -67,7 +67,12 @@ mod app {
     // Shared resources go here
     #[shared]
     struct Shared {
-        // TODO: Add resources
+        /// The USB Serial Device Driver
+        /// Shared between the USB interrupt and the USB sending task
+        pub usb_serial: SerialPort<'static, hal::usb::UsbBus>,
+
+        /// Flag indicating if the USB device is connected and active
+        usb_active: bool,
     }
 
     // Local resources go here
@@ -115,19 +120,20 @@ mod app {
         robot_message_receiver:
             rtic_sync::channel::Receiver<'static, RobotMessage, ROBOT_MESSAGE_CAPACITY>,
 
-        usb_state: UsbState<'static>,
         usb_event_sender: rtic_sync::channel::Sender<'static, Event, EVENT_CHANNEL_CAPACITY>,
-    }
 
-    static mut USB_BUS: Option<UsbBusAllocator<hal::usb::UsbBus>> = None;
-
-    pub struct UsbState<'a> {
         /// The USB Device Driver (shared with the interrupt).
-        pub usb_device: UsbDevice<'a, hal::usb::UsbBus>,
+        usb_device: UsbDevice<'static, hal::usb::UsbBus>,
 
-        /// The USB Serial Device Driver (shared with the interrupt).
-        pub usb_serial: SerialPort<'a, hal::usb::UsbBus>,
+        /// Sender for the robot messages
+        robot_message_sender_usb:
+            rtic_sync::channel::Sender<'static, RobotMessage, ROBOT_MESSAGE_CAPACITY>,
+        /// Receiver for the robot messages
+        robot_message_receiver_usb:
+            rtic_sync::channel::Receiver<'static, RobotMessage, ROBOT_MESSAGE_CAPACITY>,
     }
+    /// The USB bus, only needed for initializing the USB device and will never be accessed again
+    static mut USB_BUS: Option<UsbBusAllocator<hal::usb::UsbBus>> = None;
 
     #[init]
     fn init(mut ctx: init::Context) -> (Shared, Local) {
@@ -198,7 +204,7 @@ mod app {
 
         let (rx, tx) = uart.split();
 
-        let usb_state = {
+        let (usb_serial, usb_device) = {
             // Set up the USB driver
             let usb_bus = UsbBusAllocator::new(hal::usb::UsbBus::new(
                 ctx.device.USBCTRL_REGS,
@@ -223,7 +229,7 @@ mod app {
                 .manufacturer("Fake company")
                 .product("Serial port")
                 .serial_number("TEST")
-                .device_class(2) // from: https://www.usb.org/defined-class-codes
+                .device_class(usbd_serial::USB_CLASS_CDC)
                 .build();
 
             // Enable the USB interrupt
@@ -233,13 +239,10 @@ mod app {
 
             // No more USB code after this point in main! We can do anything we want in
             // here since USB is handled in the interrupt
-            UsbState {
-                usb_device: usb_dev,
-                usb_serial: serial,
-            }
+            (serial, usb_dev)
         };
 
-        // create a channel for comminicating ESP messages
+        // create a channel for communicating ESP messages
         let (esp_sender, esp_receiver) = rtic_sync::make_channel!(EspMessage, ESP_CHANNEL_CAPACITY);
         let (event_sender, event_receiver) =
             rtic_sync::make_channel!(Event, EVENT_CHANNEL_CAPACITY);
@@ -250,14 +253,19 @@ mod app {
 
         let (robot_message_sender, robot_message_receiver) =
             rtic_sync::make_channel!(RobotMessage, ROBOT_MESSAGE_CAPACITY);
+        let (robot_message_sender_usb, robot_message_receiver_usb) =
+            rtic_sync::make_channel!(RobotMessage, ROBOT_MESSAGE_CAPACITY);
 
         data_handler::spawn().ok();
         event_loop::spawn().ok();
         init_esp::spawn().ok();
+        usb_sender::spawn().ok();
         heartbeat::spawn().ok();
         (
             Shared {
                 // Initialization of shared resources go here
+                usb_serial,
+                usb_active: false,
             },
             Local {
                 // Initialization of local resources go here
@@ -275,15 +283,24 @@ mod app {
                 esp_data_sender: data_sender,
                 robot_message_sender,
                 robot_message_receiver,
-                usb_state,
                 usb_event_sender: event_sender,
+                usb_device,
+                robot_message_sender_usb,
+                robot_message_receiver_usb,
             },
         )
     }
 
     // TODO create a task that listens for messages and status updates from the ESP task and the
     // serial communication task (for usability also over a serial connection)
-    #[task(priority = 1, local = [event_receiver, robot_message_sender])]
+    #[task(
+        priority = 1,
+        local = [
+            event_receiver,
+            robot_message_sender,
+            robot_message_sender_usb,
+        ]
+    )]
     async fn event_loop(cx: event_loop::Context) {
         let mut is_connected = false;
         loop {
@@ -293,6 +310,7 @@ mod app {
                 if is_connected {
                     // Send a ping message to the robot
                     channel_send(cx.local.robot_message_sender, RobotMessage::Pong, "event_loop");
+                    channel_send(cx.local.robot_message_sender_usb, RobotMessage::Pong, "event_loop");
                 }
             },
             event = cx.local.event_receiver.recv().fuse() => match event {
@@ -397,13 +415,21 @@ mod app {
         // Hardware task that reads bytes from the USB and publishes messages!
         #[task(
             binds = USBCTRL_IRQ,
+            shared = [usb_serial, usb_active],
             local = [
-                usb_state,
+                usb_device,
                 usb_event_sender,
-                was_connected: bool = false,
             ],
         )]
         fn usb_irq(cx: usb_irq::Context);
+
+        #[task(
+            priority = 1,
+            shared = [usb_serial, usb_active],
+            local = [robot_message_receiver_usb],
+        )]
+        async fn usb_sender(cx: usb_sender::Context);
+
     }
 
     #[task(local = [led])]
