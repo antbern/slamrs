@@ -6,6 +6,7 @@ use common::{
 use eframe::egui;
 use pubsub::{PubSub, Publisher};
 use serde::Deserialize;
+use slamrs_message::{bincode, CommandMessage, RobotMessage};
 use std::{
     path::PathBuf,
     sync::{
@@ -17,7 +18,7 @@ use std::{
 
 use serial2::SerialPort;
 
-use crate::frame::{self, NeatoFrame};
+use crate::frame;
 
 pub struct SerialConnection {
     state: State,
@@ -118,95 +119,49 @@ fn open_and_stream(
 ) -> anyhow::Result<()> {
     println!("Opening {path:?}");
 
-    let port = SerialPort::open(path, 115200)?;
+    let mut port = SerialPort::open(path, 115200)?;
 
-    port.write(&[b'A'])?;
-    //port.flush()?;
-
-    let mut buffer = [0u8; 1024];
-    let mut parser = RunningParser::new();
+    bincode::encode_into_std_write(
+        CommandMessage::NeatoOn,
+        &mut port,
+        bincode::config::standard(),
+    )?;
+    port.flush()?;
 
     while running.load(Ordering::Relaxed) {
-        // read bytes into the buffer
-        match port.read(&mut buffer) {
-            Ok(bytes) => {
-                for &b in &buffer[..bytes] {
-                    if let Some(f) = parser.update(b) {
-                        // pusblish the frame!
-                        pub_obs.publish(Arc::new(f.into()));
-                    }
+        match bincode::decode_from_std_read(&mut port, bincode::config::standard()) {
+            Ok(data) => match data {
+                RobotMessage::ScanFrame(scan_frame) => {
+                    let parsed = frame::parse_frame(&scan_frame.scan_data)?;
+                    println!("Received: {:?}", &scan_frame.rpm);
+                    pub_obs.publish(Arc::new(parsed.into()));
                 }
-            }
+                RobotMessage::Pong => {
+                    println!("Received: Pong");
+
+                    // send ping
+                    bincode::encode_into_std_write(
+                        CommandMessage::Ping,
+                        &mut port,
+                        bincode::config::standard(),
+                    )?;
+                }
+            },
+            // skip TimedOut errors
+            Err(bincode::error::DecodeError::Io { inner, .. })
+                if inner.kind() == std::io::ErrorKind::TimedOut => {}
             Err(e) => {
-                // skip TimedOut errors
-                if e.kind() != std::io::ErrorKind::TimedOut {
-                    return Err(e.into());
-                }
+                return Err(e.into());
             }
         }
     }
 
     // doesn't really matter if this succeeds or not since the connection might be broken already
-    port.write(&[b'D'])?;
+    bincode::encode_into_std_write(CommandMessage::Ping, &mut port, bincode::config::standard())?;
 
     println!("Closing!");
 
     drop(port);
 
     Ok(())
-}
-
-enum RunningParserState {
-    LookingForStart { previous_byte: u8 },
-    CollectingBytes { index: usize },
-}
-
-struct RunningParser {
-    buffer: [u8; 1980],
-    state: RunningParserState,
-}
-
-impl RunningParser {
-    pub fn new() -> Self {
-        Self {
-            buffer: [0u8; 1980],
-            state: RunningParserState::LookingForStart { previous_byte: 0 },
-        }
-    }
-
-    pub fn update(&mut self, byte: u8) -> Option<NeatoFrame> {
-        use RunningParserState::*;
-
-        let mut result = None;
-        self.state = match self.state {
-            LookingForStart {
-                previous_byte: last_byte,
-            } => {
-                if last_byte == 0xFA && byte == 0xA0 {
-                    self.buffer[0] = last_byte;
-                    self.buffer[1] = byte;
-                    CollectingBytes { index: 2 }
-                } else {
-                    LookingForStart {
-                        previous_byte: byte,
-                    }
-                }
-            }
-            CollectingBytes { index } => {
-                self.buffer[index] = byte;
-
-                if index < self.buffer.len() - 1 {
-                    CollectingBytes { index: index + 1 }
-                } else {
-                    // buffer is full -> parse and return it!
-                    result = frame::parse_frame(&self.buffer).ok();
-
-                    // next restart looking for frame start
-                    LookingForStart { previous_byte: 0 }
-                }
-            }
-        };
-
-        result
-    }
 }
