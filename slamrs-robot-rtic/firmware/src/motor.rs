@@ -25,22 +25,25 @@ impl<E> From<pwm_pca9685::Error<E>> for Error<E> {
 /// Represents the motor driver and can give out [`Motor`] instances
 pub struct MotorDriver<I2C> {
     pwm: Pca9685<I2C>,
-    address: u8,
     taken: [bool; 4],
 }
 
+#[allow(unused)]
 pub enum MotorDirection {
     Forward,
     Backward,
     Brake,
     Free,
 }
+
+#[allow(unused)]
 pub enum MotorId {
     M0,
     M1,
     M2,
     M3,
 }
+
 impl MotorId {
     fn as_u8(&self) -> u8 {
         match self {
@@ -82,7 +85,6 @@ where
 
         Ok(Self {
             pwm,
-            address,
             taken: [false; 4],
         })
     }

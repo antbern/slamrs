@@ -52,8 +52,6 @@ mod app {
     // USB Communications Class Device support
     use usbd_serial::SerialPort;
 
-    use pwm_pca9685::{Address, Channel, Pca9685};
-
     type Uart1Pins = (
         hal::gpio::Pin<Gpio4, hal::gpio::FunctionUart, hal::gpio::PullNone>,
         hal::gpio::Pin<Gpio5, hal::gpio::FunctionUart, hal::gpio::PullNone>,
