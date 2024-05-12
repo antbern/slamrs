@@ -27,6 +27,7 @@ mod app {
     use embedded_hal::digital::v2::{OutputPin, ToggleableOutputPin};
     use futures::FutureExt;
     use library::event::Event;
+    use library::neato::RunningParser;
     use library::parse_at::{AtParser, EspMessage};
 
     use library::slamrs_message::{CommandMessage, RobotMessage};
@@ -151,6 +152,8 @@ mod app {
         // uart reader for the neato
         uart0_rx_neato: Reader<hal::pac::UART0, Uart0Pins>,
         neato_motor: Motor<I2CBus>,
+        robot_message_sender_neato:
+            rtic_sync::channel::Sender<'static, RobotMessage, ROBOT_MESSAGE_CAPACITY>,
     }
     /// The USB bus, only needed for initializing the USB device and will never be accessed again
     static mut USB_BUS: Option<UsbBusAllocator<hal::usb::UsbBus>> = None;
@@ -343,10 +346,11 @@ mod app {
                 robot_message_receiver,
                 usb_event_sender: event_sender,
                 usb_device,
-                robot_message_sender_usb,
+                robot_message_sender_usb: robot_message_sender_usb.clone(),
                 robot_message_receiver_usb,
                 uart0_rx_neato: rx_neato,
                 neato_motor: motor,
+                robot_message_sender_neato: robot_message_sender_usb,
             },
         )
     }
@@ -495,6 +499,8 @@ mod app {
             binds = UART0_IRQ,
             local = [
                 uart0_rx_neato,
+                robot_message_sender_neato,
+                parser: RunningParser = RunningParser::new(),
             ],
         )]
         fn uart0_neato(cx: uart0_neato::Context);
@@ -502,7 +508,9 @@ mod app {
         #[task(
             priority = 1,
             shared = [motor_controller],
-            local = [neato_motor],
+            local = [
+                neato_motor,
+            ],
         )]
         async fn neato_motor_control(cx: neato_motor_control::Context);
 
