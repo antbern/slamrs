@@ -9,7 +9,7 @@ use rp_pico::hal::fugit::ExtU64;
 use rtic_monotonics::rp2040::Timer;
 
 use crate::{
-    app::{init_esp, uart1_esp32},
+    app::{init_esp, uart1_esp32, DATA_PACKET_SIZE},
     util::{channel_send, wait_for_message},
 };
 
@@ -124,7 +124,7 @@ pub fn uart1_esp32(cx: uart1_esp32::Context<'_>) {
         ParsedMessage::ReceivedData(data) => {
             info!("got data: {}", data);
             // this is not very efficient , but it works for now
-            let mut buffer = [0u8; 64];
+            let mut buffer = [0u8; DATA_PACKET_SIZE];
             if data.len() > buffer.len() {
                 warn!("Data too long, ignoring");
                 return;

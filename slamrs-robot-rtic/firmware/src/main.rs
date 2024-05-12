@@ -75,7 +75,7 @@ mod app {
         rtic_sync::channel::Receiver<'static, EspMessage, ESP_CHANNEL_CAPACITY>;
 
     const DATA_CHANNEL_CAPACITY: usize = 16;
-    const DATA_PACKET_SIZE: usize = 64;
+    pub const DATA_PACKET_SIZE: usize = 64;
 
     const ROBOT_MESSAGE_CAPACITY: usize = 16;
 
@@ -143,6 +143,11 @@ mod app {
             rtic_sync::channel::Receiver<'static, RobotMessage, ROBOT_MESSAGE_CAPACITY>,
 
         usb_event_sender: rtic_sync::channel::Sender<'static, Event, EVENT_CHANNEL_CAPACITY>,
+        usb_data_sender: rtic_sync::channel::Sender<
+            'static,
+            (usize, [u8; DATA_PACKET_SIZE]),
+            DATA_CHANNEL_CAPACITY,
+        >,
 
         /// The USB Device Driver (shared with the interrupt).
         usb_device: UsbDevice<'static, hal::usb::UsbBus>,
@@ -350,9 +355,10 @@ mod app {
                 event_receiver,
                 data_event_sender: event_sender.clone(),
                 data_receiver,
-                esp_data_sender: data_sender,
+                esp_data_sender: data_sender.clone(),
                 robot_message_sender: robot_message_sender.clone(),
                 robot_message_receiver,
+                usb_data_sender: data_sender,
                 usb_event_sender: event_sender,
                 usb_device,
                 robot_message_sender_usb: robot_message_sender_usb.clone(),
@@ -526,6 +532,7 @@ mod app {
             local = [
                 usb_device,
                 usb_event_sender,
+                usb_data_sender,
             ],
         )]
         fn usb_irq(cx: usb_irq::Context);

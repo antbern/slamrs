@@ -120,6 +120,12 @@ fn open_and_stream(
     println!("Opening {path:?}");
 
     let mut port = SerialPort::open(path, 115200)?;
+    bincode::encode_into_std_write(
+        CommandMessage::SetDownsampling { every: 2 },
+        &mut port,
+        bincode::config::standard(),
+    )?;
+    port.flush()?;
 
     bincode::encode_into_std_write(
         CommandMessage::NeatoOn,
