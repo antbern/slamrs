@@ -30,6 +30,7 @@ mod app {
     use library::event::Event;
     use library::neato::RunningParser;
     use library::parse_at::{AtParser, EspMessage};
+    use library::slamrs_message::bincode;
     use library::slamrs_message::{CommandMessage, RobotMessage};
     use rp_pico::hal::gpio::PullNone;
     use rp_pico::hal::{
@@ -425,28 +426,55 @@ mod app {
     }
 
     /// This task receives data chunks and emitts [`Event`] to the [`event_loop`]
-    #[task(priority = 1, local = [data_event_sender, data_receiver])]
+    #[task(
+        priority = 1,
+        local = [
+            data_event_sender,
+            data_receiver,
+        ],
+    )]
     async fn data_handler(cx: data_handler::Context) {
+        // buffer to accumulate data packets
+        let mut buffer: [u8; 256] = [0; 256];
+        let mut index_end: usize = 0;
+
         loop {
             match cx.local.data_receiver.recv().await {
                 Ok((size, data)) => {
                     let data = &data[..size];
-                    match library::slamrs_message::bincode::decode_from_slice::<CommandMessage, _>(
-                        data,
-                        library::slamrs_message::bincode::config::standard(),
-                    ) {
-                        Ok((event, len)) => {
-                            if len != size {
-                                warn!("Data packet was not fully consumed");
+
+                    // accumulate all received bytes into the buffer
+                    if index_end + size > buffer.len() {
+                        error!("Data packet is too large for the remaining space in the buffer, is this a bug? Skipping");
+                        continue;
+                    }
+                    buffer[index_end..(index_end + size)].copy_from_slice(data);
+                    index_end += size;
+
+                    // iterate until we need more data
+                    loop {
+                        match library::slamrs_message::bincode::decode_from_slice::<CommandMessage, _>(
+                            &buffer[..index_end], // always start at the beginning of the buffer
+                            library::slamrs_message::bincode::config::standard(),
+                        ) {
+                            Ok((event, len)) => {
+                                // shift the remaining data to the front of the buffer
+                                buffer.copy_within(len..index_end, 0);
+                                index_end -= len;
+
+                                channel_send(
+                                    cx.local.data_event_sender,
+                                    Event::Command(event),
+                                    "data_handler",
+                                );
                             }
-                            channel_send(
-                                cx.local.data_event_sender,
-                                Event::Command(event),
-                                "data_handler",
-                            );
-                        }
-                        Err(e) => {
-                            error!("Failed to deserialize data: {}", defmt::Debug2Format(&e));
+                            Err(bincode::error::DecodeError::UnexpectedEnd { .. }) => {
+                                // do nothing, we need more data so break the inner loop
+                                break;
+                            }
+                            Err(e) => {
+                                error!("Failed to deserialize data: {}", defmt::Debug2Format(&e));
+                            }
                         }
                     }
                 }

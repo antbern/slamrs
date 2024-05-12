@@ -8,7 +8,6 @@ use pubsub::{PubSub, Publisher};
 use serde::Deserialize;
 use slamrs_message::{bincode, CommandMessage, RobotMessage};
 use std::{
-    io::Write,
     net::TcpStream,
     sync::{
         atomic::{AtomicBool, Ordering},
