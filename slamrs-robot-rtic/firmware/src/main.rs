@@ -17,8 +17,9 @@ use panic_probe as _;
     peripherals = true
 )]
 mod app {
-    use crate::motor::MotorDirection;
+    use crate::motor::{Motor, MotorDriver};
     use crate::tasks::esp::{init_esp, uart1_esp32};
+    use crate::tasks::neato::{neato_motor_control, uart0_neato};
     use crate::tasks::usb::{usb_irq, usb_sender};
     use crate::util::channel_send;
 
@@ -33,11 +34,7 @@ mod app {
     use rp_pico::hal::{
         self, clocks,
         fugit::{ExtU64, RateExtU32},
-        gpio::{
-            self,
-            bank0::{Gpio10, Gpio19, Gpio24, Gpio4, Gpio5},
-            FunctionSioOutput, PullDown,
-        },
+        gpio::{self, bank0::*, FunctionSioOutput, PullDown},
         sio::Sio,
         uart::{DataBits, Reader, StopBits, Writer},
         watchdog::Watchdog,
@@ -56,6 +53,18 @@ mod app {
         hal::gpio::Pin<Gpio4, hal::gpio::FunctionUart, hal::gpio::PullNone>,
         hal::gpio::Pin<Gpio5, hal::gpio::FunctionUart, hal::gpio::PullNone>,
     );
+
+    type Uart0Pins = (
+        hal::gpio::Pin<Gpio16, hal::gpio::FunctionUart, hal::gpio::PullNone>,
+        hal::gpio::Pin<Gpio17, hal::gpio::FunctionUart, hal::gpio::PullNone>,
+    );
+
+    type I2CPins = (
+        hal::gpio::Pin<Gpio0, hal::gpio::FunctionI2C, hal::gpio::PullNone>,
+        hal::gpio::Pin<Gpio1, hal::gpio::FunctionI2C, hal::gpio::PullNone>,
+    );
+
+    type I2CBus = hal::I2C<hal::pac::I2C0, I2CPins>;
 
     const ESP_CHANNEL_CAPACITY: usize = 32;
     const EVENT_CHANNEL_CAPACITY: usize = 32;
@@ -76,6 +85,9 @@ mod app {
 
         /// Flag indicating if the USB device is connected and active
         usb_active: bool,
+
+        /// The motor controller
+        motor_controller: MotorDriver<I2CBus>,
     }
 
     // Local resources go here
@@ -134,6 +146,11 @@ mod app {
         /// Receiver for the robot messages
         robot_message_receiver_usb:
             rtic_sync::channel::Receiver<'static, RobotMessage, ROBOT_MESSAGE_CAPACITY>,
+
+        ///// Neato stuff
+        // uart reader for the neato
+        uart0_rx_neato: Reader<hal::pac::UART0, Uart0Pins>,
+        neato_motor: Motor<I2CBus>,
     }
     /// The USB bus, only needed for initializing the USB device and will never be accessed again
     static mut USB_BUS: Option<UsbBusAllocator<hal::usb::UsbBus>> = None;
@@ -261,12 +278,27 @@ mod app {
         );
 
         let mut controller = crate::motor::MotorDriver::new(i2c, 0x60, 100.0).unwrap();
-        let mut motor = controller.motor(crate::motor::MotorId::M3).unwrap();
+        let motor = controller.motor(crate::motor::MotorId::M2).unwrap();
 
-        motor
-            .set_direction(&mut controller, MotorDirection::Forward)
-            .unwrap();
-        motor.set_speed(&mut controller, 500).unwrap();
+        // init the UART for the Neato
+        let uart_pins: Uart0Pins = (
+            // UART TX
+            pins.gpio16.reconfigure(),
+            // UART RX
+            pins.gpio17.reconfigure(),
+        );
+
+        let mut uart_neato =
+            hal::uart::UartPeripheral::new(ctx.device.UART0, uart_pins, &mut ctx.device.RESETS)
+                .enable(
+                    hal::uart::UartConfig::new(115200.Hz(), DataBits::Eight, None, StopBits::One),
+                    clocks.peripheral_clock.freq(),
+                )
+                .unwrap();
+        uart_neato.set_fifos(true);
+        uart_neato.enable_rx_interrupt();
+        // we only need the rx part of the uart
+        let (rx_neato, _tx_neato) = uart_neato.split();
 
         // create a channel for communicating ESP messages
         let (esp_sender, esp_receiver) = rtic_sync::make_channel!(EspMessage, ESP_CHANNEL_CAPACITY);
@@ -282,6 +314,7 @@ mod app {
         let (robot_message_sender_usb, robot_message_receiver_usb) =
             rtic_sync::make_channel!(RobotMessage, ROBOT_MESSAGE_CAPACITY);
 
+        neato_motor_control::spawn().ok();
         data_handler::spawn().ok();
         event_loop::spawn().ok();
         init_esp::spawn().ok();
@@ -289,12 +322,11 @@ mod app {
         heartbeat::spawn().ok();
         (
             Shared {
-                // Initialization of shared resources go here
                 usb_serial,
                 usb_active: false,
+                motor_controller: controller,
             },
             Local {
-                // Initialization of local resources go here
                 led,
                 uart1_rx: rx,
                 uart1_tx: tx,
@@ -313,6 +345,8 @@ mod app {
                 usb_device,
                 robot_message_sender_usb,
                 robot_message_receiver_usb,
+                uart0_rx_neato: rx_neato,
+                neato_motor: motor,
             },
         )
     }
@@ -455,6 +489,22 @@ mod app {
             local = [robot_message_receiver_usb],
         )]
         async fn usb_sender(cx: usb_sender::Context);
+
+        // Hardware task that reads bytes from the Neato UART
+        #[task(
+            binds = UART0_IRQ,
+            local = [
+                uart0_rx_neato,
+            ],
+        )]
+        fn uart0_neato(cx: uart0_neato::Context);
+
+        #[task(
+            priority = 1,
+            shared = [motor_controller],
+            local = [neato_motor],
+        )]
+        async fn neato_motor_control(cx: neato_motor_control::Context);
 
     }
 
