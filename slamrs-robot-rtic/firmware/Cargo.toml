@@ -34,6 +34,8 @@ usb-device = "0.2"
 usbd-hid = "0.5.0"
 usbd-serial = "0.1"
 
+pwm-pca9685 = "0.3"
+
 # do not optimize proc-macro crates = faster builds from scratch
 [profile.dev.build-override]
 codegen-units = 8

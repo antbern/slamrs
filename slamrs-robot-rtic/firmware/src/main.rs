@@ -1,6 +1,7 @@
 #![no_main]
 #![no_std]
 
+mod motor;
 mod tasks;
 mod util;
 
@@ -16,6 +17,7 @@ use panic_probe as _;
     peripherals = true
 )]
 mod app {
+    use crate::motor::MotorDirection;
     use crate::tasks::esp::{init_esp, uart1_esp32};
     use crate::tasks::usb::{usb_irq, usb_sender};
     use crate::util::channel_send;
@@ -27,6 +29,7 @@ mod app {
     use library::parse_at::{AtParser, EspMessage};
 
     use library::slamrs_message::{CommandMessage, RobotMessage};
+    use rp_pico::hal::gpio::PullNone;
     use rp_pico::hal::{
         self, clocks,
         fugit::{ExtU64, RateExtU32},
@@ -48,6 +51,8 @@ mod app {
 
     // USB Communications Class Device support
     use usbd_serial::SerialPort;
+
+    use pwm_pca9685::{Address, Channel, Pca9685};
 
     type Uart1Pins = (
         hal::gpio::Pin<Gpio4, hal::gpio::FunctionUart, hal::gpio::PullNone>,
@@ -241,6 +246,29 @@ mod app {
             // here since USB is handled in the interrupt
             (serial, usb_dev)
         };
+
+        // setup i2c for interacting with the motor controller
+        // Configure two pins as being I²C, not GPIO
+        let sda_pin: hal::gpio::Pin<_, hal::gpio::FunctionI2C, PullNone> = pins.gpio0.reconfigure();
+        let scl_pin: hal::gpio::Pin<_, hal::gpio::FunctionI2C, PullNone> = pins.gpio1.reconfigure();
+
+        // Create the I²C drive
+        let i2c = hal::I2C::i2c0(
+            ctx.device.I2C0,
+            sda_pin,
+            scl_pin,
+            400.kHz(),
+            &mut ctx.device.RESETS,
+            &clocks.system_clock,
+        );
+
+        let mut controller = crate::motor::MotorDriver::new(i2c, 0x60, 100.0).unwrap();
+        let mut motor = controller.motor(crate::motor::MotorId::M3).unwrap();
+
+        motor
+            .set_direction(&mut controller, MotorDirection::Forward)
+            .unwrap();
+        motor.set_speed(&mut controller, 500).unwrap();
 
         // create a channel for communicating ESP messages
         let (esp_sender, esp_receiver) = rtic_sync::make_channel!(EspMessage, ESP_CHANNEL_CAPACITY);
