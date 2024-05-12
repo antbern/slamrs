@@ -2,6 +2,7 @@
 #![deny(unsafe_code)]
 
 pub mod event;
+pub mod neato;
 pub mod parse_at;
 pub mod util;
 

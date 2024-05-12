@@ -1,7 +1,6 @@
 use crate::{app::usb_irq, app::usb_sender, util::channel_send};
 use defmt::{info, warn};
 use library::event::Event;
-use library::slamrs_message::CommandMessage;
 use rtic::mutex_prelude::*;
 use usb_device::prelude::*;
 
@@ -18,9 +17,9 @@ pub fn usb_irq(mut cx: usb_irq::Context) {
         }
         *usb_active = is_connected;
 
-        // Poll the USB driver with all of our supported USB Classes
+        // Poll the USB driver, and publish any received data
         if usb_dev.poll(&mut [serial]) {
-            let mut buf = [0u8; 64];
+            let mut buf = [0u8; crate::app::DATA_PACKET_SIZE];
             match serial.read(&mut buf) {
                 Err(_e) => {
                     // Do nothing
@@ -29,25 +28,7 @@ pub fn usb_irq(mut cx: usb_irq::Context) {
                     // Do nothing
                 }
                 Ok(count) => {
-                    let data = &buf[..count];
-                    match library::slamrs_message::bincode::decode_from_slice::<CommandMessage, _>(
-                        data,
-                        library::slamrs_message::bincode::config::standard(),
-                    ) {
-                        Ok((event, len)) => {
-                            if len != count {
-                                warn!("Data packet was not fully consumed");
-                            }
-                            channel_send(
-                                cx.local.usb_event_sender,
-                                Event::Command(event),
-                                "usb_irq",
-                            );
-                        }
-                        Err(_e) => {
-                            warn!("Failed to deserialize data");
-                        }
-                    }
+                    channel_send(cx.local.usb_data_sender, (count, buf), "usb_irq");
                 }
             }
         }
@@ -63,7 +44,7 @@ pub async fn usb_sender(mut cx: usb_sender::Context<'_>) {
                     continue;
                 }
 
-                let mut buffer = [0u8; 64];
+                let mut buffer = [0u8; 2048];
                 match library::slamrs_message::bincode::encode_into_slice(
                     message,
                     &mut buffer,

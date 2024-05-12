@@ -17,27 +17,26 @@ use panic_probe as _;
     peripherals = true
 )]
 mod app {
-    use crate::motor::MotorDirection;
+    use crate::motor::{Motor, MotorDriver};
     use crate::tasks::esp::{init_esp, uart1_esp32};
+    use crate::tasks::neato::{neato_motor_control, uart0_neato};
     use crate::tasks::usb::{usb_irq, usb_sender};
     use crate::util::channel_send;
 
+    use core::sync::atomic::Ordering;
     use defmt::{debug, error, info, warn};
     use embedded_hal::digital::v2::{OutputPin, ToggleableOutputPin};
     use futures::FutureExt;
     use library::event::Event;
+    use library::neato::RunningParser;
     use library::parse_at::{AtParser, EspMessage};
-
+    use library::slamrs_message::bincode;
     use library::slamrs_message::{CommandMessage, RobotMessage};
     use rp_pico::hal::gpio::PullNone;
     use rp_pico::hal::{
         self, clocks,
         fugit::{ExtU64, RateExtU32},
-        gpio::{
-            self,
-            bank0::{Gpio10, Gpio19, Gpio24, Gpio4, Gpio5},
-            FunctionSioOutput, PullDown,
-        },
+        gpio::{self, bank0::*, FunctionSioOutput, PullDown},
         sio::Sio,
         uart::{DataBits, Reader, StopBits, Writer},
         watchdog::Watchdog,
@@ -46,6 +45,7 @@ mod app {
     use rp_pico::XOSC_CRYSTAL_FREQ;
     use rtic_monotonics::rp2040::*;
 
+    use rtic_sync::portable_atomic::AtomicU8;
     // USB Device support
     use usb_device::{class_prelude::*, prelude::*};
 
@@ -57,13 +57,25 @@ mod app {
         hal::gpio::Pin<Gpio5, hal::gpio::FunctionUart, hal::gpio::PullNone>,
     );
 
+    type Uart0Pins = (
+        hal::gpio::Pin<Gpio16, hal::gpio::FunctionUart, hal::gpio::PullNone>,
+        hal::gpio::Pin<Gpio17, hal::gpio::FunctionUart, hal::gpio::PullNone>,
+    );
+
+    type I2CPins = (
+        hal::gpio::Pin<Gpio0, hal::gpio::FunctionI2C, hal::gpio::PullNone>,
+        hal::gpio::Pin<Gpio1, hal::gpio::FunctionI2C, hal::gpio::PullNone>,
+    );
+
+    type I2CBus = hal::I2C<hal::pac::I2C0, I2CPins>;
+
     const ESP_CHANNEL_CAPACITY: usize = 32;
     const EVENT_CHANNEL_CAPACITY: usize = 32;
     pub type EspChannelReceiver =
         rtic_sync::channel::Receiver<'static, EspMessage, ESP_CHANNEL_CAPACITY>;
 
     const DATA_CHANNEL_CAPACITY: usize = 16;
-    const DATA_PACKET_SIZE: usize = 64;
+    pub const DATA_PACKET_SIZE: usize = 64;
 
     const ROBOT_MESSAGE_CAPACITY: usize = 16;
 
@@ -76,6 +88,13 @@ mod app {
 
         /// Flag indicating if the USB device is connected and active
         usb_active: bool,
+
+        /// The motor controller
+        motor_controller: MotorDriver<I2CBus>,
+
+        /// The amount of downsampling to apply to the neato data, shared but with non-mutable
+        /// access
+        neato_downsampling: AtomicU8,
     }
 
     // Local resources go here
@@ -124,6 +143,11 @@ mod app {
             rtic_sync::channel::Receiver<'static, RobotMessage, ROBOT_MESSAGE_CAPACITY>,
 
         usb_event_sender: rtic_sync::channel::Sender<'static, Event, EVENT_CHANNEL_CAPACITY>,
+        usb_data_sender: rtic_sync::channel::Sender<
+            'static,
+            (usize, [u8; DATA_PACKET_SIZE]),
+            DATA_CHANNEL_CAPACITY,
+        >,
 
         /// The USB Device Driver (shared with the interrupt).
         usb_device: UsbDevice<'static, hal::usb::UsbBus>,
@@ -134,6 +158,15 @@ mod app {
         /// Receiver for the robot messages
         robot_message_receiver_usb:
             rtic_sync::channel::Receiver<'static, RobotMessage, ROBOT_MESSAGE_CAPACITY>,
+
+        ///// Neato stuff
+        // uart reader for the neato
+        uart0_rx_neato: Reader<hal::pac::UART0, Uart0Pins>,
+        neato_motor: Motor<I2CBus>,
+        robot_message_sender_neato:
+            rtic_sync::channel::Sender<'static, RobotMessage, ROBOT_MESSAGE_CAPACITY>,
+        robot_message_sender_esp_neato:
+            rtic_sync::channel::Sender<'static, RobotMessage, ROBOT_MESSAGE_CAPACITY>,
     }
     /// The USB bus, only needed for initializing the USB device and will never be accessed again
     static mut USB_BUS: Option<UsbBusAllocator<hal::usb::UsbBus>> = None;
@@ -261,12 +294,27 @@ mod app {
         );
 
         let mut controller = crate::motor::MotorDriver::new(i2c, 0x60, 100.0).unwrap();
-        let mut motor = controller.motor(crate::motor::MotorId::M3).unwrap();
+        let motor = controller.motor(crate::motor::MotorId::M2).unwrap();
 
-        motor
-            .set_direction(&mut controller, MotorDirection::Forward)
-            .unwrap();
-        motor.set_speed(&mut controller, 500).unwrap();
+        // init the UART for the Neato
+        let uart_pins: Uart0Pins = (
+            // UART TX
+            pins.gpio16.reconfigure(),
+            // UART RX
+            pins.gpio17.reconfigure(),
+        );
+
+        let mut uart_neato =
+            hal::uart::UartPeripheral::new(ctx.device.UART0, uart_pins, &mut ctx.device.RESETS)
+                .enable(
+                    hal::uart::UartConfig::new(115200.Hz(), DataBits::Eight, None, StopBits::One),
+                    clocks.peripheral_clock.freq(),
+                )
+                .unwrap();
+        uart_neato.set_fifos(true);
+        uart_neato.enable_rx_interrupt();
+        // we only need the rx part of the uart
+        let (rx_neato, _tx_neato) = uart_neato.split();
 
         // create a channel for communicating ESP messages
         let (esp_sender, esp_receiver) = rtic_sync::make_channel!(EspMessage, ESP_CHANNEL_CAPACITY);
@@ -282,6 +330,7 @@ mod app {
         let (robot_message_sender_usb, robot_message_receiver_usb) =
             rtic_sync::make_channel!(RobotMessage, ROBOT_MESSAGE_CAPACITY);
 
+        neato_motor_control::spawn().ok();
         data_handler::spawn().ok();
         event_loop::spawn().ok();
         init_esp::spawn().ok();
@@ -289,12 +338,12 @@ mod app {
         heartbeat::spawn().ok();
         (
             Shared {
-                // Initialization of shared resources go here
                 usb_serial,
                 usb_active: false,
+                motor_controller: controller,
+                neato_downsampling: AtomicU8::new(2),
             },
             Local {
-                // Initialization of local resources go here
                 led,
                 uart1_rx: rx,
                 uart1_tx: tx,
@@ -306,13 +355,18 @@ mod app {
                 event_receiver,
                 data_event_sender: event_sender.clone(),
                 data_receiver,
-                esp_data_sender: data_sender,
-                robot_message_sender,
+                esp_data_sender: data_sender.clone(),
+                robot_message_sender: robot_message_sender.clone(),
                 robot_message_receiver,
+                usb_data_sender: data_sender,
                 usb_event_sender: event_sender,
                 usb_device,
-                robot_message_sender_usb,
+                robot_message_sender_usb: robot_message_sender_usb.clone(),
                 robot_message_receiver_usb,
+                uart0_rx_neato: rx_neato,
+                neato_motor: motor,
+                robot_message_sender_neato: robot_message_sender_usb,
+                robot_message_sender_esp_neato: robot_message_sender,
             },
         )
     }
@@ -321,6 +375,7 @@ mod app {
     // serial communication task (for usability also over a serial connection)
     #[task(
         priority = 1,
+        shared = [&neato_downsampling],
         local = [
             event_receiver,
             robot_message_sender,
@@ -341,19 +396,24 @@ mod app {
             },
             event = cx.local.event_receiver.recv().fuse() => match event {
                 Ok(event) => {
-                    // TODO! Handle the event
                     info!("Received event: {}", event);
 
                     match event {
                         Event::Connected => {is_connected = true;}
-                        Event::Disconnected => {is_connected = false;}
-                        // Event::Command(CommandMessage::Ping) => {
-                        //     channel_send(
-                        //         cx.local.robot_message_sender,
-                        //         RobotMessage::Pong,
-                        //         "event_loop",
-                        //     );
-                        // }
+                        Event::Disconnected => {
+                            is_connected = false;
+                            crate::tasks::neato::MOTOR_ON.store(false, Ordering::Relaxed);
+                        },
+                        Event::Command(CommandMessage::NeatoOn) => {
+                            crate::tasks::neato::MOTOR_ON.store(true, Ordering::Relaxed);
+                            crate::tasks::neato::LAST_RPM.store(0, Ordering::Relaxed);
+                        },
+                        Event::Command(CommandMessage::NeatoOff) => {
+                            crate::tasks::neato::MOTOR_ON.store(false, Ordering::Relaxed);
+                        },
+                        Event::Command(CommandMessage::SetDownsampling { every }) => {
+                            cx.shared.neato_downsampling.store(every, Ordering::Relaxed);
+                        },
                         _ => {}
                     }
                 }
@@ -372,28 +432,55 @@ mod app {
     }
 
     /// This task receives data chunks and emitts [`Event`] to the [`event_loop`]
-    #[task(priority = 1, local = [data_event_sender, data_receiver])]
+    #[task(
+        priority = 1,
+        local = [
+            data_event_sender,
+            data_receiver,
+        ],
+    )]
     async fn data_handler(cx: data_handler::Context) {
+        // buffer to accumulate data packets
+        let mut buffer: [u8; 256] = [0; 256];
+        let mut index_end: usize = 0;
+
         loop {
             match cx.local.data_receiver.recv().await {
                 Ok((size, data)) => {
                     let data = &data[..size];
-                    match library::slamrs_message::bincode::decode_from_slice::<CommandMessage, _>(
-                        data,
-                        library::slamrs_message::bincode::config::standard(),
-                    ) {
-                        Ok((event, len)) => {
-                            if len != size {
-                                warn!("Data packet was not fully consumed");
+
+                    // accumulate all received bytes into the buffer
+                    if index_end + size > buffer.len() {
+                        error!("Data packet is too large for the remaining space in the buffer, is this a bug? Skipping");
+                        continue;
+                    }
+                    buffer[index_end..(index_end + size)].copy_from_slice(data);
+                    index_end += size;
+
+                    // iterate until we need more data
+                    loop {
+                        match library::slamrs_message::bincode::decode_from_slice::<CommandMessage, _>(
+                            &buffer[..index_end], // always start at the beginning of the buffer
+                            library::slamrs_message::bincode::config::standard(),
+                        ) {
+                            Ok((event, len)) => {
+                                // shift the remaining data to the front of the buffer
+                                buffer.copy_within(len..index_end, 0);
+                                index_end -= len;
+
+                                channel_send(
+                                    cx.local.data_event_sender,
+                                    Event::Command(event),
+                                    "data_handler",
+                                );
                             }
-                            channel_send(
-                                cx.local.data_event_sender,
-                                Event::Command(event),
-                                "data_handler",
-                            );
-                        }
-                        Err(_e) => {
-                            warn!("Failed to deserialize data");
+                            Err(bincode::error::DecodeError::UnexpectedEnd { .. }) => {
+                                // do nothing, we need more data so break the inner loop
+                                break;
+                            }
+                            Err(e) => {
+                                error!("Failed to deserialize data: {}", defmt::Debug2Format(&e));
+                            }
                         }
                     }
                 }
@@ -445,6 +532,7 @@ mod app {
             local = [
                 usb_device,
                 usb_event_sender,
+                usb_data_sender,
             ],
         )]
         fn usb_irq(cx: usb_irq::Context);
@@ -455,6 +543,31 @@ mod app {
             local = [robot_message_receiver_usb],
         )]
         async fn usb_sender(cx: usb_sender::Context);
+
+        // Hardware task that reads bytes from the Neato UART
+        #[task(
+            binds = UART0_IRQ,
+            shared = [&neato_downsampling],
+            local = [
+                uart0_rx_neato,
+                robot_message_sender_neato,
+                robot_message_sender_esp_neato,
+                parser: RunningParser = RunningParser::new(),
+                rpm_accumulator: i32 = 0i32,
+                rpm_average: i32 = 0i32,
+                downsample_counter: u8 = 0u8,
+         ],
+        )]
+        fn uart0_neato(cx: uart0_neato::Context);
+
+        #[task(
+            priority = 1,
+            shared = [motor_controller],
+            local = [
+                neato_motor,
+            ],
+        )]
+        async fn neato_motor_control(cx: neato_motor_control::Context);
 
     }
 

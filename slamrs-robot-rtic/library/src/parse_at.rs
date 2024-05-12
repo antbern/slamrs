@@ -144,7 +144,7 @@ impl<const N: usize> AtParser<N> {
 
                         found = true;
                     }
-                    Err(err) => {
+                    Err(_err) => {
                         // error!("Error parsing IPD: {}", err);
                     }
                 }
