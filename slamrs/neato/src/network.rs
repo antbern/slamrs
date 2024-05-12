@@ -8,6 +8,7 @@ use pubsub::{PubSub, Publisher};
 use serde::Deserialize;
 use slamrs_message::{bincode, CommandMessage, RobotMessage};
 use std::{
+    io::Write,
     net::TcpStream,
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -116,16 +117,17 @@ fn open_and_stream(
 
     let mut stream = TcpStream::connect(host)?;
 
-    // stream.write_all(&[b'A'])?;
-    //port.flush()?;
+    bincode::encode_into_std_write(
+        CommandMessage::SetDownsampling { every: 4 },
+        &mut stream,
+        bincode::config::standard(),
+    )?;
+
     bincode::encode_into_std_write(
         CommandMessage::NeatoOn,
         &mut stream,
         bincode::config::standard(),
     )?;
-    // let mut buffer = [0u8; 1024];
-    // let mut parser = RunningParser::new();
-    //
     bincode::encode_into_std_write(
         CommandMessage::Ping,
         &mut stream,
@@ -155,34 +157,9 @@ fn open_and_stream(
             &mut stream,
             bincode::config::standard(),
         )?;
-
-        // println!("Received: {:?}", data);
-
-        // // let (cmd, len):  =
-        // //     bincode::decode_from_slice(&rx_buffer[..], bincode::config::standard())
-        // //         .expect("Could not parse");
-
-        // match stream.read(&mut buffer) {
-        //     Ok(bytes) => {
-        //         println!("{bytes} incoming bytes");
-        //         // for &b in &buffer[..bytes] {
-        //         //     if let Some(f) = parser.update(b) {
-        //         //         // pusblish the frame!
-        //         //         pub_obs.publish(Arc::new(f.into()));
-        //         //     }
-        //         // }
-        //     }
-        //     Err(e) => {
-        //         // skip TimedOut errors
-        //         if e.kind() != std::io::ErrorKind::TimedOut {
-        //             return Err(e.into());
-        //         }
-        //     }
-        // }
     }
 
     // doesn't really matter if this succeeds or not since the connection might be broken already
-    // stream.write_all(&[b'D'])?;
     bincode::encode_into_std_write(
         CommandMessage::NeatoOff,
         &mut stream,

@@ -3,6 +3,7 @@ use crate::{
     motor::MotorDirection,
 };
 use core::sync::atomic::{AtomicBool, AtomicU16, Ordering};
+use cortex_m::peripheral::dwt;
 use defmt::{info, warn};
 use library::slamrs_message::{RobotMessage, ScanFrame};
 use rp_pico::hal::fugit::ExtU64;
@@ -54,10 +55,10 @@ pub async fn neato_motor_control(mut cx: neato_motor_control::Context<'_>) {
             cx.local.neato_motor.set_speed(mc, pwm).unwrap();
         });
 
-        info!(
-            "Control, {} rpm, error={}. New PWM = {}",
-            last_rpm, error, pwm
-        );
+        // info!(
+        //     "Control, {} rpm, error={}. New PWM = {}",
+        //     last_rpm, error, pwm
+        // );
     }
 }
 pub fn uart0_neato(cx: uart0_neato::Context<'_>) {
@@ -72,6 +73,13 @@ pub fn uart0_neato(cx: uart0_neato::Context<'_>) {
         info!("neato rpm: {:?}", rpm);
         // TODO: should we add a data validation check?
         if rpm < 250 && rpm > 350 {
+            return;
+        }
+
+        *cx.local.downsample_counter += 1;
+        if *cx.local.downsample_counter > cx.shared.neato_downsampling.load(Ordering::Relaxed) {
+            *cx.local.downsample_counter = 0;
+        } else {
             return;
         }
 
@@ -90,19 +98,19 @@ pub fn uart0_neato(cx: uart0_neato::Context<'_>) {
             "uart0_neato",
         );
 
-        // // need to copy the data to a new array because the data is borrowed from the parser
-        // let mut scan_data = [0; 1980];
-        // scan_data.copy_from_slice(data.data);
-        //
-        // // send frame to the host
-        // crate::util::channel_send(
-        //     cx.local.robot_message_sender_esp_neato,
-        //     RobotMessage::ScanFrame(ScanFrame {
-        //         scan_data,
-        //         odometry: [0.0; 2], // TODO: add odometry
-        //         rpm,
-        //     }),
-        //     "uart0_neato",
-        // );
+        // need to copy the data to a new array because the data is borrowed from the parser
+        let mut scan_data = [0; 1980];
+        scan_data.copy_from_slice(data.data);
+
+        // send frame to the host
+        crate::util::channel_send(
+            cx.local.robot_message_sender_esp_neato,
+            RobotMessage::ScanFrame(ScanFrame {
+                scan_data,
+                odometry: [0.0; 2], // TODO: add odometry
+                rpm,
+            }),
+            "uart0_neato",
+        );
     });
 }

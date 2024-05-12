@@ -44,6 +44,7 @@ mod app {
     use rp_pico::XOSC_CRYSTAL_FREQ;
     use rtic_monotonics::rp2040::*;
 
+    use rtic_sync::portable_atomic::AtomicU8;
     // USB Device support
     use usb_device::{class_prelude::*, prelude::*};
 
@@ -89,6 +90,10 @@ mod app {
 
         /// The motor controller
         motor_controller: MotorDriver<I2CBus>,
+
+        /// The amount of downsampling to apply to the neato data, shared but with non-mutable
+        /// access
+        neato_downsampling: AtomicU8,
     }
 
     // Local resources go here
@@ -330,6 +335,7 @@ mod app {
                 usb_serial,
                 usb_active: false,
                 motor_controller: controller,
+                neato_downsampling: AtomicU8::new(2),
             },
             Local {
                 led,
@@ -362,6 +368,7 @@ mod app {
     // serial communication task (for usability also over a serial connection)
     #[task(
         priority = 1,
+        shared = [&neato_downsampling],
         local = [
             event_receiver,
             robot_message_sender,
@@ -382,25 +389,25 @@ mod app {
             },
             event = cx.local.event_receiver.recv().fuse() => match event {
                 Ok(event) => {
-                    // TODO! Handle the event
                     info!("Received event: {}", event);
 
                     match event {
                         Event::Connected => {is_connected = true;}
-                        Event::Disconnected => {is_connected = false;
-
-
+                        Event::Disconnected => {
+                            is_connected = false;
                             crate::tasks::neato::MOTOR_ON.store(false, Ordering::Relaxed);
-                            }
-                            Event::Command(CommandMessage::NeatoOn) => {
+                        },
+                        Event::Command(CommandMessage::NeatoOn) => {
                             crate::tasks::neato::MOTOR_ON.store(true, Ordering::Relaxed);
                             crate::tasks::neato::LAST_RPM.store(0, Ordering::Relaxed);
-
-                            },Event::Command(CommandMessage::NeatoOff) => {
+                        },
+                        Event::Command(CommandMessage::NeatoOff) => {
                             crate::tasks::neato::MOTOR_ON.store(false, Ordering::Relaxed);
-
-                            },
-                            _ => {}
+                        },
+                        Event::Command(CommandMessage::SetDownsampling { every }) => {
+                            cx.shared.neato_downsampling.store(every, Ordering::Relaxed);
+                        },
+                        _ => {}
                     }
                 }
                 Err(e) => {
@@ -438,8 +445,8 @@ mod app {
                                 "data_handler",
                             );
                         }
-                        Err(_e) => {
-                            warn!("Failed to deserialize data");
+                        Err(e) => {
+                            error!("Failed to deserialize data: {}", defmt::Debug2Format(&e));
                         }
                     }
                 }
@@ -505,6 +512,7 @@ mod app {
         // Hardware task that reads bytes from the Neato UART
         #[task(
             binds = UART0_IRQ,
+            shared = [&neato_downsampling],
             local = [
                 uart0_rx_neato,
                 robot_message_sender_neato,
@@ -512,6 +520,7 @@ mod app {
                 parser: RunningParser = RunningParser::new(),
                 rpm_accumulator: i32 = 0i32,
                 rpm_average: i32 = 0i32,
+                downsample_counter: u8 = 0u8,
          ],
         )]
         fn uart0_neato(cx: uart0_neato::Context);

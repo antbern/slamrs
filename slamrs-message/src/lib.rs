@@ -11,7 +11,14 @@ pub enum CommandMessage {
     Ping,
     NeatoOn,
     NeatoOff,
-    Drive { left: f32, right: f32 },
+    /// Set downampling factor to only report every n-th scan frame
+    SetDownsampling {
+        every: u8,
+    },
+    Drive {
+        left: f32,
+        right: f32,
+    },
 }
 
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]

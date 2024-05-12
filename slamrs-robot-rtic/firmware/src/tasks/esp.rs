@@ -1,4 +1,4 @@
-use defmt::{info, warn};
+use defmt::{error, info, warn};
 use embedded_hal::digital::v2::OutputPin;
 use futures::FutureExt;
 use library::{
@@ -33,14 +33,13 @@ pub async fn init_esp(cx: init_esp::Context<'_>) {
 
     cx.local.uart1_tx.write_full_blocking(b"AT+CWSTATE?\r\n");
 
-    enum State {
-        Ready,
-        WifiConnectedAndIp,
-        Listening,
-        ClientConnected,
-    }
-
-    let mut state = State::Ready;
+    // enum State {
+    //     Ready,
+    //     WifiConnectedAndIp,
+    //     Listening,
+    //     ClientConnected,
+    // }
+    // let mut state = State::Ready;
 
     info!("Done, starting message loop");
     loop {
@@ -63,7 +62,7 @@ pub async fn init_esp(cx: init_esp::Context<'_>) {
                             wait_for_message(cx.local.esp_receiver, EspMessage::SendOk).await;
                         }
                         Err(_e) => {
-                            warn!("Error encoding message");
+                            error!("Error encoding message");
                         }
                     }
                 }
@@ -73,7 +72,7 @@ pub async fn init_esp(cx: init_esp::Context<'_>) {
                     info!("Got message: {}", m);
                     match m {
                         EspMessage::GotIP => {
-                            state = State::WifiConnectedAndIp;
+                            // state = State::WifiConnectedAndIp;
                             // enable mdns
                             cx.local
                                 .uart1_tx
@@ -97,15 +96,15 @@ pub async fn init_esp(cx: init_esp::Context<'_>) {
                                 .write_full_blocking(b"AT+CIPSERVER=1,8080\r\n");
                             wait_for_message(cx.local.esp_receiver, EspMessage::Ok).await;
 
-                            state = State::Listening;
+                            // state = State::Listening;
                             info!("Listening");
                         }
                         EspMessage::ClientConnect => {
-                            state = State::ClientConnected;
+                            // state = State::ClientConnected;
                             channel_send(cx.local.esp_event_sender, Event::Connected, "ESP");
                         }
                         EspMessage::ClientDisconnect => {
-                            state = State::Listening;
+                            // state = State::Listening;
                             channel_send(cx.local.esp_event_sender, Event::Disconnected, "ESP");
                         }
                         _ => {}
