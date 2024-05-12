@@ -63,7 +63,7 @@ pub async fn usb_sender(mut cx: usb_sender::Context<'_>) {
                     continue;
                 }
 
-                let mut buffer = [0u8; 64];
+                let mut buffer = [0u8; 2048];
                 match library::slamrs_message::bincode::encode_into_slice(
                     message,
                     &mut buffer,

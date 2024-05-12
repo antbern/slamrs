@@ -23,13 +23,13 @@ mod app {
     use crate::tasks::usb::{usb_irq, usb_sender};
     use crate::util::channel_send;
 
+    use core::sync::atomic::Ordering;
     use defmt::{debug, error, info, warn};
     use embedded_hal::digital::v2::{OutputPin, ToggleableOutputPin};
     use futures::FutureExt;
     use library::event::Event;
     use library::neato::RunningParser;
     use library::parse_at::{AtParser, EspMessage};
-
     use library::slamrs_message::{CommandMessage, RobotMessage};
     use rp_pico::hal::gpio::PullNone;
     use rp_pico::hal::{
@@ -153,6 +153,8 @@ mod app {
         uart0_rx_neato: Reader<hal::pac::UART0, Uart0Pins>,
         neato_motor: Motor<I2CBus>,
         robot_message_sender_neato:
+            rtic_sync::channel::Sender<'static, RobotMessage, ROBOT_MESSAGE_CAPACITY>,
+        robot_message_sender_esp_neato:
             rtic_sync::channel::Sender<'static, RobotMessage, ROBOT_MESSAGE_CAPACITY>,
     }
     /// The USB bus, only needed for initializing the USB device and will never be accessed again
@@ -342,7 +344,7 @@ mod app {
                 data_event_sender: event_sender.clone(),
                 data_receiver,
                 esp_data_sender: data_sender,
-                robot_message_sender,
+                robot_message_sender: robot_message_sender.clone(),
                 robot_message_receiver,
                 usb_event_sender: event_sender,
                 usb_device,
@@ -351,6 +353,7 @@ mod app {
                 uart0_rx_neato: rx_neato,
                 neato_motor: motor,
                 robot_message_sender_neato: robot_message_sender_usb,
+                robot_message_sender_esp_neato: robot_message_sender,
             },
         )
     }
@@ -384,15 +387,20 @@ mod app {
 
                     match event {
                         Event::Connected => {is_connected = true;}
-                        Event::Disconnected => {is_connected = false;}
-                        // Event::Command(CommandMessage::Ping) => {
-                        //     channel_send(
-                        //         cx.local.robot_message_sender,
-                        //         RobotMessage::Pong,
-                        //         "event_loop",
-                        //     );
-                        // }
-                        _ => {}
+                        Event::Disconnected => {is_connected = false;
+
+
+                            crate::tasks::neato::MOTOR_ON.store(false, Ordering::Relaxed);
+                            }
+                            Event::Command(CommandMessage::NeatoOn) => {
+                            crate::tasks::neato::MOTOR_ON.store(true, Ordering::Relaxed);
+                            crate::tasks::neato::LAST_RPM.store(0, Ordering::Relaxed);
+
+                            },Event::Command(CommandMessage::NeatoOff) => {
+                            crate::tasks::neato::MOTOR_ON.store(false, Ordering::Relaxed);
+
+                            },
+                            _ => {}
                     }
                 }
                 Err(e) => {
@@ -500,8 +508,11 @@ mod app {
             local = [
                 uart0_rx_neato,
                 robot_message_sender_neato,
+                robot_message_sender_esp_neato,
                 parser: RunningParser = RunningParser::new(),
-            ],
+                rpm_accumulator: i32 = 0i32,
+                rpm_average: i32 = 0i32,
+         ],
         )]
         fn uart0_neato(cx: uart0_neato::Context);
 

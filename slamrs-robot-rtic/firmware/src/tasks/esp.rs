@@ -48,7 +48,7 @@ pub async fn init_esp(cx: init_esp::Context<'_>) {
             value = cx.local.robot_message_receiver.recv().fuse() => {
                 if let Ok(value) = value {
                     info!("Sending: {:?}", value);
-                    let mut buffer = [0u8;64];
+                    let mut buffer = [0u8;2048];
                     match library::slamrs_message::bincode::encode_into_slice(value, &mut buffer, library::slamrs_message::bincode::config::standard()) {
                         Ok(len) => {
                             let mut len_buffer = [0u8; 10];
