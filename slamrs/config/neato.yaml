@@ -10,6 +10,7 @@ nodes:
 
 - !SerialConnection
   topic_observation: "robot/observation"
+  topic_command: "robot/command"
 
 - !NetworkConnection
   topic_observation: "robot/observation"

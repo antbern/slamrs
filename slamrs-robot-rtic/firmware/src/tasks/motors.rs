@@ -89,8 +89,8 @@ pub struct PiParameters {
 impl Default for PiParameters {
     fn default() -> Self {
         Self {
-            kp: F32::from_num(1.0),
-            ki: F32::from_num(1.2),
+            kp: F32::from_num(0.5),
+            ki: F32::from_num(2.0),
         }
     }
 }

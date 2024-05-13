@@ -1,10 +1,10 @@
 use common::{
     node::{Node, NodeConfig},
-    robot::Observation,
+    robot::{Command, Observation},
     world::WorldObj,
 };
 use eframe::egui;
-use pubsub::{PubSub, Publisher};
+use pubsub::{PubSub, Publisher, Subscription};
 use serde::Deserialize;
 use slamrs_message::{bincode, CommandMessage, RobotMessage};
 use std::{
@@ -25,6 +25,7 @@ pub struct SerialConnection {
     state: State,
     selected_port: usize,
     pub_obs: Publisher<Observation>,
+    sub_command: Subscription<Command>,
 }
 
 enum State {
@@ -43,6 +44,7 @@ enum State {
 #[derive(Deserialize, Clone)]
 pub struct SerialConnectionNodeConfig {
     topic_observation: String,
+    topic_command: String,
 }
 
 impl NodeConfig for SerialConnectionNodeConfig {
@@ -51,6 +53,7 @@ impl NodeConfig for SerialConnectionNodeConfig {
             state: State::Idle,
             selected_port: 0,
             pub_obs: pubsub.publish(&self.topic_observation),
+            sub_command: pubsub.subscribe(&self.topic_command),
         })
     }
 }
@@ -90,8 +93,8 @@ impl Node for SerialConnection {
                                     running,
                                     sender,
                                     speed: 0.0,
-                                    kp: 1.0,
-                                    ki: 1.2,
+                                    kp: 0.5,
+                                    ki: 2.0,
                                 })
                             }
                         }
@@ -108,6 +111,15 @@ impl Node for SerialConnection {
                                 // handle.join();
 
                                 new_state = Some(Idle);
+                            }
+
+                            if let Some(cmd) = self.sub_command.try_recv() {
+                                sender
+                                    .send(CommandMessage::Drive {
+                                        left: cmd.speed_left,
+                                        right: cmd.speed_right,
+                                    })
+                                    .ok();
                             }
 
                             ui.vertical(|ui| {
@@ -132,7 +144,7 @@ impl Node for SerialConnection {
                                     .add(egui::Slider::new(kp, 0.0..=2.0).text("Kp"))
                                     .changed()
                                     || ui
-                                        .add(egui::Slider::new(ki, 0.0..=2.0).text("Ki"))
+                                        .add(egui::Slider::new(ki, 0.0..=3.0).text("Ki"))
                                         .changed()
                                 {
                                     sender
