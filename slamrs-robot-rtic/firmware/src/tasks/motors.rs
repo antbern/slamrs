@@ -64,13 +64,16 @@ pub async fn motor_control_loop(mut cx: motor_control_loop::Context<'_>) {
         // info!("posituion: {}", motor_position);
 
         // apply the motor output
-        let motor_output: i32 = x.to_num();
+        let mut motor_output: i32 = x.to_num();
+        if motor_output.abs() < 100 {
+            motor_output = 0;
+        }
         let (direction, speed) = if motor_output > 0 {
             (MotorDirection::Forward, motor_output as u16)
         } else if motor_output < 0 {
             (MotorDirection::Backward, (-motor_output) as u16)
         } else {
-            (MotorDirection::Brake, 0)
+            (MotorDirection::Free, 0)
         };
         cx.shared.motor_controller.lock(|mc| {
             cx.local.motor_right.set_direction(mc, direction).unwrap();
@@ -86,8 +89,8 @@ pub struct PiParameters {
 impl Default for PiParameters {
     fn default() -> Self {
         Self {
-            kp: F32::from_num(0.1),
-            ki: F32::from_num(0.1),
+            kp: F32::from_num(1.0),
+            ki: F32::from_num(1.2),
         }
     }
 }

@@ -29,6 +29,7 @@ pub struct MotorDriver<I2C> {
 }
 
 #[allow(unused)]
+#[derive(defmt::Format)]
 pub enum MotorDirection {
     Forward,
     Backward,
@@ -37,6 +38,7 @@ pub enum MotorDirection {
 }
 
 #[allow(unused)]
+#[derive(defmt::Format)]
 pub enum MotorId {
     M0,
     M1,
@@ -99,7 +101,7 @@ where
 
         let (in1, in2, pwm) = match motor {
             MotorId::M0 => (Channel::C10, Channel::C9, Channel::C8),
-            MotorId::M1 => (Channel::C13, Channel::C12, Channel::C11),
+            MotorId::M1 => (Channel::C11, Channel::C12, Channel::C13),
             MotorId::M2 => (Channel::C4, Channel::C3, Channel::C2),
             MotorId::M3 => (Channel::C5, Channel::C6, Channel::C7),
         };
