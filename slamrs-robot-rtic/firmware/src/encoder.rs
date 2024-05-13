@@ -59,7 +59,7 @@ pub fn initialize_encoders(
     // Initialize and start PIO
     let (mut pio, sm0, _, _, _) = pio0.split(resets);
     let installed = pio.install(&program.program).unwrap();
-    let (mut sm, mut pio_rx, _tx) = PIOBuilder::from_program(installed)
+    let (mut sm, pio_rx, _tx) = PIOBuilder::from_program(installed)
         .in_pin_base(in_a.id().num)
         .autopush(false)
         .push_threshold(32)
@@ -105,5 +105,6 @@ pub fn initialize_encoders(
 }
 
 pub fn get_encoder_value() -> i32 {
+    // interpret the value as a signed integer
     (unsafe { ENCODER_VALUE }) as i32
 }

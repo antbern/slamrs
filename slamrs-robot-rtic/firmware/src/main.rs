@@ -21,6 +21,7 @@ mod app {
     use crate::encoder;
     use crate::motor::{Motor, MotorDriver};
     use crate::tasks::esp::{init_esp, uart1_esp32};
+    use crate::tasks::motors::motor_control_loop;
     use crate::tasks::neato::{neato_motor_control, uart0_neato};
     use crate::tasks::usb::{usb_irq, usb_sender};
     use crate::util::channel_send;
@@ -85,7 +86,7 @@ mod app {
     // Shared resources go here
     #[shared]
     struct Shared {
-        /// The USB Serial Device Driver
+        /// The USB Serial Device mriver
         /// Shared between the USB interrupt and the USB sending task
         pub usb_serial: SerialPort<'static, hal::usb::UsbBus>,
 
@@ -98,6 +99,12 @@ mod app {
         /// The amount of downsampling to apply to the neato data, shared but with non-mutable
         /// access
         neato_downsampling: AtomicU8,
+
+        /// speed in steps / second
+        motor_speed: i32,
+
+        /// Motor PI parameters
+        motor_pi_params: crate::tasks::motors::PiParameters,
     }
 
     // Local resources go here
@@ -170,6 +177,9 @@ mod app {
             rtic_sync::channel::Sender<'static, RobotMessage, ROBOT_MESSAGE_CAPACITY>,
         robot_message_sender_esp_neato:
             rtic_sync::channel::Sender<'static, RobotMessage, ROBOT_MESSAGE_CAPACITY>,
+
+        ///// Motor speed controller
+        motor_right: Motor<I2CBus>,
     }
     /// The USB bus, only needed for initializing the USB device and will never be accessed again
     static mut USB_BUS: Option<UsbBusAllocator<hal::usb::UsbBus>> = None;
@@ -329,6 +339,8 @@ mod app {
             pins.gpio22.into_function(),
         );
 
+        let motor_right = controller.motor(crate::motor::MotorId::M1).unwrap();
+
         // create a channel for communicating ESP messages
         let (esp_sender, esp_receiver) = rtic_sync::make_channel!(EspMessage, ESP_CHANNEL_CAPACITY);
         let (event_sender, event_receiver) =
@@ -344,6 +356,7 @@ mod app {
             rtic_sync::make_channel!(RobotMessage, ROBOT_MESSAGE_CAPACITY);
 
         neato_motor_control::spawn().ok();
+        motor_control_loop::spawn().ok();
         data_handler::spawn().ok();
         event_loop::spawn().ok();
         init_esp::spawn().ok();
@@ -355,6 +368,8 @@ mod app {
                 usb_active: false,
                 motor_controller: controller,
                 neato_downsampling: AtomicU8::new(2),
+                motor_speed: 0,
+                motor_pi_params: Default::default(),
             },
             Local {
                 led,
@@ -380,6 +395,7 @@ mod app {
                 neato_motor: motor,
                 robot_message_sender_neato: robot_message_sender_usb,
                 robot_message_sender_esp_neato: robot_message_sender,
+                motor_right,
             },
         )
     }
@@ -388,14 +404,18 @@ mod app {
     // serial communication task (for usability also over a serial connection)
     #[task(
         priority = 1,
-        shared = [&neato_downsampling],
+        shared = [
+            &neato_downsampling,
+            motor_pi_params,
+            motor_speed,
+        ],
         local = [
             event_receiver,
             robot_message_sender,
             robot_message_sender_usb,
         ]
     )]
-    async fn event_loop(cx: event_loop::Context) {
+    async fn event_loop(mut cx: event_loop::Context) {
         let mut is_connected = false;
         loop {
             futures::select_biased! {
@@ -427,6 +447,18 @@ mod app {
                         Event::Command(CommandMessage::SetDownsampling { every }) => {
                             cx.shared.neato_downsampling.store(every, Ordering::Relaxed);
                         },
+                        Event::Command(CommandMessage::SetMotorPiParams { kp, ki }) => {
+                                cx.shared.motor_pi_params.lock(| p| {
+                                    p.kp = crate::tasks::motors::F32::from_num(kp);
+                                    p.ki = crate::tasks::motors::F32::from_num(ki);
+                                });
+                        },
+                        Event::Command(CommandMessage::Drive { left, right }) => {
+                            cx.shared.motor_speed.lock(|speed|{
+                                *speed = (right * 2000.0 / (0.06 * core::f32::consts::PI)) as i32;
+                            });
+                        },
+
                         _ => {}
                     }
                 }
@@ -582,6 +614,18 @@ mod app {
         )]
         async fn neato_motor_control(cx: neato_motor_control::Context);
 
+        #[task(
+            priority = 1,
+            shared = [
+                motor_controller,
+                motor_speed,
+                motor_pi_params,
+            ],
+            local = [
+                motor_right,
+            ],
+        )]
+        async fn motor_control_loop(cx: motor_control_loop::Context);
     }
 
     #[task(local = [led])]
