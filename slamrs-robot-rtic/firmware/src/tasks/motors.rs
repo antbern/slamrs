@@ -17,7 +17,7 @@ pub async fn motor_control_loop(mut cx: motor_control_loop::Context<'_>) {
     let mut sat: i8 = 0;
     let mut x_integral: F32 = F32::from_num(0);
 
-    let mut previous_motor_position = crate::encoder::get_encoder_value();
+    let mut previous_motor_position = crate::encoder::get_encoder_value_right();
 
     let mut next_iteration_instant = Timer::now();
     loop {
@@ -32,7 +32,7 @@ pub async fn motor_control_loop(mut cx: motor_control_loop::Context<'_>) {
         let target = cx.shared.motor_speed.lock(|motor_speed| *motor_speed);
 
         // estimate the current speed
-        let motor_position = crate::encoder::get_encoder_value();
+        let motor_position = crate::encoder::get_encoder_value_right();
         let diff = motor_position - previous_motor_position;
         previous_motor_position = motor_position;
         let current_speed = diff as i32 * 1000 / CONTROL_LOOP_PERIOD_MS as i32;

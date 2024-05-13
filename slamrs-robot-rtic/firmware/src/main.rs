@@ -335,8 +335,11 @@ mod app {
             ctx.device.PIO0,
             &mut ctx.device.RESETS,
             dma.ch0,
+            dma.ch1,
+            pins.gpio20.into_function(),
             pins.gpio21.into_function(),
             pins.gpio22.into_function(),
+            pins.gpio23.into_function(),
         );
 
         let motor_right = controller.motor(crate::motor::MotorId::M1).unwrap();

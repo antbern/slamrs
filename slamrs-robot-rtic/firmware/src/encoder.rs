@@ -5,19 +5,20 @@ use core::ptr::addr_of_mut;
 
 use rp_pico::hal::{
     self,
-    dma::single_buffer,
+    dma::{single_buffer, ChannelIndex, WriteTarget},
     gpio::{
-        bank0::{Gpio21, Gpio22},
-        FunctionPio0, Pin, PullDown,
+        bank0::{Gpio20, Gpio21, Gpio22, Gpio23},
+        DynPinId, FunctionPio0, Pin, PullDown,
     },
     pac,
-    pio::{PIOBuilder, PIOExt},
+    pio::{InstalledProgram, PIOBuilder, PIOExt, StateMachineIndex, UninitStateMachine},
 };
 
 /// Global variable to store the encoder value
 /// This is safe because the DMA channel will only write to this location
 /// and we will only read from it.
-static mut ENCODER_VALUE: u32 = 0;
+static mut ENCODER_VALUE_RIGHT: u32 = 0;
+static mut ENCODER_VALUE_LEFT: u32 = 0;
 
 /// A simple DMA target that writes to a single memory location without incrementing
 struct OverwriteTarget {
@@ -50,26 +51,63 @@ unsafe impl hal::dma::WriteTarget for OverwriteTarget {
 pub fn initialize_encoders(
     pio0: pac::PIO0,
     resets: &mut pac::RESETS,
-    dma: hal::dma::Channel<hal::dma::CH0>,
+    right_dma: hal::dma::Channel<hal::dma::CH0>,
+    left_dma: hal::dma::Channel<hal::dma::CH1>,
 
-    in_a: Pin<Gpio21, FunctionPio0, PullDown>,
-    in_b: Pin<Gpio22, FunctionPio0, PullDown>,
+    right_in_a: Pin<Gpio20, FunctionPio0, PullDown>,
+    right_in_b: Pin<Gpio21, FunctionPio0, PullDown>,
+    left_in_a: Pin<Gpio22, FunctionPio0, PullDown>,
+    left_in_b: Pin<Gpio23, FunctionPio0, PullDown>,
 ) {
     let program = pio_proc::pio_file!("pio/encoder.pio");
     // Initialize and start PIO
-    let (mut pio, sm0, _, _, _) = pio0.split(resets);
+    let (mut pio, sm0, sm1, _, _) = pio0.split(resets);
     let installed = pio.install(&program.program).unwrap();
-    let (mut sm, pio_rx, _tx) = PIOBuilder::from_program(installed)
-        .in_pin_base(in_a.id().num)
+
+    initialize(
+        right_dma,
+        right_in_a.id(),
+        right_in_b.id(),
+        sm0,
+        // SAFETY: we never call uninstall on the program
+        unsafe { installed.share() },
+        OverwriteTarget::new(unsafe { addr_of_mut!(ENCODER_VALUE_RIGHT) }),
+    );
+
+    initialize(
+        left_dma,
+        left_in_a.id(),
+        left_in_b.id(),
+        sm1,
+        installed,
+        OverwriteTarget::new(unsafe { addr_of_mut!(ENCODER_VALUE_LEFT) }),
+    );
+}
+
+fn initialize<
+    DMA: ChannelIndex,
+    PIO: PIOExt,
+    SM: StateMachineIndex,
+    Target: WriteTarget<TransmittedWord = u32>,
+>(
+    dma: hal::dma::Channel<DMA>,
+    pin_in_a: DynPinId,
+    pin_in_b: DynPinId,
+    sm: UninitStateMachine<(PIO, SM)>,
+    program: InstalledProgram<PIO>,
+    target: Target,
+) {
+    let (mut sm, pio_rx, _tx) = PIOBuilder::from_program(program)
+        .in_pin_base(pin_in_a.num)
         .autopush(false)
         .push_threshold(32)
         .in_shift_direction(hal::pio::ShiftDirection::Left)
-        .build(sm0);
+        .build(sm);
 
     // The GPIO pin needs to be configured as inputs.
     sm.set_pindirs([
-        (in_a.id().num, hal::pio::PinDir::Input),
-        (in_b.id().num, hal::pio::PinDir::Input),
+        (pin_in_a.num, hal::pio::PinDir::Input),
+        (pin_in_b.num, hal::pio::PinDir::Input),
     ]);
 
     sm.exec_instruction(pio::Instruction {
@@ -94,17 +132,17 @@ pub fn initialize_encoders(
     // With some calculation, it seems the max transfers of 2^32 will not run out within 1000 years
     // if we assume 2400 updates / second (1 rev / second). So we should ony need to
     // start the DMA transfer once.
-    single_buffer::Config::new(
-        dma,
-        pio_rx,
-        OverwriteTarget::new(unsafe { addr_of_mut!(ENCODER_VALUE) }),
-    )
-    .start();
+    single_buffer::Config::new(dma, pio_rx, target).start();
 
     sm.start();
 }
 
-pub fn get_encoder_value() -> i32 {
+pub fn get_encoder_value_right() -> i32 {
     // interpret the value as a signed integer
-    (unsafe { ENCODER_VALUE }) as i32
+    (unsafe { ENCODER_VALUE_RIGHT }) as i32
+}
+
+pub fn get_encoder_value_left() -> i32 {
+    // interpret the value as a signed integer
+    (unsafe { ENCODER_VALUE_LEFT }) as i32
 }
