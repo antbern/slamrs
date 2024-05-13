@@ -19,6 +19,10 @@ pub enum CommandMessage {
         left: f32,
         right: f32,
     },
+    SetMotorPiParams {
+        kp: f32,
+        ki: f32,
+    },
 }
 
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]

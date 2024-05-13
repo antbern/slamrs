@@ -29,6 +29,7 @@ pub struct MotorDriver<I2C> {
 }
 
 #[allow(unused)]
+#[derive(defmt::Format)]
 pub enum MotorDirection {
     Forward,
     Backward,
@@ -37,6 +38,7 @@ pub enum MotorDirection {
 }
 
 #[allow(unused)]
+#[derive(defmt::Format)]
 pub enum MotorId {
     M0,
     M1,
@@ -99,7 +101,7 @@ where
 
         let (in1, in2, pwm) = match motor {
             MotorId::M0 => (Channel::C10, Channel::C9, Channel::C8),
-            MotorId::M1 => (Channel::C13, Channel::C12, Channel::C11),
+            MotorId::M1 => (Channel::C11, Channel::C12, Channel::C13),
             MotorId::M2 => (Channel::C4, Channel::C3, Channel::C2),
             MotorId::M3 => (Channel::C5, Channel::C6, Channel::C7),
         };
@@ -122,6 +124,24 @@ where
     /// Set the speed of the motor
     pub fn set_speed(&mut self, mc: &mut MotorDriver<I2C>, speed: u16) -> Result<(), Error<E>> {
         mc.pwm.set_channel_on_off(self.pwm, 0, speed)?;
+        Ok(())
+    }
+
+    /// Set the speed of the motor
+    pub fn set_speed_signed(
+        &mut self,
+        mc: &mut MotorDriver<I2C>,
+        speed: i16,
+    ) -> Result<(), Error<E>> {
+        let (direction, speed) = if speed > 0 {
+            (MotorDirection::Forward, speed as u16)
+        } else if speed < 0 {
+            (MotorDirection::Backward, (-speed) as u16)
+        } else {
+            (MotorDirection::Free, 0)
+        };
+        self.set_direction(mc, direction)?;
+        self.set_speed(mc, speed)?;
         Ok(())
     }
 
