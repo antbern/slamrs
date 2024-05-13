@@ -127,6 +127,24 @@ where
         Ok(())
     }
 
+    /// Set the speed of the motor
+    pub fn set_speed_signed(
+        &mut self,
+        mc: &mut MotorDriver<I2C>,
+        speed: i16,
+    ) -> Result<(), Error<E>> {
+        let (direction, speed) = if speed > 0 {
+            (MotorDirection::Forward, speed as u16)
+        } else if speed < 0 {
+            (MotorDirection::Backward, (-speed) as u16)
+        } else {
+            (MotorDirection::Free, 0)
+        };
+        self.set_direction(mc, direction)?;
+        self.set_speed(mc, speed)?;
+        Ok(())
+    }
+
     /// Set the direction of the motor
     pub fn set_direction(
         &mut self,

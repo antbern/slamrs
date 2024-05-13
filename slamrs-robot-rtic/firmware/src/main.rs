@@ -101,7 +101,8 @@ mod app {
         neato_downsampling: AtomicU8,
 
         /// speed in steps / second
-        motor_speed: i32,
+        motor_speed_right: i32,
+        motor_speed_left: i32,
 
         /// Motor PI parameters
         motor_pi_params: crate::tasks::motors::PiParameters,
@@ -180,6 +181,7 @@ mod app {
 
         ///// Motor speed controller
         motor_right: Motor<I2CBus>,
+        motor_left: Motor<I2CBus>,
     }
     /// The USB bus, only needed for initializing the USB device and will never be accessed again
     static mut USB_BUS: Option<UsbBusAllocator<hal::usb::UsbBus>> = None;
@@ -343,6 +345,7 @@ mod app {
         );
 
         let motor_right = controller.motor(crate::motor::MotorId::M1).unwrap();
+        let motor_left = controller.motor(crate::motor::MotorId::M0).unwrap();
 
         // create a channel for communicating ESP messages
         let (esp_sender, esp_receiver) = rtic_sync::make_channel!(EspMessage, ESP_CHANNEL_CAPACITY);
@@ -371,7 +374,8 @@ mod app {
                 usb_active: false,
                 motor_controller: controller,
                 neato_downsampling: AtomicU8::new(2),
-                motor_speed: 0,
+                motor_speed_right: 0,
+                motor_speed_left: 0,
                 motor_pi_params: Default::default(),
             },
             Local {
@@ -399,6 +403,7 @@ mod app {
                 robot_message_sender_neato: robot_message_sender_usb,
                 robot_message_sender_esp_neato: robot_message_sender,
                 motor_right,
+                motor_left,
             },
         )
     }
@@ -410,7 +415,8 @@ mod app {
         shared = [
             &neato_downsampling,
             motor_pi_params,
-            motor_speed,
+            motor_speed_right,
+            motor_speed_left,
         ],
         local = [
             event_receiver,
@@ -457,8 +463,11 @@ mod app {
                                 });
                         },
                         Event::Command(CommandMessage::Drive { left, right }) => {
-                            cx.shared.motor_speed.lock(|speed|{
+                            cx.shared.motor_speed_right.lock(|speed|{
                                 *speed = (right * 2000.0 / (0.06 * core::f32::consts::PI)) as i32;
+                            });
+                            cx.shared.motor_speed_left.lock(|speed|{
+                                *speed = (left * 2000.0 / (0.06 * core::f32::consts::PI)) as i32;
                             });
                         },
 
@@ -621,11 +630,13 @@ mod app {
             priority = 1,
             shared = [
                 motor_controller,
-                motor_speed,
+                motor_speed_right,
+                motor_speed_left,
                 motor_pi_params,
             ],
             local = [
                 motor_right,
+                motor_left,
             ],
         )]
         async fn motor_control_loop(cx: motor_control_loop::Context);
