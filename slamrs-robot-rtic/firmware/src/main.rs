@@ -1,6 +1,7 @@
 #![no_main]
 #![no_std]
 
+mod encoder;
 mod motor;
 mod tasks;
 mod util;
@@ -17,6 +18,7 @@ use panic_probe as _;
     peripherals = true
 )]
 mod app {
+    use crate::encoder;
     use crate::motor::{Motor, MotorDriver};
     use crate::tasks::esp::{init_esp, uart1_esp32};
     use crate::tasks::neato::{neato_motor_control, uart0_neato};
@@ -35,6 +37,7 @@ mod app {
     use rp_pico::hal::gpio::PullNone;
     use rp_pico::hal::{
         self, clocks,
+        dma::DMAExt,
         fugit::{ExtU64, RateExtU32},
         gpio::{self, bank0::*, FunctionSioOutput, PullDown},
         sio::Sio,
@@ -315,6 +318,16 @@ mod app {
         uart_neato.enable_rx_interrupt();
         // we only need the rx part of the uart
         let (rx_neato, _tx_neato) = uart_neato.split();
+
+        // setup quadrature encoders for the motors
+        let dma = ctx.device.DMA.split(&mut ctx.device.RESETS);
+        encoder::initialize_encoders(
+            ctx.device.PIO0,
+            &mut ctx.device.RESETS,
+            dma.ch0,
+            pins.gpio21.into_function(),
+            pins.gpio22.into_function(),
+        );
 
         // create a channel for communicating ESP messages
         let (esp_sender, esp_receiver) = rtic_sync::make_channel!(EspMessage, ESP_CHANNEL_CAPACITY);

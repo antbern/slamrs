@@ -36,6 +36,9 @@ usbd-serial = "0.1"
 
 pwm-pca9685 = "0.3"
 
+pio-proc = "0.2"
+pio = "0.2"
+
 # do not optimize proc-macro crates = faster builds from scratch
 [profile.dev.build-override]
 codegen-units = 8
