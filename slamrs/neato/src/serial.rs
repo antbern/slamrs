@@ -8,6 +8,7 @@ use pubsub::{PubSub, Publisher, Subscription};
 use serde::Deserialize;
 use slamrs_message::{bincode, CommandMessage, RobotMessage};
 use std::{
+    net::TcpStream,
     path::PathBuf,
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -15,7 +16,7 @@ use std::{
     },
     thread::{self, JoinHandle},
 };
-use tracing::info;
+use tracing::{error, info};
 
 use serial2::SerialPort;
 
@@ -23,7 +24,9 @@ use crate::frame;
 
 pub struct SerialConnection {
     state: State,
+    serial_port_sected: bool,
     selected_port: usize,
+    host: String,
     pub_obs: Publisher<(Observation, Odometry)>,
     sub_command: Subscription<Command>,
 }
@@ -31,7 +34,6 @@ pub struct SerialConnection {
 enum State {
     Idle,
     Running {
-        #[allow(unused)] // We need to hold on to this but are actually never using it directly
         handle: JoinHandle<()>,
         running: Arc<AtomicBool>,
         sender: std::sync::mpsc::Sender<CommandMessage>,
@@ -51,7 +53,9 @@ impl NodeConfig for SerialConnectionNodeConfig {
     fn instantiate(&self, pubsub: &mut PubSub) -> Box<dyn Node> {
         Box::new(SerialConnection {
             state: State::Idle,
+            serial_port_sected: false,
             selected_port: 0,
+            host: "robot:8080".into(),
             pub_obs: pubsub.publish(&self.topic_observation),
             sub_command: pubsub.subscribe(&self.topic_command),
         })
@@ -69,22 +73,37 @@ impl Node for SerialConnection {
                     let mut new_state = None;
                     match &mut self.state {
                         Idle => {
-                            egui::ComboBox::from_label("Port")
-                                .selected_text(format!("{:?}", self.selected_port))
-                                .show_index(ui, &mut self.selected_port, ports.len(), |i| {
-                                    ports[i].display().to_string()
-                                });
+                            ui.vertical(|ui| {
+                                ui.radio_value(&mut self.serial_port_sected, true, "Serial");
+                                ui.radio_value(&mut self.serial_port_sected, false, "Network");
+                            });
+
+                            if self.serial_port_sected {
+                                egui::ComboBox::from_label("Port")
+                                    .selected_text(format!("{:?}", self.selected_port))
+                                    .show_index(ui, &mut self.selected_port, ports.len(), |i| {
+                                        ports[i].display().to_string()
+                                    });
+                            } else {
+                                ui.label("Host");
+                                ui.text_edit_singleline(&mut self.host);
+                            }
 
                             if ui.button("Open").clicked() {
                                 // start a thread
-                                let selected_port = ports[self.selected_port].to_owned();
+                                let connection_type = if self.serial_port_sected {
+                                    ConnectionType::Serial(ports[self.selected_port].to_owned())
+                                } else {
+                                    ConnectionType::Tcp(self.host.to_owned())
+                                };
+
                                 let running = Arc::new(AtomicBool::new(true));
                                 let (sender, receiver) = std::sync::mpsc::channel();
                                 let handle = thread::spawn({
                                     let running = running.clone();
                                     let pub_obs = self.pub_obs.clone();
                                     move || {
-                                        serial_thread(&selected_port, running, pub_obs, receiver);
+                                        serial_thread(connection_type, running, pub_obs, receiver);
                                     }
                                 });
 
@@ -99,14 +118,15 @@ impl Node for SerialConnection {
                             }
                         }
                         Running {
-                            handle: _,
+                            handle,
                             running,
                             sender,
                             speed,
                             kp,
                             ki,
                         } => {
-                            if ui.button("Close").clicked() {
+                            // if the thread has stopped (or the user want to exit), change the state to idle
+                            if ui.button("Close").clicked() || handle.is_finished() {
                                 running.store(false, Ordering::Relaxed);
                                 // handle.join();
 
@@ -154,6 +174,7 @@ impl Node for SerialConnection {
                             });
                         }
                     }
+
                     if let Some(state) = new_state {
                         self.state = state;
                     }
@@ -176,45 +197,75 @@ impl Drop for SerialConnection {
     }
 }
 
+enum ConnectionType {
+    Serial(PathBuf),
+    Tcp(String),
+}
 fn serial_thread(
-    path: &PathBuf,
+    connection_type: ConnectionType,
     running: Arc<AtomicBool>,
     pub_obs: Publisher<(Observation, Odometry)>,
     receiver: std::sync::mpsc::Receiver<CommandMessage>,
 ) {
-    open_and_stream(path, running, pub_obs, receiver).expect("Error in serial thread");
+    match connection_type {
+        ConnectionType::Serial(path) => {
+            info!("Opening {path:?}");
+
+            match SerialPort::open(path, 115200) {
+                Ok(port) => {
+                    if let Err(e) = open_and_stream(port, running, pub_obs, receiver) {
+                        error!("Error while streaming serial port:\n{:#}", e);
+                    }
+                }
+                Err(e) => {
+                    error!("Error opening serial port: {:?}", e);
+                }
+            };
+        }
+        ConnectionType::Tcp(host) => {
+            info!("Connecting to {host}");
+
+            match TcpStream::connect(host) {
+                Ok(port) => {
+                    if let Err(e) = open_and_stream(port, running, pub_obs, receiver) {
+                        error!("Error while streaming network connection:\n{:#}", e);
+                    }
+                }
+                Err(e) => {
+                    error!("Error connecting: {:?}", e);
+                }
+            };
+        }
+    }
 }
 
-fn open_and_stream(
-    path: &PathBuf,
+fn open_and_stream<C: ConnectionMedium>(
+    mut connection: C,
     running: Arc<AtomicBool>,
     mut pub_obs: Publisher<(Observation, Odometry)>,
     receiver: std::sync::mpsc::Receiver<CommandMessage>,
 ) -> anyhow::Result<()> {
-    println!("Opening {path:?}");
+    connection.set_timeout_read(std::time::Duration::from_millis(200))?;
 
-    let mut port = SerialPort::open(path, 115200)?;
     bincode::encode_into_std_write(
         CommandMessage::SetDownsampling { every: 2 },
-        &mut port,
+        &mut connection,
         bincode::config::standard(),
     )?;
-    port.flush()?;
 
     bincode::encode_into_std_write(
         CommandMessage::NeatoOn,
-        &mut port,
+        &mut connection,
         bincode::config::standard(),
     )?;
-    port.flush()?;
 
     while running.load(Ordering::Relaxed) {
         while let Ok(cmd) = receiver.try_recv() {
             info!("Sending: {:?}", cmd);
-            bincode::encode_into_std_write(cmd, &mut port, bincode::config::standard())?;
+            bincode::encode_into_std_write(cmd, &mut connection, bincode::config::standard())?;
         }
 
-        match bincode::decode_from_std_read(&mut port, bincode::config::standard()) {
+        match bincode::decode_from_std_read(&mut connection, bincode::config::standard()) {
             Ok(data) => match data {
                 RobotMessage::ScanFrame(scan_frame) => {
                     let parsed = frame::parse_frame(&scan_frame.scan_data)?;
@@ -228,14 +279,15 @@ fn open_and_stream(
                     // send ping
                     bincode::encode_into_std_write(
                         CommandMessage::Ping,
-                        &mut port,
+                        &mut connection,
                         bincode::config::standard(),
                     )?;
                 }
             },
             // skip TimedOut errors
             Err(bincode::error::DecodeError::Io { inner, .. })
-                if inner.kind() == std::io::ErrorKind::TimedOut => {}
+                if inner.kind() == std::io::ErrorKind::TimedOut
+                    || inner.kind() == std::io::ErrorKind::WouldBlock => {}
             Err(e) => {
                 return Err(e.into());
             }
@@ -245,7 +297,7 @@ fn open_and_stream(
     // doesn't really matter if this succeeds or not since the connection might be broken already
     bincode::encode_into_std_write(
         CommandMessage::NeatoOff,
-        &mut port,
+        &mut connection,
         bincode::config::standard(),
     )?;
     bincode::encode_into_std_write(
@@ -253,13 +305,31 @@ fn open_and_stream(
             left: 0.0,
             right: 0.0,
         },
-        &mut port,
+        &mut connection,
         bincode::config::standard(),
     )?;
 
-    println!("Closing!");
+    info!("Closing!");
 
-    drop(port);
+    drop(connection);
 
     Ok(())
+}
+
+/// A trait for a connection that can read and write bytes, with timeout.
+trait ConnectionMedium: std::io::Write + std::io::Read {
+    /// Set the read timeout
+    fn set_timeout_read(&mut self, timeout: std::time::Duration) -> std::io::Result<()>;
+}
+
+impl ConnectionMedium for SerialPort {
+    fn set_timeout_read(&mut self, timeout: std::time::Duration) -> std::io::Result<()> {
+        self.set_read_timeout(timeout)
+    }
+}
+
+impl ConnectionMedium for std::net::TcpStream {
+    fn set_timeout_read(&mut self, timeout: std::time::Duration) -> std::io::Result<()> {
+        self.set_read_timeout(Some(timeout))
+    }
 }

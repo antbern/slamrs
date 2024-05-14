@@ -112,6 +112,7 @@ fn open_and_stream(
     running: Arc<AtomicBool>,
     mut pub_obs: Publisher<Observation>,
 ) -> anyhow::Result<()> {
+
     println!("Connecting to {host:?}");
 
     let mut stream = TcpStream::connect(host)?;
@@ -135,6 +136,7 @@ fn open_and_stream(
 
     while running.load(Ordering::Relaxed) {
         // read bytes into the buffer
+        
 
         let data: RobotMessage =
             bincode::decode_from_std_read(&mut stream, bincode::config::standard())?;
