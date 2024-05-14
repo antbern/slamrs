@@ -65,122 +65,121 @@ impl NodeConfig for SerialConnectionNodeConfig {
 impl Node for SerialConnection {
     fn draw(&mut self, ui: &egui::Ui, _world: &mut WorldObj<'_>) {
         egui::Window::new("Serial Connection").show(ui.ctx(), |ui| {
-            let ports = SerialPort::available_ports().unwrap();
+            use State::*;
+            let mut new_state = None;
+            match &mut self.state {
+                Idle => {
+                    let ports = SerialPort::available_ports().unwrap_or_default();
+                    ui.horizontal(|ui| {
+                        ui.vertical(|ui| {
+                            ui.radio_value(&mut self.serial_port_sected, true, "Serial");
+                            ui.radio_value(&mut self.serial_port_sected, false, "Network");
+                        });
 
-            if !ports.is_empty() {
-                ui.horizontal(|ui| {
-                    use State::*;
-                    let mut new_state = None;
-                    match &mut self.state {
-                        Idle => {
-                            ui.vertical(|ui| {
-                                ui.radio_value(&mut self.serial_port_sected, true, "Serial");
-                                ui.radio_value(&mut self.serial_port_sected, false, "Network");
-                            });
-
-                            if self.serial_port_sected {
+                        if self.serial_port_sected {
+                            if !ports.is_empty() {
                                 egui::ComboBox::from_label("Port")
                                     .selected_text(format!("{:?}", self.selected_port))
                                     .show_index(ui, &mut self.selected_port, ports.len(), |i| {
                                         ports[i].display().to_string()
                                     });
                             } else {
-                                ui.label("Host");
-                                ui.text_edit_singleline(&mut self.host);
+                                ui.label("No ports available!");
                             }
-
-                            if ui.button("Open").clicked() {
-                                // start a thread
-                                let connection_type = if self.serial_port_sected {
-                                    ConnectionType::Serial(ports[self.selected_port].to_owned())
-                                } else {
-                                    ConnectionType::Tcp(self.host.to_owned())
-                                };
-
-                                let running = Arc::new(AtomicBool::new(true));
-                                let (sender, receiver) = std::sync::mpsc::channel();
-                                let handle = thread::spawn({
-                                    let running = running.clone();
-                                    let pub_obs = self.pub_obs.clone();
-                                    move || {
-                                        serial_thread(connection_type, running, pub_obs, receiver);
-                                    }
-                                });
-
-                                new_state = Some(Running {
-                                    handle,
-                                    running,
-                                    sender,
-                                    speed: 0.0,
-                                    kp: 0.5,
-                                    ki: 2.0,
-                                })
-                            }
+                        } else {
+                            ui.label("Host");
+                            ui.text_edit_singleline(&mut self.host);
                         }
-                        Running {
+                    });
+
+                    if ui.button("Open").clicked() {
+                        // start a thread
+                        let connection_type = if self.serial_port_sected {
+                            ConnectionType::Serial(ports[self.selected_port].to_owned())
+                        } else {
+                            ConnectionType::Tcp(self.host.to_owned())
+                        };
+
+                        let running = Arc::new(AtomicBool::new(true));
+                        let (sender, receiver) = std::sync::mpsc::channel();
+                        let handle = thread::spawn({
+                            let running = running.clone();
+                            let pub_obs = self.pub_obs.clone();
+                            move || {
+                                serial_thread(connection_type, running, pub_obs, receiver);
+                            }
+                        });
+
+                        new_state = Some(Running {
                             handle,
                             running,
                             sender,
-                            speed,
-                            kp,
-                            ki,
-                        } => {
-                            // if the thread has stopped (or the user want to exit), change the state to idle
-                            if ui.button("Close").clicked() || handle.is_finished() {
-                                running.store(false, Ordering::Relaxed);
-                                // handle.join();
+                            speed: 0.0,
+                            kp: 0.5,
+                            ki: 2.0,
+                        })
+                    }
+                }
+                Running {
+                    handle,
+                    running,
+                    sender,
+                    speed,
+                    kp,
+                    ki,
+                } => {
+                    // if the thread has stopped (or the user want to exit), change the state to idle
+                    if ui.button("Close").clicked() || handle.is_finished() {
+                        running.store(false, Ordering::Relaxed);
+                        // handle.join();
 
-                                new_state = Some(Idle);
-                            }
+                        new_state = Some(Idle);
+                    }
 
-                            if let Some(cmd) = self.sub_command.try_recv() {
-                                sender
-                                    .send(CommandMessage::Drive {
-                                        left: cmd.speed_left,
-                                        right: cmd.speed_right,
-                                    })
-                                    .ok();
-                            }
+                    if let Some(cmd) = self.sub_command.try_recv() {
+                        sender
+                            .send(CommandMessage::Drive {
+                                left: cmd.speed_left,
+                                right: cmd.speed_right,
+                            })
+                            .ok();
+                    }
 
-                            ui.vertical(|ui| {
-                                if ui.button("Start Neato").clicked() {
-                                    sender.send(CommandMessage::NeatoOn).ok();
-                                }
-                                if ui.button("Stop Neato").clicked() {
-                                    sender.send(CommandMessage::NeatoOff).ok();
-                                }
-                                if ui
-                                    .add(egui::Slider::new(speed, -1.0..=1.0).text("Speed"))
-                                    .changed()
-                                {
-                                    sender
-                                        .send(CommandMessage::Drive {
-                                            left: *speed,
-                                            right: *speed,
-                                        })
-                                        .ok();
-                                }
-                                if ui
-                                    .add(egui::Slider::new(kp, 0.0..=2.0).text("Kp"))
-                                    .changed()
-                                    || ui
-                                        .add(egui::Slider::new(ki, 0.0..=3.0).text("Ki"))
-                                        .changed()
-                                {
-                                    sender
-                                        .send(CommandMessage::SetMotorPiParams { kp: *kp, ki: *ki })
-                                        .ok();
-                                }
-                            });
+                    ui.vertical(|ui| {
+                        if ui.button("Start Neato").clicked() {
+                            sender.send(CommandMessage::NeatoOn).ok();
                         }
-                    }
+                        if ui.button("Stop Neato").clicked() {
+                            sender.send(CommandMessage::NeatoOff).ok();
+                        }
+                        if ui
+                            .add(egui::Slider::new(speed, -1.0..=1.0).text("Speed"))
+                            .changed()
+                        {
+                            sender
+                                .send(CommandMessage::Drive {
+                                    left: *speed,
+                                    right: *speed,
+                                })
+                                .ok();
+                        }
+                        if ui
+                            .add(egui::Slider::new(kp, 0.0..=2.0).text("Kp"))
+                            .changed()
+                            || ui
+                                .add(egui::Slider::new(ki, 0.0..=3.0).text("Ki"))
+                                .changed()
+                        {
+                            sender
+                                .send(CommandMessage::SetMotorPiParams { kp: *kp, ki: *ki })
+                                .ok();
+                        }
+                    });
+                }
+            }
 
-                    if let Some(state) = new_state {
-                        self.state = state;
-                    }
-                });
-            } else {
-                ui.label("No ports available!");
+            if let Some(state) = new_state {
+                self.state = state;
             }
         });
     }
