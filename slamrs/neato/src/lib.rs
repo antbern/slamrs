@@ -1,6 +1,6 @@
 mod serial;
 
-pub use serial::{SerialConnection, SerialConnectionNodeConfig};
+pub use serial::{RobotConnection, RobotConnectionNodeConfig};
 
 mod frame;
 

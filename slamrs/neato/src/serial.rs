@@ -22,7 +22,7 @@ use serial2::SerialPort;
 
 use crate::frame;
 
-pub struct SerialConnection {
+pub struct RobotConnection {
     state: State,
     serial_port_sected: bool,
     selected_port: usize,
@@ -44,14 +44,14 @@ enum State {
 }
 
 #[derive(Deserialize, Clone)]
-pub struct SerialConnectionNodeConfig {
+pub struct RobotConnectionNodeConfig {
     topic_observation: String,
     topic_command: String,
 }
 
-impl NodeConfig for SerialConnectionNodeConfig {
+impl NodeConfig for RobotConnectionNodeConfig {
     fn instantiate(&self, pubsub: &mut PubSub) -> Box<dyn Node> {
-        Box::new(SerialConnection {
+        Box::new(RobotConnection {
             state: State::Idle,
             serial_port_sected: false,
             selected_port: 0,
@@ -62,9 +62,9 @@ impl NodeConfig for SerialConnectionNodeConfig {
     }
 }
 
-impl Node for SerialConnection {
+impl Node for RobotConnection {
     fn draw(&mut self, ui: &egui::Ui, _world: &mut WorldObj<'_>) {
-        egui::Window::new("Serial Connection").show(ui.ctx(), |ui| {
+        egui::Window::new("Robot Connection").show(ui.ctx(), |ui| {
             use State::*;
             let mut new_state = None;
             match &mut self.state {
@@ -106,7 +106,7 @@ impl Node for SerialConnection {
                             let running = running.clone();
                             let pub_obs = self.pub_obs.clone();
                             move || {
-                                serial_thread(connection_type, running, pub_obs, receiver);
+                                connection_thread(connection_type, running, pub_obs, receiver);
                             }
                         });
 
@@ -185,7 +185,7 @@ impl Node for SerialConnection {
     }
 }
 
-impl Drop for SerialConnection {
+impl Drop for RobotConnection {
     fn drop(&mut self) {
         if let State::Running {
             handle: _, running, ..
@@ -200,7 +200,7 @@ enum ConnectionType {
     Serial(PathBuf),
     Tcp(String),
 }
-fn serial_thread(
+fn connection_thread(
     connection_type: ConnectionType,
     running: Arc<AtomicBool>,
     pub_obs: Publisher<(Observation, Odometry)>,
@@ -212,7 +212,7 @@ fn serial_thread(
 
             match SerialPort::open(path, 115200) {
                 Ok(port) => {
-                    if let Err(e) = open_and_stream(port, running, pub_obs, receiver) {
+                    if let Err(e) = stream(port, running, pub_obs, receiver) {
                         error!("Error while streaming serial port:\n{:#}", e);
                     }
                 }
@@ -226,7 +226,7 @@ fn serial_thread(
 
             match TcpStream::connect(host) {
                 Ok(port) => {
-                    if let Err(e) = open_and_stream(port, running, pub_obs, receiver) {
+                    if let Err(e) = stream(port, running, pub_obs, receiver) {
                         error!("Error while streaming network connection:\n{:#}", e);
                     }
                 }
@@ -238,7 +238,7 @@ fn serial_thread(
     }
 }
 
-fn open_and_stream<C: ConnectionMedium>(
+fn stream<C: ConnectionMedium>(
     mut connection: C,
     running: Arc<AtomicBool>,
     mut pub_obs: Publisher<(Observation, Odometry)>,

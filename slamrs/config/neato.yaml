@@ -8,7 +8,7 @@ nodes:
 
 # - !ShapeTest
 
-- !SerialConnection
+- !RobotConnection
   topic_observation: "robot/observation"
   topic_command: "robot/command"
 
