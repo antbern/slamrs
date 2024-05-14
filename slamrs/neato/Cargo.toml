@@ -19,6 +19,6 @@ tracing = {workspace = true}
 # special dependencies for this crate
 serial2 = "0.2.24"
 
-rfd = "0.13.0"
+rfd = { version = "0.14", default-features = false, features = ["gtk3"] }
 
 slamrs-message = {workspace = true}
