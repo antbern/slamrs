@@ -67,8 +67,8 @@ impl Map {
     pub fn is_valid(&self, grid: Vector2<f32>) -> bool {
         !((grid.x < 0.0)
             || (grid.y < 0.0)
-            || (grid.x as usize > self.grid_size.x)
-            || (grid.y as usize > self.grid_size.y))
+            || (grid.x as usize >= self.grid_size.x)
+            || (grid.y as usize >= self.grid_size.y))
     }
 
     pub fn integrate(&mut self, observation: &Observation, pose: Pose) {
