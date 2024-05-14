@@ -1,8 +1,6 @@
-mod network;
-mod serial;
+mod connection;
 
-pub use network::{NetworkConnection, NetworkConnectionNodeConfig};
-pub use serial::{SerialConnection, SerialConnectionNodeConfig};
+pub use connection::{RobotConnection, RobotConnectionNodeConfig};
 
 mod frame;
 
