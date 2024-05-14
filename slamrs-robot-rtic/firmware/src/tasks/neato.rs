@@ -83,6 +83,18 @@ pub fn uart0_neato(cx: uart0_neato::Context<'_>) {
             return;
         }
 
+        // get the odometry change since the last scan
+        let odometry_right = crate::encoder::get_encoder_value_right();
+        let odometry_left = crate::encoder::get_encoder_value_left();
+        let odometry_diff_right = odometry_right - *cx.local.last_odometry_right;
+        let odometry_diff_left = odometry_left - *cx.local.last_odometry_left;
+        *cx.local.last_odometry_right = odometry_right;
+        *cx.local.last_odometry_left = odometry_left;
+
+        // convert the odometry to meters
+        let odometry_right = odometry_diff_right as f32 / crate::app::MOTOR_STEPS_PER_METER;
+        let odometry_left = odometry_diff_left as f32 / crate::app::MOTOR_STEPS_PER_METER;
+
         // need to copy the data to a new array because the data is borrowed from the parser
         let mut scan_data = [0; 1980];
         scan_data.copy_from_slice(data.data);
@@ -92,7 +104,7 @@ pub fn uart0_neato(cx: uart0_neato::Context<'_>) {
             cx.local.robot_message_sender_neato,
             RobotMessage::ScanFrame(ScanFrame {
                 scan_data,
-                odometry: [0.0; 2], // TODO: add odometry
+                odometry: [odometry_left, odometry_right],
                 rpm,
             }),
             "uart0_neato",
@@ -107,7 +119,7 @@ pub fn uart0_neato(cx: uart0_neato::Context<'_>) {
             cx.local.robot_message_sender_esp_neato,
             RobotMessage::ScanFrame(ScanFrame {
                 scan_data,
-                odometry: [0.0; 2], // TODO: add odometry
+                odometry: [odometry_left, odometry_right],
                 rpm,
             }),
             "uart0_neato",

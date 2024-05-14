@@ -1,6 +1,6 @@
 use common::{
     node::{Node, NodeConfig},
-    robot::{Command, Observation},
+    robot::{Command, Observation, Odometry},
     world::WorldObj,
 };
 use eframe::egui;
@@ -24,7 +24,7 @@ use crate::frame;
 pub struct SerialConnection {
     state: State,
     selected_port: usize,
-    pub_obs: Publisher<Observation>,
+    pub_obs: Publisher<(Observation, Odometry)>,
     sub_command: Subscription<Command>,
 }
 
@@ -179,7 +179,7 @@ impl Drop for SerialConnection {
 fn serial_thread(
     path: &PathBuf,
     running: Arc<AtomicBool>,
-    pub_obs: Publisher<Observation>,
+    pub_obs: Publisher<(Observation, Odometry)>,
     receiver: std::sync::mpsc::Receiver<CommandMessage>,
 ) {
     open_and_stream(path, running, pub_obs, receiver).expect("Error in serial thread");
@@ -188,7 +188,7 @@ fn serial_thread(
 fn open_and_stream(
     path: &PathBuf,
     running: Arc<AtomicBool>,
-    mut pub_obs: Publisher<Observation>,
+    mut pub_obs: Publisher<(Observation, Odometry)>,
     receiver: std::sync::mpsc::Receiver<CommandMessage>,
 ) -> anyhow::Result<()> {
     println!("Opening {path:?}");
@@ -219,7 +219,8 @@ fn open_and_stream(
                 RobotMessage::ScanFrame(scan_frame) => {
                     let parsed = frame::parse_frame(&scan_frame.scan_data)?;
                     println!("Received: {:?}", &scan_frame.rpm);
-                    pub_obs.publish(Arc::new(parsed.into()));
+                    let odometry = Odometry::new(scan_frame.odometry[0], scan_frame.odometry[1]);
+                    pub_obs.publish(Arc::new((parsed.into(), odometry)));
                 }
                 RobotMessage::Pong => {
                     println!("Received: Pong");

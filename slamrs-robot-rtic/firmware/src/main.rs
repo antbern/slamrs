@@ -83,6 +83,10 @@ mod app {
 
     const ROBOT_MESSAGE_CAPACITY: usize = 16;
 
+    const MOTOR_STEPS_PER_REV: i32 = 2000;
+    const MOTOR_WHEEL_DIAMETER: f32 = 0.06; // meters
+    pub const MOTOR_STEPS_PER_METER: f32 = MOTOR_STEPS_PER_REV as f32 / (MOTOR_WHEEL_DIAMETER * core::f32::consts::PI);
+
     // Shared resources go here
     #[shared]
     struct Shared {
@@ -464,10 +468,10 @@ mod app {
                         },
                         Event::Command(CommandMessage::Drive { left, right }) => {
                             cx.shared.motor_speed_right.lock(|speed|{
-                                *speed = (right * 2000.0 / (0.06 * core::f32::consts::PI)) as i32;
+                                *speed = (right * MOTOR_STEPS_PER_REV as f32 / (MOTOR_WHEEL_DIAMETER * core::f32::consts::PI)) as i32;
                             });
                             cx.shared.motor_speed_left.lock(|speed|{
-                                *speed = (left * 2000.0 / (0.06 * core::f32::consts::PI)) as i32;
+                                *speed = (left * MOTOR_STEPS_PER_REV as f32 / (MOTOR_WHEEL_DIAMETER * core::f32::consts::PI)) as i32;
                             });
                         },
 
@@ -613,6 +617,8 @@ mod app {
                 rpm_accumulator: i32 = 0i32,
                 rpm_average: i32 = 0i32,
                 downsample_counter: u8 = 0u8,
+                last_odometry_right: i32 = 0i32,
+                last_odometry_left: i32 = 0i32,
          ],
         )]
         fn uart0_neato(cx: uart0_neato::Context);

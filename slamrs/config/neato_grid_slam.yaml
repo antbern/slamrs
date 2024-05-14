@@ -1,0 +1,58 @@
+
+settings:
+  headless: false
+
+nodes:
+
+- !MousePosition
+
+- !SerialConnection
+  topic_observation: "robot/observation_odometry"
+  topic_command: "robot/command"
+
+- !Controls
+  topic_command: "robot/command"
+  keyboard_enabled: true
+  max_speed: 0.2
+
+- !GridMapSlam
+  # the Slam algo requires synced observations and odomety, which is also published by the simulator on a separate topic
+  topic_observation_odometry: "robot/observation_odometry"
+  topic_pose: "robot/pose"
+  topic_map: "slam/map"
+  config:
+    position: [-4.0, -4.0]
+    width: 8.0
+    height: 8.0
+    resolution: 0.02
+    n_particles: 10
+
+- !Splitter
+  splits:
+  - !ScannerOdometry
+    input: "robot/observation_odometry"
+    scanner: "robot/observation"
+    odometry: "robot/odometry"
+
+- !Visualizer
+  topics:
+  
+  - !GridMap
+    topic: "slam/map"
+    config:
+      gridlines: false
+    
+  - !Observation
+    topic: "robot/observation"
+    topic_pose: "robot/pose"
+    config:
+      draw_lines: true
+      size: 0.01
+      point_color: [0.0, 1.0, 0.0]
+
+  - !Pose
+    topic: "robot/pose"
+    config:
+      color: [0.0, 1.0, 1.0]
+      radius: 0.1
+
