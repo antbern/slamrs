@@ -29,7 +29,7 @@ eframe = { version = "0.26.2", default-features = false, features = [
 ] }
 
 nalgebra = {version = "0.32.5", features = ["serde-serialize"] }
-anyhow = "1.0.82"
+anyhow = "1.0.83"
 log = "0.4"
 
 serde = { version = "1.0", features = ["derive"] }
