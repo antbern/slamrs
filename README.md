@@ -43,7 +43,7 @@ An unfiltered (and unstructured) list of high-level ideas for future development
 * Path generation and following by mouse click on the map.
 * Add dynamic "Obstacles" to the Simulator.
 * Saving and loading of maps (+global localization? could use particle filter with uniform starting locations for that)
-* ~~Connection with "real robot", updated from my previous [gridmap-slam-robot project](https://github.com/antbern/gridmap-slam-robot).~~
+* ~~Connection with "real robot", updated from my previous [gridmap-slam-robot project](https://github.com/antbern/gridmap-slam-robot).~~ ([#99](https://github.com/antbern/slamrs/pull/99))
 * Arbitrary input configuration for Nodes, i.e., node inputs can be connected to topics or constants. Same with outputs.
 * _Async? Can we make us of that in a good way?_ 
   - Right now only reasonable when waiting for a value to arrive through the pub-sub system, but might be relevant still.
