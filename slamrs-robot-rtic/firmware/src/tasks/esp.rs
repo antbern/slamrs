@@ -6,16 +6,23 @@ use library::{
     parse_at::{EspMessage, ParsedMessage},
 };
 use rp_pico::hal::fugit::ExtU64;
+use rtic::Mutex;
 use rtic_monotonics::rp2040::Timer;
 
 use crate::{
     app::{init_esp, uart1_esp32, DATA_PACKET_SIZE},
+    tasks::heartbeat::{Color, LedStatus, Speed},
     util::{channel_send, wait_for_message},
 };
 
 /// Task that initializes and handles the ESP WIFI connection
-pub async fn init_esp(cx: init_esp::Context<'_>) {
+pub async fn init_esp(mut cx: init_esp::Context<'_>) {
     info!("Reseting the ESP");
+
+    cx.shared
+        .led_status
+        .lock(|s| *s = LedStatus::Blinking(Color::Blue, Speed::Fast));
+
     cx.local.esp_mode.set_high().ok();
     cx.local.esp_reset.set_low().ok();
 
@@ -42,6 +49,10 @@ pub async fn init_esp(cx: init_esp::Context<'_>) {
     // let mut state = State::Ready;
 
     info!("Done, starting message loop");
+
+    cx.shared
+        .led_status
+        .lock(|s| *s = LedStatus::Blinking(Color::Blue, Speed::Medium));
     loop {
         futures::select_biased! {
             value = cx.local.robot_message_receiver.recv().fuse() => {
@@ -72,6 +83,9 @@ pub async fn init_esp(cx: init_esp::Context<'_>) {
                     info!("Got message: {}", m);
                     match m {
                         EspMessage::GotIP => {
+                            cx.shared
+                                .led_status
+                                .lock(|s| *s = LedStatus::Blinking(Color::Cyan, Speed::Fast));
                             // state = State::WifiConnectedAndIp;
                             // enable mdns
                             cx.local
@@ -98,6 +112,10 @@ pub async fn init_esp(cx: init_esp::Context<'_>) {
 
                             // state = State::Listening;
                             info!("Listening");
+
+                            cx.shared
+                                .led_status
+                                .lock(|s| *s = LedStatus::Blinking(Color::Green, Speed::Slow));
                         }
                         EspMessage::ClientConnect => {
                             // state = State::ClientConnected;

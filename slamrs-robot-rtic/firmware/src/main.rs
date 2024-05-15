@@ -5,6 +5,7 @@ mod encoder;
 mod motor;
 mod tasks;
 mod util;
+mod ws2812b;
 
 // use rp_pico::hal as _;
 use defmt_rtt as _;
@@ -21,6 +22,7 @@ mod app {
     use crate::encoder;
     use crate::motor::{Motor, MotorDriver};
     use crate::tasks::esp::{init_esp, uart1_esp32};
+    use crate::tasks::heartbeat::{heartbeat, Color, LedStatus, Speed};
     use crate::tasks::motors::motor_control_loop;
     use crate::tasks::neato::{neato_motor_control, uart0_neato};
     use crate::tasks::usb::{usb_irq, usb_sender};
@@ -28,7 +30,7 @@ mod app {
 
     use core::sync::atomic::Ordering;
     use defmt::{debug, error, info, warn};
-    use embedded_hal::digital::v2::{OutputPin, ToggleableOutputPin};
+    use embedded_hal::digital::v2::OutputPin;
     use futures::FutureExt;
     use library::event::Event;
     use library::neato::RunningParser;
@@ -85,11 +87,15 @@ mod app {
 
     const MOTOR_STEPS_PER_REV: i32 = 2000;
     const MOTOR_WHEEL_DIAMETER: f32 = 0.06; // meters
-    pub const MOTOR_STEPS_PER_METER: f32 = MOTOR_STEPS_PER_REV as f32 / (MOTOR_WHEEL_DIAMETER * core::f32::consts::PI);
+    pub const MOTOR_STEPS_PER_METER: f32 =
+        MOTOR_STEPS_PER_REV as f32 / (MOTOR_WHEEL_DIAMETER * core::f32::consts::PI);
 
     // Shared resources go here
     #[shared]
     struct Shared {
+        /// Status
+        led_status: LedStatus,
+
         /// The USB Serial Device mriver
         /// Shared between the USB interrupt and the USB sending task
         pub usb_serial: SerialPort<'static, hal::usb::UsbBus>,
@@ -115,7 +121,9 @@ mod app {
     // Local resources go here
     #[local]
     struct Local {
+        /// for the heartbeat task
         led: gpio::Pin<Gpio10, FunctionSioOutput, PullDown>,
+        led_rgb: crate::ws2812b::WS2812B,
 
         // the uart reader part used in the IRQ hardware task
         uart1_rx: Reader<hal::pac::UART1, Uart1Pins>,
@@ -348,6 +356,14 @@ mod app {
             pins.gpio23.into_function(),
         );
 
+        let led_rgb = crate::ws2812b::WS2812B::new(
+            ctx.device.PIO1,
+            &mut ctx.device.RESETS,
+            pins.gpio11.into_function(),
+            false,
+            clocks.system_clock.freq(),
+        );
+
         let motor_right = controller.motor(crate::motor::MotorId::M1).unwrap();
         let motor_left = controller.motor(crate::motor::MotorId::M0).unwrap();
 
@@ -374,6 +390,7 @@ mod app {
         heartbeat::spawn().ok();
         (
             Shared {
+                led_status: LedStatus::default(),
                 usb_serial,
                 usb_active: false,
                 motor_controller: controller,
@@ -383,6 +400,7 @@ mod app {
                 motor_pi_params: Default::default(),
             },
             Local {
+                led_rgb,
                 led,
                 uart1_rx: rx,
                 uart1_tx: tx,
@@ -417,6 +435,7 @@ mod app {
     #[task(
         priority = 1,
         shared = [
+            led_status,
             &neato_downsampling,
             motor_pi_params,
             motor_speed_right,
@@ -445,10 +464,14 @@ mod app {
                     info!("Received event: {}", event);
 
                     match event {
-                        Event::Connected => {is_connected = true;}
+                        Event::Connected => {
+                            is_connected = true;
+                            cx.shared.led_status.lock(|s| *s = LedStatus::Blinking(Color::Green, Speed::Fast));
+                        }
                         Event::Disconnected => {
                             is_connected = false;
                             crate::tasks::neato::MOTOR_ON.store(false, Ordering::Relaxed);
+                            cx.shared.led_status.lock(|s| *s = LedStatus::Blinking(Color::Green, Speed::Slow));
                         },
                         Event::Command(CommandMessage::NeatoOn) => {
                             crate::tasks::neato::MOTOR_ON.store(true, Ordering::Relaxed);
@@ -563,6 +586,7 @@ mod app {
         // Task that initializes and handles the ESP WIFI connection
         #[task(
             priority = 1,
+            shared = [led_status],
             local = [
                 esp_mode,
                 esp_reset,
@@ -646,16 +670,14 @@ mod app {
             ],
         )]
         async fn motor_control_loop(cx: motor_control_loop::Context);
-    }
 
-    #[task(local = [led])]
-    async fn heartbeat(ctx: heartbeat::Context) {
-        loop {
-            // Flicker the built-in LED
-            _ = ctx.local.led.toggle();
-
-            // Delay for 1 second
-            Timer::delay(1000.millis()).await;
-        }
+        #[task(
+            shared = [led_status],
+            local = [
+                led,
+                led_rgb,
+            ]
+        )]
+        async fn heartbeat(cx: heartbeat::Context);
     }
 }
