@@ -4,7 +4,7 @@
 //! * https://nbviewer.org/github/niosus/notebooks/blob/master/icp.ipynb
 //!
 
-use std::time::{Duration, Instant};
+use web_time::{Duration, Instant};
 
 use kd_tree::KdMap;
 use nalgebra::{Matrix1, Matrix2, Matrix2x3, Matrix2xX, Matrix3, Vector2, Vector3};
