@@ -29,10 +29,12 @@ nodes:
             presets: vec![
                 ("Shape Test", include_str!("../../config/shape_test.yaml")),
                 ("Grid Slam", include_str!("../../config/grid_slam.yaml")),
+                #[cfg(not(target_arch = "wasm32"))]
                 (
                     "Neato Grid Slam",
                     include_str!("../../config/neato_grid_slam.yaml"),
                 ),
+                #[cfg(not(target_arch = "wasm32"))]
                 ("Neato ICP", include_str!("../../config/neato.yaml")),
                 ("Simulator ICP", include_str!("../../config/icp_test.yaml")),
                 ("Landmarks", include_str!("../../config/landmarks.yaml")),

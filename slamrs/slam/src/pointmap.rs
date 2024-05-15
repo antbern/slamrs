@@ -1,4 +1,5 @@
-use std::{sync::Arc, time::Instant};
+use std::sync::Arc;
+use web_time::Instant;
 
 use common::{
     node::{Node, NodeConfig},

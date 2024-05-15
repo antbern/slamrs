@@ -8,9 +8,9 @@ nodes:
 
 # - !ShapeTest
 
-- !FileLoader
-  topic_observation: "robot/observation"
-  topic_pose: "robot/pose"
+# - !FileLoader
+#   topic_observation: "robot/observation"
+#   topic_pose: "robot/pose"
 
 - !Splitter
   splits:

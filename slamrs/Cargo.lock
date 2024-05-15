@@ -1925,6 +1925,7 @@ dependencies = [
  "rand",
  "serde",
  "tracing",
+ "web-time 1.1.0",
 ]
 
 [[package]]
