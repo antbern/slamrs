@@ -61,6 +61,7 @@ pub async fn heartbeat(mut cx: heartbeat::Context<'_>) {
 
     let mut counter = 0;
     let mut was_on = false;
+    const SCALE: u8 = 4;
 
     // 10hz loop
     let mut next_iteration_instant = Timer::now();
@@ -77,7 +78,7 @@ pub async fn heartbeat(mut cx: heartbeat::Context<'_>) {
             }
             LedStatus::On(color) => {
                 let (r, g, b) = color.rgb();
-                cx.local.led_rgb.set_color(r, g, b);
+                cx.local.led_rgb.set_color(r / SCALE, g / SCALE, b / SCALE);
                 was_on = true;
             }
             LedStatus::Blinking(color, speed) => {
@@ -86,7 +87,7 @@ pub async fn heartbeat(mut cx: heartbeat::Context<'_>) {
                 if counter % iterations == 0 {
                     was_on = !was_on;
                     if was_on {
-                        cx.local.led_rgb.set_color(r, g, b);
+                        cx.local.led_rgb.set_color(r / SCALE, g / SCALE, b / SCALE);
                     } else {
                         cx.local.led_rgb.set_color(0, 0, 0);
                     }
