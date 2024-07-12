@@ -38,14 +38,14 @@ impl Node for GaussianRendering {
             ui.add(
                 DragValue::new(&mut self.gaussian.mean.x)
                     .fixed_decimals(2)
-                    .clamp_range(-1.0..=1.0)
+                    .range(-1.0..=1.0)
                     .speed(0.01),
             );
 
             ui.add(
                 DragValue::new(&mut self.gaussian.mean.y)
                     .fixed_decimals(2)
-                    .clamp_range(-1.0..=1.0)
+                    .range(-1.0..=1.0)
                     .speed(0.01),
             );
 
@@ -53,7 +53,7 @@ impl Node for GaussianRendering {
                 ui.add(
                     DragValue::new(&mut self.gaussian.covariance[(0, 0)])
                         .fixed_decimals(2)
-                        .clamp_range(0.0..=5.0)
+                        .range(0.0..=5.0)
                         .speed(0.01),
                 );
                 // ui.add(
@@ -67,13 +67,13 @@ impl Node for GaussianRendering {
                 ui.add(
                     DragValue::new(&mut self.gaussian.covariance[(1, 0)])
                         .fixed_decimals(2)
-                        .clamp_range(-5.0..=5.0)
+                        .range(-5.0..=5.0)
                         .speed(0.01),
                 );
                 ui.add(
                     DragValue::new(&mut self.gaussian.covariance[(1, 1)])
                         .fixed_decimals(2)
-                        .clamp_range(0.0..=5.0)
+                        .range(0.0..=5.0)
                         .speed(0.01),
                 );
             });
@@ -81,7 +81,7 @@ impl Node for GaussianRendering {
             ui.add(
                 DragValue::new(&mut self.p)
                     .fixed_decimals(2)
-                    .clamp_range(0.0..=1.0)
+                    .range(0.0..=1.0)
                     .speed(0.01),
             );
 
