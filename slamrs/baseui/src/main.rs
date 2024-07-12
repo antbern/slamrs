@@ -46,7 +46,7 @@ fn main() -> Result<(), eframe::Error> {
         native_options,
         Box::new(|cc| {
             set_style(&cc.egui_ctx);
-            Box::new(baseui::App::new(cc, config))
+            Ok(Box::new(baseui::App::new(cc, config)))
         }),
     )
 }
@@ -73,7 +73,7 @@ fn main() {
                 web_options,
                 Box::new(|cc| {
                     set_style(&cc.egui_ctx);
-                    Box::new(baseui::App::new(cc, config))
+                    Ok(Box::new(baseui::App::new(cc, config)))
                 }),
             )
             .await
