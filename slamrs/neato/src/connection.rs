@@ -31,6 +31,9 @@ pub struct RobotConnection {
     sub_command: Subscription<Command>,
 }
 
+/// The distance between the wheels of the robot
+static WHEEL_BASE: f32 = 0.2;
+
 enum State {
     Idle,
     Running {
@@ -269,7 +272,8 @@ fn stream<C: ConnectionMedium>(
                 RobotMessage::ScanFrame(scan_frame) => {
                     let parsed = frame::parse_frame(&scan_frame.scan_data)?;
                     println!("Received: {:?}", &scan_frame.rpm);
-                    let odometry = Odometry::new(scan_frame.odometry[0], scan_frame.odometry[1]);
+                    let odometry =
+                        Odometry::new(scan_frame.odometry[0], scan_frame.odometry[1], WHEEL_BASE);
                     pub_obs.publish(Arc::new((parsed.into(), odometry)));
                 }
                 RobotMessage::Pong => {

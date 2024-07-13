@@ -41,10 +41,10 @@ pub struct SimParameters {
     /// Laser range scanner maximum distance in meters.
     pub(crate) scanner_range: f32,
 
-    /// The uncertainty for the sensor in the angle direction
+    /// The uncertainty for the sensor in the angle direction (radians)
     pub(crate) angle_uncertainty: f32,
 
-    /// The uncertainty for the sensor in the distance measurement
+    /// The uncertainty for the sensor in the distance measurement (meters)
     pub(crate) distance_uncertainty: f32,
 }
 
@@ -54,7 +54,7 @@ impl Default for SimParameters {
             wheel_base: 0.1,
             update_period: 0.2,
             scanner_range: 1.0,
-            angle_uncertainty: 0.05,
+            angle_uncertainty: 0.03,
             distance_uncertainty: 0.02,
         }
     }
@@ -115,6 +115,7 @@ impl Simulator {
                 let odometry = Odometry::new(
                     self.wheel_motion_accumulator.0,
                     self.wheel_motion_accumulator.1,
+                    self.parameters.wheel_base,
                 );
 
                 // reset the accumulator

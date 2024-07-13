@@ -46,8 +46,11 @@ impl Node for EKFLandmarkSlamNode {
 
             self.pub_pose.publish(Arc::new(self.slam.estimated_pose()));
 
+            let estimated_landmarks = self.slam.estimated_landmarks();
+
+            // log::info!("Estimated landmarks: {:?}", estimated_landmarks);
             self.pub_map.publish(Arc::new(LandmarkMapMessage {
-                landmarks: self.slam.estimated_landmarks().to_vec(),
+                landmarks: estimated_landmarks,
             }));
         }
     }

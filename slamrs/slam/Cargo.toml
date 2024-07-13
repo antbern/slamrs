@@ -16,6 +16,7 @@ anyhow = {workspace = true}
 eframe = {workspace = true}
 nalgebra = {workspace = true}
 serde = {workspace = true}
+log = {workspace = true}
 
 rand = {workspace = true}
 

@@ -119,24 +119,19 @@ pub struct Odometry {
     /// The distance in meters that the right wheel of the robot travelled since last odometry reading.
     pub distance_right: f32,
 
+    /// The distance between the two wheels of the robot in meters.
+    pub wheel_distance: f32,
+
     /// Distribution that describes how far the center has moved
     distribution_center: Normal,
     /// Distribution that describes the angle moved (in radians)
     distribution_theta: Normal,
 }
 
-pub const WHEEL_DISTANCE: f32 = 0.1;
-
-impl Default for Odometry {
-    fn default() -> Self {
-        Self::new(0.0, 0.0)
-    }
-}
-
 impl Odometry {
-    pub fn new(distance_left: f32, distance_right: f32) -> Self {
+    pub fn new(distance_left: f32, distance_right: f32, wheel_distance: f32) -> Self {
         let delta_center = ((distance_left + distance_right) / 2.0) as f64;
-        let delta_theta = ((distance_right - distance_left) / WHEEL_DISTANCE) as f64;
+        let delta_theta = ((distance_right - distance_left) / wheel_distance) as f64;
 
         // simple model for the expected variation in measurement vs world:
         // Some fixed (minimum) variation + a part proportional to the change in value
@@ -150,6 +145,7 @@ impl Odometry {
                 .expect("Create normal distribution for theta"),
             distance_left,
             distance_right,
+            wheel_distance,
         }
     }
 

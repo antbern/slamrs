@@ -13,7 +13,7 @@ nodes:
     odometry: "robot/odometry"
 
 - !Simulator
-  running: true
+  running: false
   topic_observation_landmarks: "robot/observation_odometry"
   topic_pose: "simulator/pose"
   topic_command: "robot/command"
