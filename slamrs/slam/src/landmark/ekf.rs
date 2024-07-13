@@ -8,13 +8,10 @@ pub struct EKFLandmarkSlamConfig {}
 
 #[derive(Debug)]
 pub struct EKFLandmarkSlam {
-    // pose_mean: na::Vector3<f32>,
-    // pose_covariance: na::Matrix3<f32>,
     state_mean: na::DVector<f32>,
     state_covariance: na::DMatrix<f32>,
     num_landmarks: usize,
     landmark_seen: Vec<bool>,
-    // landmarks: Vec<Landmark>,
 }
 
 impl EKFLandmarkSlam {
@@ -39,30 +36,12 @@ impl EKFLandmarkSlam {
             state_covariance,
             num_landmarks,
             landmark_seen: vec![false; num_landmarks],
-            // pose_mean: na::Vector3::zeros(),
-            // pose_covariance: na::Matrix3::zeros(),
-            // landmarks: vec![
-            //     Landmark {
-            //         mean: na::Vector2::zeros(),
-            //         covariance: na::Matrix2::identity() * 1000.0, // "infinite" covariance
-            //     };
-            //     20
-            // ], // ,
-            //     Landmark {
-            //         mean: na::Vector2::new(1.0, 0.0),
-            //         covariance: na::Matrix2::identity() * 0.1,
-            //     },
-            // ],
         }
     }
 
-    // fn landmark_mean(&self, landmark_index: usize) -> na::VectorView2<f32> {
-    //     assert!(landmark_index < self.num_landmarks);
-    //     self.state_mean.fixed_rows::<2>(3 + 2 * landmark_index)
-    // }
-
     pub fn update(&mut self, observation: &LandmarkObservations, odometry: Odometry) {
-        // todo
+        // This implementation of EKF Landmark SLAM comes from this video:
+        // https://youtu.be/XeWG5D71gC0?list=PLgnQpQtFTOGQrZ4O5QzbIHgl3b1JHimN_
 
         /////// Update the robot location using the motion model
 
@@ -133,11 +112,15 @@ impl EKFLandmarkSlam {
         let mut a = sigma_bar.fixed_view_mut::<3, 3>(0, 0);
         a += r;
 
-        //
         ///// Do the update / correction step
 
         for l in observation.landmarks.iter() {
             // data association
+
+            // simple nearest neighbor data association: the observation is associated with the
+            // closest landmark, or a new one is created if not already existing
+            // TODO
+
             let Some(landmark_idx) = l.association else {
                 continue;
             };
@@ -152,8 +135,7 @@ impl EKFLandmarkSlam {
                     mu_bar[1] + l.distance * (mu_bar[2] + l.angle).sin();
             }
 
-            // predict the observed landmark location
-
+            // predict the observed landmark location based on our current belief out our pose
             let dx = mu_bar[3 + 2 * landmark_idx] - mu_bar[0];
             let dy = mu_bar[3 + 2 * landmark_idx + 1] - mu_bar[1];
             let q = dx * dx + dy * dy;
@@ -163,9 +145,7 @@ impl EKFLandmarkSlam {
             let z_bar = na::Vector2::new(sqrt_q, dy.atan2(dx) - mu_bar[2]);
             let z = na::Vector2::new(l.distance, l.angle);
 
-            // compute the jacobian of the expected observation wrt the state and the location of
-            // the landmark
-
+            // compute the jacobian of the expected observation wrt the state and the location of the landmark
             let h_jacobian_low = na::Matrix2x5::new(
                 -sqrt_q * dx,
                 -sqrt_q * dy,
@@ -209,7 +189,7 @@ impl EKFLandmarkSlam {
 
             mu_bar += &k * diff;
 
-            // wrap angle
+            // normalize angle after update
             mu_bar[2] = na::wrap(mu_bar[2], -std::f32::consts::PI, std::f32::consts::PI);
 
             // update the covariance
@@ -256,6 +236,10 @@ impl EKFLandmarkSlam {
             covariance: self.state_covariance.fixed_view::<2, 2>(0, 0).into(),
         });
         l
+    }
+
+    pub fn raw_covariance(&self) -> &na::DMatrix<f32> {
+        &self.state_covariance
     }
 }
 

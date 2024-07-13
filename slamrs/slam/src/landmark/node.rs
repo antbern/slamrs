@@ -6,8 +6,11 @@ use common::{
 };
 use eframe::egui;
 
+use graphics::primitiverenderer::Color;
 use pubsub::{Publisher, Subscription};
 use serde::Deserialize;
+
+use nalgebra as na;
 
 use super::ekf::{EKFLandmarkSlam, EKFLandmarkSlamConfig, Landmark};
 
@@ -46,18 +49,48 @@ impl Node for EKFLandmarkSlamNode {
 
             self.pub_pose.publish(Arc::new(self.slam.estimated_pose()));
 
-            let estimated_landmarks = self.slam.estimated_landmarks();
-
-            // log::info!("Estimated landmarks: {:?}", estimated_landmarks);
             self.pub_map.publish(Arc::new(LandmarkMapMessage {
-                landmarks: estimated_landmarks,
+                landmarks: self.slam.estimated_landmarks(),
             }));
         }
     }
 
-    fn draw(&mut self, ui: &egui::Ui, _world: &mut common::world::WorldObj<'_>) {
+    fn draw(&mut self, ui: &egui::Ui, world: &mut common::world::WorldObj<'_>) {
         egui::Window::new("EKF Landmark Slam").show(ui.ctx(), |ui| {
             ui.label("[WIP]");
+
+            let cov = self.slam.raw_covariance();
+            let d: na::DMatrix<f32> = na::DMatrix::from_diagonal(&cov.diagonal().map(|v| v.sqrt()));
+            if let Some(d_inv) = d.try_inverse() {
+                let corr = &d_inv * cov * d_inv;
+
+                world
+                    .sr
+                    .begin(graphics::primitiverenderer::PrimitiveType::Filled);
+                let x_offset = 2.0;
+                let y_offser = 0.0;
+                let size = 0.08;
+                for i in 0..corr.nrows() {
+                    for j in 0..corr.ncols() {
+                        let c = corr[(i, j)];
+                        let color = if c > 0.0 {
+                            Color::rgb(0.0, c, 0.0)
+                        } else if c == 0.0 {
+                            Color::WHITE
+                        } else {
+                            Color::rgb(-c, 0.0, 0.0)
+                        };
+                        let x = x_offset + i as f32 * size;
+                        let y = y_offser + j as f32 * size;
+
+                        let x = if i > 2 { x + size / 3.0 } else { x };
+                        let y = if j > 2 { y + size / 3.0 } else { y };
+                        world.sr.rect(x, y, size, size, color);
+                    }
+                }
+
+                world.sr.end();
+            }
         });
     }
 }
