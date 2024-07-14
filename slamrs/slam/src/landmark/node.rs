@@ -19,6 +19,7 @@ pub struct EKFLandmarkSlamNode {
     pub_pose: Publisher<Pose>,
     pub_map: Publisher<LandmarkMapMessage>,
     slam: EKFLandmarkSlam,
+    #[allow(dead_code)]
     config: EKFLandmarkSlamConfig,
 }
 
