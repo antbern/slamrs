@@ -38,6 +38,10 @@ nodes:
                 ("Neato ICP", include_str!("../../config/neato.yaml")),
                 ("Simulator ICP", include_str!("../../config/icp_test.yaml")),
                 ("Landmarks", include_str!("../../config/landmarks.yaml")),
+                (
+                    "Landmark Extraction",
+                    include_str!("../../config/landmark_extraction.yaml"),
+                ),
             ],
             parsed_config: None,
         };

@@ -5,7 +5,10 @@ use common::node::{Node, NodeConfig};
 use pubsub::PubSub;
 use serde::Deserialize;
 use simulator::SimulatorNodeConfig;
-use slam::{EKFLandmarkSlamNodeConfig, GridMapSlamNodeConfig, IcpPointMapNodeConfig};
+use slam::{
+    EKFLandmarkSlamNodeConfig, GridMapSlamNodeConfig, IcpPointMapNodeConfig,
+    LandmarkExtractionNodeConfig,
+};
 
 use crate::node::{
     controls::ControlsNodeConfig, frame_viz::FrameVizualizerNodeConfig,
@@ -45,6 +48,7 @@ pub enum NodeEnum {
     GaussianTest(GaussianNodeConfig),
     Splitter(SplitterNodeConfig),
     EKFLandmarkSlam(EKFLandmarkSlamNodeConfig),
+    LandmarkExtraction(LandmarkExtractionNodeConfig),
 }
 
 impl NodeEnum {
@@ -65,6 +69,7 @@ impl NodeEnum {
             GaussianTest(c) => c.instantiate(pubsub),
             Splitter(c) => c.instantiate(pubsub),
             EKFLandmarkSlam(c) => c.instantiate(pubsub),
+            LandmarkExtraction(c) => c.instantiate(pubsub),
         }
     }
 }

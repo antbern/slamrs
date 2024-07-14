@@ -1,3 +1,4 @@
+mod extraction;
 mod grid;
 mod icp;
 mod landmark;
@@ -10,3 +11,5 @@ pub use grid::node::{GridMapMessage, GridMapSlamNode, GridMapSlamNodeConfig};
 
 pub use landmark::ekf::{EKFLandmarkSlamConfig, Landmark};
 pub use landmark::node::{EKFLandmarkSlamNode, EKFLandmarkSlamNodeConfig, LandmarkMapMessage};
+
+pub use extraction::node::{LandmarkExtractionNode, LandmarkExtractionNodeConfig};

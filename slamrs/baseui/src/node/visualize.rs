@@ -154,6 +154,7 @@ impl Visualize for Observation {
             let y = s * d;
 
             // let color = Color::rgb(m.strength as f32 / 2000.0, 0.0, 0.0);
+            let color = if m.valid { color } else { Color::RED };
             sr.rect(
                 ox + x - map_point_size / 2.0,
                 oy + y - map_point_size / 2.0,
