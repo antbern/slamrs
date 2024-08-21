@@ -61,68 +61,73 @@ pub async fn neato_motor_control(mut cx: neato_motor_control::Context<'_>) {
         // );
     }
 }
+
 pub fn uart0_neato(cx: uart0_neato::Context<'_>) {
-    cx.local.parser.consume(cx.local.uart0_rx_neato, |data| {
-        // some exponential smoothing on the raw (*64) RPM value
-        let rpm = data.parse_rpm_raw();
-        *cx.local.rpm_accumulator += rpm as i32 - *cx.local.rpm_average as i32;
-        *cx.local.rpm_average = *cx.local.rpm_accumulator >> 2;
-        let rpm = (*cx.local.rpm_average / 64) as u16;
-        LAST_RPM.store(rpm, core::sync::atomic::Ordering::Relaxed);
+    cx.local.parser.consume(
+        &mut crate::util::Reader::wrap(cx.local.uart0_rx_neato),
+        |data| {
+            // some exponential smoothing on the raw (*64) RPM value
+            let rpm = data.parse_rpm_raw();
+            *cx.local.rpm_accumulator += rpm as i32 - *cx.local.rpm_average as i32;
+            *cx.local.rpm_average = *cx.local.rpm_accumulator >> 2;
+            let rpm = (*cx.local.rpm_average / 64) as u16;
+            LAST_RPM.store(rpm, core::sync::atomic::Ordering::Relaxed);
 
-        info!("neato rpm: {:?}", rpm);
-        // TODO: should we add a data validation check?
-        if rpm < 250 && rpm > 350 {
-            return;
-        }
+            info!("neato rpm: {:?}", rpm);
+            // TODO: should we add a data validation check?
+            if rpm < 250 && rpm > 350 {
+                // THIS WILL NEVER BE TRUE LOL
+                return;
+            }
 
-        *cx.local.downsample_counter += 1;
-        if *cx.local.downsample_counter > cx.shared.neato_downsampling.load(Ordering::Relaxed) {
-            *cx.local.downsample_counter = 0;
-        } else {
-            return;
-        }
+            *cx.local.downsample_counter += 1;
+            if *cx.local.downsample_counter > cx.shared.neato_downsampling.load(Ordering::Relaxed) {
+                *cx.local.downsample_counter = 0;
+            } else {
+                return;
+            }
 
-        // get the odometry change since the last scan
-        let odometry_right = crate::encoder::get_encoder_value_right();
-        let odometry_left = crate::encoder::get_encoder_value_left();
-        let odometry_diff_right = odometry_right - *cx.local.last_odometry_right;
-        let odometry_diff_left = odometry_left - *cx.local.last_odometry_left;
-        *cx.local.last_odometry_right = odometry_right;
-        *cx.local.last_odometry_left = odometry_left;
+            // get the odometry change since the last scan
+            let odometry_right = crate::encoder::get_encoder_value_right();
+            let odometry_left = crate::encoder::get_encoder_value_left();
+            let odometry_diff_right = odometry_right - *cx.local.last_odometry_right;
+            let odometry_diff_left = odometry_left - *cx.local.last_odometry_left;
+            *cx.local.last_odometry_right = odometry_right;
+            *cx.local.last_odometry_left = odometry_left;
 
-        // convert the odometry to meters
-        let odometry_right = odometry_diff_right as f32 / crate::app::MOTOR_STEPS_PER_METER;
-        let odometry_left = odometry_diff_left as f32 / crate::app::MOTOR_STEPS_PER_METER;
+            // convert the odometry to meters
+            let odometry_right = odometry_diff_right as f32 / crate::app::MOTOR_STEPS_PER_METER;
+            let odometry_left = odometry_diff_left as f32 / crate::app::MOTOR_STEPS_PER_METER;
 
-        // need to copy the data to a new array because the data is borrowed from the parser
-        let mut scan_data = [0; 1980];
-        scan_data.copy_from_slice(data.data);
+            // need to copy the data to a new array because the data is borrowed from the parser
+            let mut scan_data = [0; 1980];
+            scan_data.copy_from_slice(data.data);
 
-        // send frame to the host
-        crate::util::channel_send(
-            cx.local.robot_message_sender_neato,
-            RobotMessage::ScanFrame(ScanFrame {
-                scan_data,
-                odometry: [odometry_left, odometry_right],
-                rpm,
-            }),
-            "uart0_neato",
-        );
+            // send frame to the host
+            crate::util::channel_send(
+                cx.local.robot_message_sender_neato,
+                RobotMessage::ScanFrame(ScanFrame {
+                    scan_data,
+                    odometry: [odometry_left, odometry_right],
+                    rpm,
+                }),
+                "uart0_neato",
+            );
 
-        // need to copy the data to a new array because the data is borrowed from the parser
-        let mut scan_data = [0; 1980];
-        scan_data.copy_from_slice(data.data);
+            // need to copy the data to a new array because the data is borrowed from the parser
+            let mut scan_data = [0; 1980];
+            scan_data.copy_from_slice(data.data);
 
-        // send frame to the host
-        crate::util::channel_send(
-            cx.local.robot_message_sender_esp_neato,
-            RobotMessage::ScanFrame(ScanFrame {
-                scan_data,
-                odometry: [odometry_left, odometry_right],
-                rpm,
-            }),
-            "uart0_neato",
-        );
-    });
+            // send frame to the host
+            crate::util::channel_send(
+                cx.local.robot_message_sender_esp_neato,
+                RobotMessage::ScanFrame(ScanFrame {
+                    scan_data,
+                    odometry: [odometry_left, odometry_right],
+                    rpm,
+                }),
+                "uart0_neato",
+            );
+        },
+    );
 }

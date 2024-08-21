@@ -138,22 +138,24 @@ pub async fn init_esp(mut cx: init_esp::Context<'_>) {
 pub fn uart1_esp32(cx: uart1_esp32::Context<'_>) {
     let sender = cx.local.esp_sender;
     let rx = cx.local.uart1_rx;
-    cx.local.parser.consume(rx, move |message| match message {
-        ParsedMessage::Simple(m) => channel_send(sender, m, "uart1_esp32"),
-        ParsedMessage::ReceivedData(data) => {
-            info!("got data: {}", data);
-            // this is not very efficient , but it works for now
-            let mut buffer = [0u8; DATA_PACKET_SIZE];
-            if data.len() > buffer.len() {
-                warn!("Data too long, ignoring");
-                return;
+    cx.local
+        .parser
+        .consume(&mut crate::util::Reader::wrap(rx), move |message| match message {
+            ParsedMessage::Simple(m) => channel_send(sender, m, "uart1_esp32"),
+            ParsedMessage::ReceivedData(data) => {
+                info!("got data: {}", data);
+                // this is not very efficient , but it works for now
+                let mut buffer = [0u8; DATA_PACKET_SIZE];
+                if data.len() > buffer.len() {
+                    warn!("Data too long, ignoring");
+                    return;
+                }
+                buffer[..data.len()].copy_from_slice(data);
+                channel_send(
+                    cx.local.esp_data_sender,
+                    (data.len(), buffer),
+                    "uart1_esp32",
+                );
             }
-            buffer[..data.len()].copy_from_slice(data);
-            channel_send(
-                cx.local.esp_data_sender,
-                (data.len(), buffer),
-                "uart1_esp32",
-            );
-        }
-    });
+        });
 }

@@ -1,6 +1,6 @@
 use core::str::FromStr;
 
-use embedded_hal::serial::Read;
+use crate::Read;
 
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[derive(Debug, Clone, PartialEq)]
@@ -88,7 +88,7 @@ impl<const N: usize> AtParser<N> {
         }
     }
 
-    pub fn consume<R: Read<u8>>(
+    pub fn consume<R: Read>(
         &mut self,
         reader: &mut R,
         callback: impl FnMut(ParsedMessage<'_>),
@@ -250,7 +250,7 @@ mod tests {
         }
     }
 
-    impl embedded_hal::serial::Read<u8> for VecReader {
+    impl Read for VecReader {
         type Error = ();
 
         fn read(&mut self) -> nb::Result<u8, Self::Error> {
