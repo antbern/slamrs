@@ -11,6 +11,10 @@ mod ws2812b;
 use defmt_rtt as _;
 use panic_probe as _;
 
+use rtic_monotonics::rp2040::prelude::*;
+
+rp2040_timer_monotonic!(Mono);
+
 #[rtic::app(
     device = rp_pico::hal::pac,
     // Replace the `FreeInterrupt1, ...` with free interrupt vectors if software tasks are used
@@ -29,7 +33,7 @@ mod app {
     use crate::util::channel_send;
 
     use core::sync::atomic::Ordering;
-    use defmt::{debug, error, info, warn};
+    use defmt::{error, info, warn};
     use embedded_hal::digital::v2::OutputPin;
     use futures::FutureExt;
     use library::event::Event;
@@ -49,7 +53,7 @@ mod app {
         Clock,
     };
     use rp_pico::XOSC_CRYSTAL_FREQ;
-    use rtic_monotonics::rp2040::*;
+    use rtic_monotonics::Monotonic;
 
     use rtic_sync::portable_atomic::AtomicU8;
     // USB Device support
@@ -211,9 +215,8 @@ mod app {
         // TODO setup monotonic if used
         // Initialize the interrupt for the RP2040 timer and obtain the token
         // proving that we have.
-        let rp2040_timer_token = rtic_monotonics::create_rp2040_monotonic_token!();
         // Configure the clocks, watchdog - The default is to generate a 125 MHz system clock
-        Timer::start(ctx.device.TIMER, &mut ctx.device.RESETS, rp2040_timer_token); // default rp2040 clock-rate is 125MHz
+        crate::Mono::start(ctx.device.TIMER, &mut ctx.device.RESETS); // default rp2040 clock-rate is 125MHz
         let mut watchdog = Watchdog::new(ctx.device.WATCHDOG);
         let clocks = clocks::init_clocks_and_plls(
             XOSC_CRYSTAL_FREQ,
@@ -289,9 +292,11 @@ mod app {
 
             // Create a USB device with a fake VID and PID
             let usb_dev = UsbDeviceBuilder::new(&bus_ref, UsbVidPid(0x16c0, 0x27dd))
-                .manufacturer("Fake company")
-                .product("Serial port")
-                .serial_number("TEST")
+                .strings(&[StringDescriptors::default()
+                    .manufacturer("Fake company")
+                    .product("Serial port")
+                    .serial_number("TEST")])
+                .unwrap()
                 .device_class(usbd_serial::USB_CLASS_CDC)
                 .build();
 
@@ -311,7 +316,7 @@ mod app {
         let scl_pin: hal::gpio::Pin<_, hal::gpio::FunctionI2C, PullNone> = pins.gpio1.reconfigure();
 
         // Create the I²C drive
-        let i2c = hal::I2C::i2c0(
+        let i2c = hal::I2C::i2c0_with_external_pull_up(
             ctx.device.I2C0,
             sda_pin,
             scl_pin,
@@ -452,7 +457,7 @@ mod app {
         loop {
             futures::select_biased! {
 
-            _ = Timer::delay(1000.millis()).fuse() => {
+            _ = crate::Mono::delay(1000.millis()).fuse() => {
                 if is_connected {
                     // Send a ping message to the robot
                     channel_send(cx.local.robot_message_sender, RobotMessage::Pong, "event_loop");

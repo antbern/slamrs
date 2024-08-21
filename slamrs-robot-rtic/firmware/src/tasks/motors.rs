@@ -1,9 +1,9 @@
-use crate::app::motor_control_loop;
-use defmt::{info, warn};
+use crate::{app::motor_control_loop, Mono};
+use defmt::warn;
 use fixed::{types::extra::U16, FixedI32};
 use rp_pico::hal::fugit::ExtU32;
 use rtic::Mutex;
-use rtic_monotonics::{rp2040::Timer, Monotonic};
+use rtic_monotonics::Monotonic;
 
 /// The fixed point type used for the PI controller
 pub type F32 = FixedI32<U16>;
@@ -19,14 +19,14 @@ pub async fn motor_control_loop(mut cx: motor_control_loop::Context<'_>) {
     let mut pi_right = PiController::new();
     let mut pi_left = PiController::new();
 
-    let mut next_iteration_instant = Timer::now();
+    let mut next_iteration_instant = Mono::now();
     loop {
         next_iteration_instant += CONTROL_LOOP_PERIOD_MS.millis();
-        if next_iteration_instant < Timer::now() {
+        if next_iteration_instant < Mono::now() {
             warn!("Motor control loop is running behind");
-            next_iteration_instant = Timer::now();
+            next_iteration_instant = Mono::now();
         }
-        Timer::delay_until(next_iteration_instant).await;
+        Mono::delay_until(next_iteration_instant).await;
 
         // do the actual control loop logic with a PI controller
 

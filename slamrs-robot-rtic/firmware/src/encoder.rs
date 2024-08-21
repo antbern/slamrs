@@ -97,7 +97,7 @@ fn initialize<
     program: InstalledProgram<PIO>,
     target: Target,
 ) {
-    let (mut sm, pio_rx, _tx) = PIOBuilder::from_program(program)
+    let (mut sm, pio_rx, _tx) = PIOBuilder::from_installed_program(program)
         .in_pin_base(pin_in_a.num)
         .autopush(false)
         .push_threshold(32)
