@@ -34,7 +34,7 @@ mod app {
 
     use core::sync::atomic::Ordering;
     use defmt::{error, info, warn};
-    use embedded_hal::digital::v2::OutputPin;
+    use embedded_hal::digital::OutputPin;
     use futures::FutureExt;
     use library::event::Event;
     use library::neato::RunningParser;
