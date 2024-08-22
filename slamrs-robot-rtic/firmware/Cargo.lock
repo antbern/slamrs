@@ -624,6 +624,7 @@ name = "library"
 version = "0.1.0"
 dependencies = [
  "defmt",
+ "embedded-hal-nb",
  "nb 1.1.0",
  "slamrs-message",
 ]
@@ -1189,7 +1190,6 @@ dependencies = [
  "fixed",
  "futures",
  "library",
- "nb 1.1.0",
  "panic-probe",
  "pio",
  "pio-proc",
