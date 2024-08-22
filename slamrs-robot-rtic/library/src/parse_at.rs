@@ -1,7 +1,5 @@
 use core::str::FromStr;
 
-use embedded_hal::serial::Read;
-
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[derive(Debug, Clone, PartialEq)]
 pub enum ParsedMessage<'a> {
@@ -88,7 +86,7 @@ impl<const N: usize> AtParser<N> {
         }
     }
 
-    pub fn consume<R: Read<u8>>(
+    pub fn consume<R: embedded_hal_nb::serial::Read<u8>>(
         &mut self,
         reader: &mut R,
         callback: impl FnMut(ParsedMessage<'_>),
@@ -228,6 +226,8 @@ pub fn parse_ipd<'a>(cmd: &'a [u8]) -> Result<(usize, &'a [u8]), &'static str> {
 mod tests {
     use std::vec::Vec;
 
+    use embedded_hal_nb::serial::Read;
+
     use super::*;
 
     struct VecReader {
@@ -250,9 +250,11 @@ mod tests {
         }
     }
 
-    impl embedded_hal::serial::Read<u8> for VecReader {
-        type Error = ();
+    impl embedded_hal_nb::serial::ErrorType for VecReader {
+        type Error = core::convert::Infallible;
+    }
 
+    impl embedded_hal_nb::serial::Read<u8> for VecReader {
         fn read(&mut self) -> nb::Result<u8, Self::Error> {
             if self.current_word < self.strings.len() {
                 if self.current_byte >= self.strings[self.current_word].len() {

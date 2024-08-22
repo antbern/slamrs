@@ -1,5 +1,5 @@
 use defmt::{error, info, warn};
-use embedded_hal::digital::v2::OutputPin;
+use embedded_hal::digital::OutputPin;
 use futures::FutureExt;
 use library::{
     event::Event,
@@ -7,12 +7,13 @@ use library::{
 };
 use rp_pico::hal::fugit::ExtU64;
 use rtic::Mutex;
-use rtic_monotonics::rp2040::Timer;
+use rtic_monotonics::Monotonic;
 
 use crate::{
     app::{init_esp, uart1_esp32, DATA_PACKET_SIZE},
     tasks::heartbeat::{Color, LedStatus, Speed},
     util::{channel_send, wait_for_message},
+    Mono,
 };
 
 /// Task that initializes and handles the ESP WIFI connection
@@ -26,9 +27,9 @@ pub async fn init_esp(mut cx: init_esp::Context<'_>) {
     cx.local.esp_mode.set_high().ok();
     cx.local.esp_reset.set_low().ok();
 
-    Timer::delay(1.secs()).await;
+    Mono::delay(1.secs()).await;
     cx.local.esp_reset.set_high().ok();
-    Timer::delay(1.secs()).await;
+    Mono::delay(1.secs()).await;
 
     // read messages from the device and advance the inner state machine
 
@@ -97,7 +98,7 @@ pub async fn init_esp(mut cx: init_esp::Context<'_>) {
                             info!("Enabling Multiple Connections");
                             cx.local.uart1_tx.write_full_blocking(b"AT+CIPMUX=1\r\n");
                             wait_for_message(cx.local.esp_receiver, EspMessage::Ok).await;
-                            Timer::delay(1.secs()).await;
+                            Mono::delay(1.secs()).await;
 
                             cx.local
                                 .uart1_tx

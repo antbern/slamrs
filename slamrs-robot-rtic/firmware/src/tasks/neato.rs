@@ -1,14 +1,14 @@
 use crate::{
     app::{neato_motor_control, uart0_neato},
     motor::MotorDirection,
+    Mono,
 };
 use core::sync::atomic::{AtomicBool, AtomicU16, Ordering};
-use cortex_m::peripheral::dwt;
-use defmt::{info, warn};
+use defmt::info;
 use library::slamrs_message::{RobotMessage, ScanFrame};
 use rp_pico::hal::fugit::ExtU64;
 use rtic::Mutex;
-use rtic_monotonics::rp2040::Timer;
+use rtic_monotonics::Monotonic;
 
 /// Atomic variables to control the on/off state of the motor and the last measured RPM
 pub static MOTOR_ON: AtomicBool = AtomicBool::new(false);
@@ -25,7 +25,7 @@ pub async fn neato_motor_control(mut cx: neato_motor_control::Context<'_>) {
 
     let mut pwm_current: i32 = 0;
     loop {
-        Timer::delay(200.millis()).await;
+        Mono::delay(200.millis()).await;
 
         let rpm_target = if MOTOR_ON.load(Ordering::Relaxed) {
             300
@@ -61,6 +61,7 @@ pub async fn neato_motor_control(mut cx: neato_motor_control::Context<'_>) {
         // );
     }
 }
+
 pub fn uart0_neato(cx: uart0_neato::Context<'_>) {
     cx.local.parser.consume(cx.local.uart0_rx_neato, |data| {
         // some exponential smoothing on the raw (*64) RPM value
@@ -73,6 +74,7 @@ pub fn uart0_neato(cx: uart0_neato::Context<'_>) {
         info!("neato rpm: {:?}", rpm);
         // TODO: should we add a data validation check?
         if rpm < 250 && rpm > 350 {
+            // THIS WILL NEVER BE TRUE LOL
             return;
         }
 

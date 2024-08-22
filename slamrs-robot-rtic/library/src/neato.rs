@@ -1,5 +1,3 @@
-use embedded_hal::serial::Read;
-
 enum RunningParserState {
     LookingForStart { previous_byte: u8 },
     CollectingBytes { index: usize },
@@ -22,7 +20,7 @@ impl RunningParser {
             state: RunningParserState::LookingForStart { previous_byte: 0 },
         }
     }
-    pub fn consume<R: Read<u8>>(
+    pub fn consume<R: embedded_hal_nb::serial::Read<u8>>(
         &mut self,
         reader: &mut R,
         mut callback: impl FnMut(NeatoFrame<'_>),

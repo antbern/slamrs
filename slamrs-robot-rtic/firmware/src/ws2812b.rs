@@ -1,4 +1,3 @@
-use defmt::info;
 use rp_pico::{
     hal::{
         fugit::HertzU32,
@@ -62,7 +61,7 @@ impl WS2812B {
         let (div_int, div_frac) = pio_calculate_clkdiv_from_float(div);
 
         // configure the state machine
-        let (mut sm, _rx, tx) = rp_pico::hal::pio::PIOBuilder::from_program(installed)
+        let (mut sm, _rx, tx) = rp_pico::hal::pio::PIOBuilder::from_installed_program(installed)
             .side_set_pin_base(pin.id().num)
             .clock_divisor_fixed_point(div_int, div_frac)
             .out_shift_direction(ShiftDirection::Left)

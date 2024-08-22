@@ -1,10 +1,7 @@
 //! Module for controling the motors through the Afafruit Featherwing Motor Driver
-//!
-
-// embedded_hal::blocking::i2c:
 
 use core::marker::PhantomData;
-use embedded_hal::blocking::i2c;
+use embedded_hal::i2c;
 use pwm_pca9685::{Channel, Pca9685};
 
 /// All possible errors
@@ -64,12 +61,9 @@ pub struct Motor<I2C> {
     pwm: Channel,
 }
 
-impl<I2C, E> MotorDriver<I2C>
-where
-    I2C: i2c::Write<Error = E> + i2c::WriteRead<Error = E>,
-{
+impl<I2C: i2c::I2c> MotorDriver<I2C> {
     /// Create and initialize a new motor driver instance
-    pub fn new(i2c: I2C, address: u8, mut frequency_hz: f32) -> Result<Self, Error<E>> {
+    pub fn new(i2c: I2C, address: u8, mut frequency_hz: f32) -> Result<Self, Error<I2C::Error>> {
         let mut pwm = Pca9685::new(i2c, address)?;
 
         // initialize the driver
@@ -92,7 +86,7 @@ where
     }
 
     /// Get a motor instance
-    pub fn motor(&mut self, motor: MotorId) -> Result<Motor<I2C>, Error<E>> {
+    pub fn motor(&mut self, motor: MotorId) -> Result<Motor<I2C>, Error<I2C::Error>> {
         // make sure the motor is not already taken
         if self.taken[motor.as_u8() as usize] {
             return Err(Error::MotorAlreadyTaken);
@@ -117,12 +111,13 @@ where
     }
 }
 
-impl<I2C, E> Motor<I2C>
-where
-    I2C: i2c::Write<Error = E> + i2c::WriteRead<Error = E>,
-{
+impl<I2C: i2c::I2c> Motor<I2C> {
     /// Set the speed of the motor
-    pub fn set_speed(&mut self, mc: &mut MotorDriver<I2C>, speed: u16) -> Result<(), Error<E>> {
+    pub fn set_speed(
+        &mut self,
+        mc: &mut MotorDriver<I2C>,
+        speed: u16,
+    ) -> Result<(), Error<I2C::Error>> {
         mc.pwm.set_channel_on_off(self.pwm, 0, speed)?;
         Ok(())
     }
@@ -132,7 +127,7 @@ where
         &mut self,
         mc: &mut MotorDriver<I2C>,
         speed: i16,
-    ) -> Result<(), Error<E>> {
+    ) -> Result<(), Error<I2C::Error>> {
         let (direction, speed) = if speed > 0 {
             (MotorDirection::Forward, speed as u16)
         } else if speed < 0 {
@@ -150,7 +145,7 @@ where
         &mut self,
         mc: &mut MotorDriver<I2C>,
         direction: MotorDirection,
-    ) -> Result<(), Error<E>> {
+    ) -> Result<(), Error<I2C::Error>> {
         match direction {
             MotorDirection::Forward => {
                 mc.pwm.set_channel_on_off(self.in2, 0, 0)?; // take low first to avoid brake'

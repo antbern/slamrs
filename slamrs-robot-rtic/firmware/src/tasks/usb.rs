@@ -1,5 +1,5 @@
 use crate::{app::usb_irq, app::usb_sender, util::channel_send};
-use defmt::{info, warn};
+use defmt::warn;
 use library::event::Event;
 use rtic::mutex_prelude::*;
 use usb_device::prelude::*;

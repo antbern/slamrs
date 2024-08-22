@@ -1,8 +1,7 @@
-use crate::app::heartbeat;
-use embedded_hal::digital::v2::ToggleableOutputPin;
+use crate::{app::heartbeat, Mono};
 use rp_pico::hal::fugit::ExtU64;
 use rtic::Mutex;
-use rtic_monotonics::{rp2040::Timer, Monotonic};
+use rtic_monotonics::Monotonic;
 
 #[derive(defmt::Format, Copy, Clone)]
 pub enum Color {
@@ -64,10 +63,10 @@ pub async fn heartbeat(mut cx: heartbeat::Context<'_>) {
     const SCALE: u8 = 4;
 
     // 10hz loop
-    let mut next_iteration_instant = Timer::now();
+    let mut next_iteration_instant = Mono::now();
     loop {
         next_iteration_instant += 100.millis();
-        Timer::delay_until(next_iteration_instant).await;
+        Mono::delay_until(next_iteration_instant).await;
 
         let state = cx.shared.led_status.lock(|s| *s);
 
