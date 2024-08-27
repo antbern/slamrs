@@ -60,17 +60,18 @@ pub async fn init_esp(mut cx: init_esp::Context<'_>) {
                 if let Ok(value) = value {
                     info!("Sending: {:?}", value);
                     let mut buffer = [0u8;2048];
-                    match library::slamrs_message::bincode::encode_into_slice(value, &mut buffer, library::slamrs_message::bincode::config::standard()) {
-                        Ok(len) => {
+                    match library::slamrs_message::postcard::to_slice(&value, &mut buffer) {
+                        Ok(data) => {
                             let mut len_buffer = [0u8; 10];
-                            let len_length = library::util::format_base_10(len as u32, &mut len_buffer).unwrap();
-                            info!("Encoded message: {:?} with length: {}", &buffer[..len], &len_buffer[..len_length]);
+                            let len_length = library::util::format_base_10(data.len() as u32, &mut len_buffer).unwrap();
+                            info!("Encoded message: {:?} with length: {}", &data, &len_buffer[..len_length]);
                             cx.local.uart1_tx.write_full_blocking(b"AT+CIPSEND=0,");
                             cx.local.uart1_tx.write_full_blocking(&len_buffer[..len_length]);
                             cx.local.uart1_tx.write_full_blocking(b"\r\n");
                             wait_for_message(cx.local.esp_receiver, EspMessage::Ok).await;
                             // wait_for_message(cx.local.esp_receiver, EspMessage::DataPrompt).await;
-                            cx.local.uart1_tx.write_full_blocking(&buffer[..len]);
+                            cx.local.uart1_tx.write_full_blocking(data);
+                            // do dma transfer
                             wait_for_message(cx.local.esp_receiver, EspMessage::SendOk).await;
                         }
                         Err(_e) => {

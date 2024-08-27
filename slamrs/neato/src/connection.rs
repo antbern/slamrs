@@ -216,7 +216,7 @@ fn connection_thread(
             match SerialPort::open(path, 115200) {
                 Ok(port) => {
                     if let Err(e) = stream(port, running, pub_obs, receiver) {
-                        error!("Error while streaming serial port:\n{:#}", e);
+                        error!("Error while streaming serial port:\n{:#?}", e);
                     }
                 }
                 Err(e) => {
@@ -230,7 +230,7 @@ fn connection_thread(
             match TcpStream::connect(host) {
                 Ok(port) => {
                     if let Err(e) = stream(port, running, pub_obs, receiver) {
-                        error!("Error while streaming network connection:\n{:#}", e);
+                        error!("Error while streaming network connection:\n{:#?}", e);
                     }
                 }
                 Err(e) => {
@@ -261,14 +261,16 @@ fn stream<C: ConnectionMedium>(
         bincode::config::standard(),
     )?;
 
+    let mut buffer = [0u8; 2048];
+
     while running.load(Ordering::Relaxed) {
         while let Ok(cmd) = receiver.try_recv() {
             info!("Sending: {:?}", cmd);
             bincode::encode_into_std_write(cmd, &mut connection, bincode::config::standard())?;
         }
 
-        match bincode::decode_from_std_read(&mut connection, bincode::config::standard()) {
-            Ok(data) => match data {
+        match slamrs_message::postcard::from_io((&mut connection, &mut buffer)) {
+            Ok((data, _)) => match data {
                 RobotMessage::ScanFrame(scan_frame) => {
                     let parsed = frame::parse_frame(&scan_frame.scan_data)?;
                     println!("Received: {:?}", &scan_frame.rpm);
@@ -288,11 +290,12 @@ fn stream<C: ConnectionMedium>(
                 }
             },
             // skip TimedOut errors
-            Err(bincode::error::DecodeError::Io { inner, .. })
-                if inner.kind() == std::io::ErrorKind::TimedOut
-                    || inner.kind() == std::io::ErrorKind::WouldBlock => {}
+            Err(slamrs_message::postcard::Error::DeserializeUnexpectedEnd) => {
+                println!("Postcard: DeserializeUnexpectedEnd");
+            }
             Err(e) => {
-                return Err(e.into());
+                println!("Error while decoding: {:#?}", e);
+                // return Err(e.into());
             }
         }
     }

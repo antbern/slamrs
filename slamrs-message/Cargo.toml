@@ -5,10 +5,13 @@ edition = "2021"
 
 [features]
 defmt = ["dep:defmt"]
-std = ["bincode/std"]
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+std = ["bincode/std", "postcard/use-std", "serde/std", "serde_bytes/std"]
+
 
 [dependencies]
 bincode = {version = "2.0.0-rc.3", default-features = false , features = ["derive"], git="https://github.com/bincode-org/bincode",rev = "aada4bb4cb457677a4b8e47572ae7ca8dd44927c"}
+postcard = {version = "1.0" }
+serde = {version = "1.0", default-features = false }
+serde_bytes = {version = "0.11.0", default-features = false }
 
 defmt = { version = "0.3", optional = true }
