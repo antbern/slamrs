@@ -39,6 +39,7 @@ mod app {
     use library::event::Event;
     use library::neato::RunningParser;
     use library::parse_at::{AtParser, EspMessage};
+    use library::pool::Pool;
     use library::slamrs_message::bincode;
     use library::slamrs_message::{CommandMessage, RobotMessage};
     use rp_pico::hal::gpio::PullNone;
@@ -94,13 +95,18 @@ mod app {
     pub const MOTOR_STEPS_PER_METER: f32 =
         MOTOR_STEPS_PER_REV as f32 / (MOTOR_WHEEL_DIAMETER * core::f32::consts::PI);
 
+    /// Pool size for the scan frames
+    const SCAN_FRAME_POOL_SIZE: usize = 16;
+    static SCAN_FRAME_POOL_STORE: [[u8; 1980]; SCAN_FRAME_POOL_SIZE] =
+        [[0; 1980]; SCAN_FRAME_POOL_SIZE];
+
     // Shared resources go here
     #[shared]
     struct Shared {
         /// Status
         led_status: LedStatus,
 
-        /// The USB Serial Device mriver
+        /// The USB Serial Device driver
         /// Shared between the USB interrupt and the USB sending task
         pub usb_serial: SerialPort<'static, hal::usb::UsbBus>,
 
@@ -120,6 +126,9 @@ mod app {
 
         /// Motor PI parameters
         motor_pi_params: crate::tasks::motors::PiParameters,
+
+        /// Memory pool for scan frames
+        scan_frame_pool: library::pool::Pool<1980, 16>,
     }
 
     // Local resources go here
@@ -393,6 +402,8 @@ mod app {
         init_esp::spawn().ok();
         usb_sender::spawn().ok();
         heartbeat::spawn().ok();
+
+        let scan_frame_pool = Pool::new(&SCAN_FRAME_POOL_STORE);
         (
             Shared {
                 led_status: LedStatus::default(),
@@ -403,6 +414,7 @@ mod app {
                 motor_speed_right: 0,
                 motor_speed_left: 0,
                 motor_pi_params: Default::default(),
+                scan_frame_pool,
             },
             Local {
                 led_rgb,
