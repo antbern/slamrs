@@ -333,10 +333,8 @@ impl Color {
 
     pub const fn rgba_u8(r: u8, g: u8, b: u8, a: u8) -> Self {
         let colori = ((a as u32) << 24) | ((b as u32) << 16) | ((g as u32) << 8) | (r as u32);
-
-        // bits: f32::from_bits(colori), // (not const yet...)
         Self {
-            bits: unsafe { core::mem::transmute::<u32, f32>(colori) },
+            bits: f32::from_bits(colori),
         }
     }
 
