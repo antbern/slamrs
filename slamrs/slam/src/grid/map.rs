@@ -6,22 +6,19 @@ use common::math::{LogOdds, LogProbability, Probability};
 
 #[derive(Clone)]
 pub struct Map {
-    /** the position of this map in the world (lower left corner) */
+    /// the position of this map in the world (lower left corner)
     position: Vector2<f32>,
 
-    /** the size of the map in world coordinates */
+    /// the size of the map in world coordinates
     world_size: Vector2<f32>,
 
-    /** the size of the map in cells */
+    /// the size of the map in cells
     grid_size: Vector2<usize>,
 
-    /** array for storing the probability data */
-    // double[] probData;
-
-    /** the resolution of this GridMap, given in meters per cell */
+    /// the resolution of this GridMap, given in meters per cell
     resolution: f32,
 
-    // Data vectors
+    /// Data vectors
     odds: GridData<LogOdds>,
 }
 
