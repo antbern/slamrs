@@ -18,7 +18,6 @@ impl GridRayIterator {
     /// Create an iterator to iterate over the line specified. The start and end points are specified in grid coordinates,
     /// with the origin at the bottom left. The iterator values correspond to the center of each cell that is visited
     /// along the ray from start to end point.
-
     pub fn new(
         x0: f32,
         y0: f32,
@@ -30,7 +29,6 @@ impl GridRayIterator {
         let delta = Vector2::new(x1 - x0, y1 - y0).abs();
 
         // set up stuff
-
         let x = x0.floor() as isize;
         let y = y0.floor() as isize;
 
