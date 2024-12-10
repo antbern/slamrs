@@ -69,7 +69,7 @@ impl Node for FileLoader {
 
                 let r = ui.add(
                     egui::Slider::new(&mut self.selected_frame, 0..=data.len() - 1)
-                        .clamp_to_range(true)
+                        .clamping(egui::SliderClamping::Always)
                         .integer()
                         .text("Scan"),
                 );

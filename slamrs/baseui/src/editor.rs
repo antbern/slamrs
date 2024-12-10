@@ -114,7 +114,7 @@ nodes:
                 });
             }
             let response = egui::ScrollArea::vertical()
-                .id_source("source")
+                .id_salt("source")
                 // .max_height(ui.available_height())
                 .show(ui, |ui| {
                     ui.add(
