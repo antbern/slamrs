@@ -1,17 +1,25 @@
-pub fn format_base_10(mut x: u32, buffer: &mut [u8]) -> Result<usize, ()> {
+#[derive(Debug, PartialEq)]
+pub enum FormatBase10Error {
+    BufferTooSmall,
+    InvalidDigitInRadix { radix: u32, digit: u32 },
+}
+
+pub fn format_base_10(mut x: u32, buffer: &mut [u8]) -> Result<usize, FormatBase10Error> {
     let radix = 10;
 
     let mut i = 0;
     loop {
         let m = x % radix;
-        x = x / radix;
+        x /= radix;
 
         if i >= buffer.len() {
-            return Err(());
+            return Err(FormatBase10Error::BufferTooSmall);
         }
 
         // will panic if you use a bad radix (< 2 or > 36).
-        buffer[i] = core::char::from_digit(m, radix).unwrap() as u8;
+        buffer[i] = char::from_digit(m, radix)
+            .ok_or(FormatBase10Error::InvalidDigitInRadix { radix, digit: m })?
+            as u8;
         i += 1;
         if x == 0 {
             break;

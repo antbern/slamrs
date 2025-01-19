@@ -68,7 +68,7 @@ impl RunningParser {
     }
 }
 
-impl<'a> NeatoFrame<'a> {
+impl NeatoFrame<'_> {
     /// Parse the raw RPM value (RPM * 64) from the frame
     pub fn parse_rpm_raw(&self) -> u16 {
         let rpm_low = self.data[2];

@@ -22,7 +22,6 @@ pub async fn neato_motor_control(mut cx: neato_motor_control::Context<'_>) {
             .set_direction(mc, MotorDirection::Forward)
             .unwrap();
     });
-
     let mut pwm_current: i32 = 0;
     loop {
         Mono::delay(200.millis()).await;
@@ -66,7 +65,7 @@ pub fn uart0_neato(cx: uart0_neato::Context<'_>) {
     cx.local.parser.consume(cx.local.uart0_rx_neato, |data| {
         // some exponential smoothing on the raw (*64) RPM value
         let rpm = data.parse_rpm_raw();
-        *cx.local.rpm_accumulator += rpm as i32 - *cx.local.rpm_average as i32;
+        *cx.local.rpm_accumulator += rpm as i32 - (*cx.local.rpm_average);
         *cx.local.rpm_average = *cx.local.rpm_accumulator >> 2;
         let rpm = (*cx.local.rpm_average / 64) as u16;
         LAST_RPM.store(rpm, core::sync::atomic::Ordering::Relaxed);

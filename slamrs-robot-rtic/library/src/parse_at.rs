@@ -138,7 +138,7 @@ impl<const N: usize> AtParser<N> {
                         // reset the buffer by moving the remaining bytes to the front
                         let first_other_byte = used;
                         self.buffer.copy_within(first_other_byte..self.index, 0);
-                        self.index = self.index - first_other_byte;
+                        self.index -= first_other_byte;
 
                         found = true;
                     }
@@ -175,7 +175,7 @@ impl<const N: usize> AtParser<N> {
                     let first_other_byte = i + 2;
                     // info!("copy range: {}", first_other_byte..index);
                     self.buffer.copy_within(first_other_byte..self.index, 0);
-                    self.index = self.index - first_other_byte;
+                    self.index -= first_other_byte;
 
                     found = true;
                     break; // break the for loop and restart it
@@ -192,7 +192,7 @@ impl<const N: usize> AtParser<N> {
 
 /// Tries to parse the +IPD message and returns a tuple with the number of bytes used as well
 /// as a slice containing the data bytes.
-pub fn parse_ipd<'a>(cmd: &'a [u8]) -> Result<(usize, &'a [u8]), &'static str> {
+pub fn parse_ipd(cmd: &[u8]) -> Result<(usize, &[u8]), &'static str> {
     let separator = cmd
         .iter()
         .enumerate()

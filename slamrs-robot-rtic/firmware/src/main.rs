@@ -216,7 +216,7 @@ mod app {
         // Initialize the interrupt for the RP2040 timer and obtain the token
         // proving that we have.
         // Configure the clocks, watchdog - The default is to generate a 125 MHz system clock
-        crate::Mono::start(ctx.device.TIMER, &mut ctx.device.RESETS); // default rp2040 clock-rate is 125MHz
+        crate::Mono::start(ctx.device.TIMER, &ctx.device.RESETS); // default rp2040 clock-rate is 125MHz
         let mut watchdog = Watchdog::new(ctx.device.WATCHDOG);
         let clocks = clocks::init_clocks_and_plls(
             XOSC_CRYSTAL_FREQ,
@@ -286,12 +286,13 @@ mod app {
             // Grab a reference to the USB Bus allocator. We are promising to the
             // compiler not to take mutable access to this global variable whilst this
             // reference exists!
+            #[allow(static_mut_refs)] // Still have not found a better way to do this
             let bus_ref = unsafe { USB_BUS.as_ref().unwrap() };
 
-            let serial = SerialPort::new(&bus_ref);
+            let serial = SerialPort::new(bus_ref);
 
             // Create a USB device with a fake VID and PID
-            let usb_dev = UsbDeviceBuilder::new(&bus_ref, UsbVidPid(0x16c0, 0x27dd))
+            let usb_dev = UsbDeviceBuilder::new(bus_ref, UsbVidPid(0x16c0, 0x27dd))
                 .strings(&[StringDescriptors::default()
                     .manufacturer("Fake company")
                     .product("Serial port")

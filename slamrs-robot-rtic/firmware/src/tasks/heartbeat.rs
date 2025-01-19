@@ -43,16 +43,12 @@ impl Speed {
     }
 }
 
-#[derive(defmt::Format, Copy, Clone)]
+#[derive(defmt::Format, Copy, Clone, Default)]
 pub enum LedStatus {
+    #[default]
     Off,
     On(Color),
     Blinking(Color, Speed),
-}
-impl Default for LedStatus {
-    fn default() -> Self {
-        LedStatus::Off
-    }
 }
 
 pub async fn heartbeat(mut cx: heartbeat::Context<'_>) {
