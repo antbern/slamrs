@@ -46,6 +46,7 @@ unsafe impl hal::dma::WriteTarget for OverwriteTarget {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn initialize_encoders(
     pio0: pac::PIO0,
     resets: &mut pac::RESETS,

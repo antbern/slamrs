@@ -106,7 +106,7 @@ impl PiController {
         if (self.sat < 0 && error < 0) || (self.sat > 0 && error > 0) {
             // Anti wind-up: do nothing if there is saturation and the error is in the same direction
         } else {
-            self.x_integral = self.x_integral + ki2 * error;
+            self.x_integral += ki2 * error;
             (self.x_integral, self.sat) = satlimit(self.x_integral, -MAX_VALUE, MAX_VALUE);
         }
 
@@ -129,19 +129,19 @@ impl Default for PiParameters {
 
 fn satlimit<T: Ord>(x: T, min: T, max: T) -> (T, i8) {
     if x < min {
-        return (min, -1);
+        (min, -1)
     } else if x > max {
-        return (max, 1);
+        (max, 1)
     } else {
-        return (x, 0);
+        (x, 0)
     }
 }
 fn limit<T: Ord>(x: T, min: T, max: T) -> T {
     if x < min {
-        return min;
+        min
     } else if x > max {
-        return max;
+        max
     } else {
-        return x;
+        x
     }
 }
