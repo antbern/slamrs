@@ -21,7 +21,7 @@ cortex-m = { version = "0.7" }
 cortex-m-rt = "0.7"
 
 rtic = { version = "2.1", features = [ "thumbv6-backend" ] }
-# portable-atomic = {version = "1.6.0", features=["critical-section"]}
+portable-atomic = { version = "1", features = ["critical-section"] }
 rp-pico = "0.9"
 rtic-monotonics = { version = "2", features = ["rp2040"] }
 rtic-sync = "1.3"
