@@ -286,6 +286,7 @@ mod app {
             // Grab a reference to the USB Bus allocator. We are promising to the
             // compiler not to take mutable access to this global variable whilst this
             // reference exists!
+            #[allow(static_mut_refs)] // Still have not found a better way to do this
             let bus_ref = unsafe { USB_BUS.as_ref().unwrap() };
 
             let serial = SerialPort::new(&bus_ref);

@@ -1,8 +1,6 @@
 //! Module for handling rotary encoders.
 //! Basically a Rust port of https://github.com/adamgreen/QuadratureDecoder
 
-use core::ptr::addr_of_mut;
-
 use rp_pico::hal::{
     self,
     dma::{single_buffer, ChannelIndex, WriteTarget},
@@ -71,7 +69,7 @@ pub fn initialize_encoders(
         sm0,
         // SAFETY: we never call uninstall on the program
         unsafe { installed.share() },
-        OverwriteTarget::new(unsafe { addr_of_mut!(ENCODER_VALUE_RIGHT) }),
+        OverwriteTarget::new(&raw mut ENCODER_VALUE_RIGHT),
     );
 
     initialize(
@@ -80,7 +78,7 @@ pub fn initialize_encoders(
         left_in_b.id(),
         sm1,
         installed,
-        OverwriteTarget::new(unsafe { addr_of_mut!(ENCODER_VALUE_LEFT) }),
+        OverwriteTarget::new(&raw mut ENCODER_VALUE_LEFT),
     );
 }
 
