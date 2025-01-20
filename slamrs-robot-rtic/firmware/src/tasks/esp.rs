@@ -60,6 +60,7 @@ pub async fn init_esp(mut cx: init_esp::Context<'_>) {
             value = cx.local.robot_message_receiver.recv().fuse() => {
                 if let Ok(value) = value {
                     info!("Sending: {:?}", value);
+                    let start = Mono::now();
 
                     // convert to the type we can serialize
                     let message: &RobotMessageBorrowed = &(&value).into();
@@ -67,21 +68,31 @@ pub async fn init_esp(mut cx: init_esp::Context<'_>) {
                     let mut buffer = [0u8;2048];
                     match library::slamrs_message::bincode::encode_into_slice(message, &mut buffer, library::slamrs_message::bincode::config::standard()) {
                         Ok(len) => {
-                            let mut len_buffer = [0u8; 10];
-                            let len_length = library::util::format_base_10(len as u32, &mut len_buffer).unwrap();
-                            info!("Encoded message: {:?} with length: {}", &buffer[..len], &len_buffer[..len_length]);
+                            let elapsed = Mono::now() - start;
+                            info!("Encoded message with length: {} in {} micros", len, elapsed.to_micros());
+
+                            // send start command including ASCII formatted length
+                            let mut len_str_buffer = [0u8; 10];
+                            let len_str_length = library::util::format_base_10(len as u32, &mut len_str_buffer).unwrap();
                             cx.local.uart1_tx.write_full_blocking(b"AT+CIPSEND=0,");
-                            cx.local.uart1_tx.write_full_blocking(&len_buffer[..len_length]);
+                            cx.local.uart1_tx.write_full_blocking(&len_str_buffer[..len_str_length]);
                             cx.local.uart1_tx.write_full_blocking(b"\r\n");
                             wait_for_message(cx.local.esp_receiver, EspMessage::Ok).await;
                             // wait_for_message(cx.local.esp_receiver, EspMessage::DataPrompt).await;
+
+                            // send payload (with a baud rate of 115200, sending 1992 bytes takes around 170ms - blocking!)
+                            let start = Mono::now();
                             cx.local.uart1_tx.write_full_blocking(&buffer[..len]);
+                            let elapsed = Mono::now() - start;
+                            info!("Writing data took: {} micros", elapsed.to_micros());
                             wait_for_message(cx.local.esp_receiver, EspMessage::SendOk).await;
+
                         }
                         Err(_e) => {
                             error!("Error encoding message");
                         }
                     }
+
                 }
             },
             value = cx.local.esp_receiver.recv().fuse() => {
@@ -139,7 +150,7 @@ pub async fn init_esp(mut cx: init_esp::Context<'_>) {
     }
 }
 
-/// Hardware task that reads bytes from the UART an publishes messages!
+/// Hardware task that reads bytes from the UART and publishes messages!
 pub fn uart1_esp32(cx: uart1_esp32::Context<'_>) {
     let sender = cx.local.esp_sender;
     let rx = cx.local.uart1_rx;
