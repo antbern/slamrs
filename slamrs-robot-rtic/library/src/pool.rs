@@ -23,12 +23,13 @@ impl<const N: usize, const M: usize> BufferPool<N, M> {
         }
     }
 
+    /// Acquires a new [`OwnedBuffer`] from the pool if one is available. Returns `None` otherwise.
     pub fn acquire(&self) -> Option<OwnedBuffer<'_, N>> {
         #[allow(unused)]
         for (i, (buffer, borrowed)) in self.buffers.iter().zip(self.borrows.iter()).enumerate() {
             // try to acquire the buffer, if it's not already borrowed
             if borrowed
-                .compare_exchange(0, 1, Ordering::Relaxed, Ordering::Relaxed)
+                .compare_exchange(0, 1, Ordering::SeqCst, Ordering::Relaxed)
                 .is_ok()
             {
                 #[cfg(feature = "defmt")]
@@ -42,8 +43,6 @@ impl<const N: usize, const M: usize> BufferPool<N, M> {
         defmt::error!("No free buffer found!");
         None
     }
-
-    // fn acquire_shared(&self, idx: usize)
 }
 
 /// A buffer that is owned and can be accessed mutably.
@@ -56,7 +55,7 @@ impl<'a, const N: usize> OwnedBuffer<'a, N> {
     #[allow(unsafe_code)]
     pub fn shared(self) -> SharedBuffer<'a, N> {
         // increase the borrowed count (since destructor will decrease it)
-        self.borrowed.add(1, Ordering::Relaxed);
+        self.borrowed.add(1, Ordering::SeqCst);
         SharedBuffer {
             buffer: unsafe { &*self.buffer.get() }, // SAFETY: we consume ourselves (`self` receiver) so no mutable references can exist
             borrowed: self.borrowed,
@@ -66,7 +65,7 @@ impl<'a, const N: usize> OwnedBuffer<'a, N> {
 impl<const N: usize> Drop for OwnedBuffer<'_, N> {
     fn drop(&mut self) {
         // release the buffer
-        self.borrowed.sub(1, Ordering::Relaxed);
+        self.borrowed.sub(1, Ordering::SeqCst);
     }
 }
 
@@ -108,14 +107,14 @@ pub struct SharedBuffer<'a, const N: usize> {
 impl<const N: usize> Drop for SharedBuffer<'_, N> {
     fn drop(&mut self) {
         // release the buffer
-        self.borrowed.sub(1, Ordering::Relaxed);
+        self.borrowed.sub(1, Ordering::SeqCst);
     }
 }
 
 impl<const N: usize> Clone for SharedBuffer<'_, N> {
     fn clone(&self) -> Self {
         // increase the borrowed count
-        self.borrowed.add(1, Ordering::Relaxed);
+        self.borrowed.add(1, Ordering::SeqCst);
         SharedBuffer {
             buffer: self.buffer,
             borrowed: self.borrowed,
