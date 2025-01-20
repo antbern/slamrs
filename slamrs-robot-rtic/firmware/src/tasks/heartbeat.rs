@@ -56,7 +56,7 @@ pub async fn heartbeat(mut cx: heartbeat::Context<'_>) {
 
     let mut counter = 0;
     let mut was_on = false;
-    const SCALE: u8 = 4;
+    const SCALE: u8 = 8;
 
     // 10hz loop
     let mut next_iteration_instant = Mono::now();
@@ -89,9 +89,6 @@ pub async fn heartbeat(mut cx: heartbeat::Context<'_>) {
                 }
             }
         }
-
-        // Flicker the built-in LED
-        // _ = cx.local.led.toggle();
 
         counter += 1;
     }

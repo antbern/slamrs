@@ -2,6 +2,7 @@
 #![no_std]
 
 mod encoder;
+mod message;
 mod motor;
 mod tasks;
 mod util;
@@ -24,6 +25,7 @@ rp2040_timer_monotonic!(Mono);
 )]
 mod app {
     use crate::encoder;
+    use crate::message::RobotMessageInternal;
     use crate::motor::{Motor, MotorDriver};
     use crate::tasks::esp::{init_esp, uart1_esp32};
     use crate::tasks::heartbeat::{heartbeat, Color, LedStatus, Speed};
@@ -40,7 +42,7 @@ mod app {
     use library::neato::RunningParser;
     use library::parse_at::{AtParser, EspMessage};
     use library::slamrs_message::bincode;
-    use library::slamrs_message::{CommandMessage, RobotMessage};
+    use library::slamrs_message::CommandMessage;
     use rp_pico::hal::gpio::PullNone;
     use rp_pico::hal::{
         self, clocks,
@@ -164,10 +166,10 @@ mod app {
 
         /// Sender for the robot messages
         robot_message_sender:
-            rtic_sync::channel::Sender<'static, RobotMessage, ROBOT_MESSAGE_CAPACITY>,
+            rtic_sync::channel::Sender<'static, RobotMessageInternal, ROBOT_MESSAGE_CAPACITY>,
         /// Receiver for the robot messages
         robot_message_receiver:
-            rtic_sync::channel::Receiver<'static, RobotMessage, ROBOT_MESSAGE_CAPACITY>,
+            rtic_sync::channel::Receiver<'static, RobotMessageInternal, ROBOT_MESSAGE_CAPACITY>,
 
         usb_event_sender: rtic_sync::channel::Sender<'static, Event, EVENT_CHANNEL_CAPACITY>,
         usb_data_sender: rtic_sync::channel::Sender<
@@ -181,19 +183,19 @@ mod app {
 
         /// Sender for the robot messages
         robot_message_sender_usb:
-            rtic_sync::channel::Sender<'static, RobotMessage, ROBOT_MESSAGE_CAPACITY>,
+            rtic_sync::channel::Sender<'static, RobotMessageInternal, ROBOT_MESSAGE_CAPACITY>,
         /// Receiver for the robot messages
         robot_message_receiver_usb:
-            rtic_sync::channel::Receiver<'static, RobotMessage, ROBOT_MESSAGE_CAPACITY>,
+            rtic_sync::channel::Receiver<'static, RobotMessageInternal, ROBOT_MESSAGE_CAPACITY>,
 
         ///// Neato stuff
         // uart reader for the neato
         uart0_rx_neato: Reader<hal::pac::UART0, Uart0Pins>,
         neato_motor: Motor<I2CBus>,
         robot_message_sender_neato:
-            rtic_sync::channel::Sender<'static, RobotMessage, ROBOT_MESSAGE_CAPACITY>,
+            rtic_sync::channel::Sender<'static, RobotMessageInternal, ROBOT_MESSAGE_CAPACITY>,
         robot_message_sender_esp_neato:
-            rtic_sync::channel::Sender<'static, RobotMessage, ROBOT_MESSAGE_CAPACITY>,
+            rtic_sync::channel::Sender<'static, RobotMessageInternal, ROBOT_MESSAGE_CAPACITY>,
 
         ///// Motor speed controller
         motor_right: Motor<I2CBus>,
@@ -383,9 +385,9 @@ mod app {
             rtic_sync::make_channel!((usize, [u8; DATA_PACKET_SIZE]), DATA_CHANNEL_CAPACITY);
 
         let (robot_message_sender, robot_message_receiver) =
-            rtic_sync::make_channel!(RobotMessage, ROBOT_MESSAGE_CAPACITY);
+            rtic_sync::make_channel!(RobotMessageInternal, ROBOT_MESSAGE_CAPACITY);
         let (robot_message_sender_usb, robot_message_receiver_usb) =
-            rtic_sync::make_channel!(RobotMessage, ROBOT_MESSAGE_CAPACITY);
+            rtic_sync::make_channel!(RobotMessageInternal, ROBOT_MESSAGE_CAPACITY);
 
         neato_motor_control::spawn().ok();
         motor_control_loop::spawn().ok();
@@ -461,8 +463,8 @@ mod app {
             _ = crate::Mono::delay(1000.millis()).fuse() => {
                 if is_connected {
                     // Send a ping message to the robot
-                    channel_send(cx.local.robot_message_sender, RobotMessage::Pong, "event_loop");
-                    channel_send(cx.local.robot_message_sender_usb, RobotMessage::Pong, "event_loop");
+                    channel_send(cx.local.robot_message_sender, RobotMessageInternal::Pong, "event_loop");
+                    channel_send(cx.local.robot_message_sender_usb, RobotMessageInternal::Pong, "event_loop");
                 }
             },
             event = cx.local.event_receiver.recv().fuse() => match event {

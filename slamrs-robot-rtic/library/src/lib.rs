@@ -5,6 +5,7 @@
 pub mod event;
 pub mod neato;
 pub mod parse_at;
+pub mod pool;
 pub mod util;
 
 pub use slamrs_message;
