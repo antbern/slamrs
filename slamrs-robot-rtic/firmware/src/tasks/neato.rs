@@ -1,11 +1,11 @@
 use crate::{
     app::{neato_motor_control, uart0_neato},
+    message::{RobotMessageInternal, ScanFrameInternal},
     motor::MotorDirection,
     Mono,
 };
 use core::sync::atomic::{AtomicBool, AtomicU16, Ordering};
 use defmt::info;
-use library::slamrs_message::{RobotMessage, ScanFrame};
 use rp_pico::hal::fugit::ExtU64;
 use rtic::Mutex;
 use rtic_monotonics::Monotonic;
@@ -22,6 +22,7 @@ pub async fn neato_motor_control(mut cx: neato_motor_control::Context<'_>) {
             .set_direction(mc, MotorDirection::Forward)
             .unwrap();
     });
+
     let mut pwm_current: i32 = 0;
     loop {
         Mono::delay(200.millis()).await;
@@ -97,29 +98,29 @@ pub fn uart0_neato(cx: uart0_neato::Context<'_>) {
         let odometry_left = odometry_diff_left as f32 / crate::app::MOTOR_STEPS_PER_METER;
 
         // need to copy the data to a new array because the data is borrowed from the parser
-        let mut scan_data = [0; 1980];
-        scan_data.copy_from_slice(data.data);
+        let mut buffer = crate::app::BUFFER_POOL
+            .acquire()
+            .expect("buffer pool should not be empty");
+
+        buffer.copy_from_slice(data.data);
+        let buffer = buffer.shared();
 
         // send frame to the host
         crate::util::channel_send(
             cx.local.robot_message_sender_neato,
-            RobotMessage::ScanFrame(ScanFrame {
-                scan_data,
+            RobotMessageInternal::ScanFrame(ScanFrameInternal {
+                scan_data: buffer.clone(),
                 odometry: [odometry_left, odometry_right],
                 rpm,
             }),
             "uart0_neato",
         );
 
-        // need to copy the data to a new array because the data is borrowed from the parser
-        let mut scan_data = [0; 1980];
-        scan_data.copy_from_slice(data.data);
-
         // send frame to the host
         crate::util::channel_send(
             cx.local.robot_message_sender_esp_neato,
-            RobotMessage::ScanFrame(ScanFrame {
-                scan_data,
+            RobotMessageInternal::ScanFrame(ScanFrameInternal {
+                scan_data: buffer,
                 odometry: [odometry_left, odometry_right],
                 rpm,
             }),

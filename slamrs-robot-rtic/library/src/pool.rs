@@ -11,8 +11,12 @@ pub struct BufferPool<const N: usize, const M: usize> {
     borrows: [portable_atomic::AtomicU8; M],
 }
 
+/// SAFETY: Since this uses atomics to keep track of access, this is okay to share between threads.
+#[allow(unsafe_code)]
+unsafe impl<const N: usize, const M: usize> Sync for BufferPool<N, M> {}
+
 impl<const N: usize, const M: usize> BufferPool<N, M> {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             buffers: [const { UnsafeCell::new([0u8; N]) }; M],
             borrows: [const { portable_atomic::AtomicU8::new(0) }; M],
@@ -20,17 +24,22 @@ impl<const N: usize, const M: usize> BufferPool<N, M> {
     }
 
     pub fn acquire(&self) -> Option<OwnedBuffer<'_, N>> {
-        for (buffer, borrowed) in self.buffers.iter().zip(self.borrows.iter()) {
+        #[allow(unused)]
+        for (i, (buffer, borrowed)) in self.buffers.iter().zip(self.borrows.iter()).enumerate() {
             // try to acquire the buffer, if it's not already borrowed
             if borrowed
                 .compare_exchange(0, 1, Ordering::Relaxed, Ordering::Relaxed)
                 .is_ok()
             {
-                // success, we can now safely access the buffer
-                #[allow(unsafe_code)]
+                #[cfg(feature = "defmt")]
+                defmt::debug!("Allocated buffer {}", i);
+
+                // success, we can now give out a buffer containing a reference to the `UnsafeCell`
                 return Some(OwnedBuffer { buffer, borrowed });
             }
         }
+        #[cfg(feature = "defmt")]
+        defmt::error!("No free buffer found!");
         None
     }
 
@@ -49,7 +58,7 @@ impl<'a, const N: usize> OwnedBuffer<'a, N> {
         // increase the borrowed count (since destructor will decrease it)
         self.borrowed.add(1, Ordering::Relaxed);
         SharedBuffer {
-            buffer: unsafe { &*self.buffer.get() }, // SAFETY: we consume ourselves so no mutable references can exist
+            buffer: unsafe { &*self.buffer.get() }, // SAFETY: we consume ourselves (`self` receiver) so no mutable references can exist
             borrowed: self.borrowed,
         }
     }
@@ -62,7 +71,7 @@ impl<const N: usize> Drop for OwnedBuffer<'_, N> {
 }
 
 impl<const N: usize> Deref for OwnedBuffer<'_, N> {
-    type Target = [u8];
+    type Target = [u8; N];
     fn deref(&self) -> &Self::Target {
         self.as_ref()
     }
@@ -75,15 +84,15 @@ impl<const N: usize> DerefMut for OwnedBuffer<'_, N> {
 }
 
 #[allow(unsafe_code)]
-impl<const N: usize> AsRef<[u8]> for OwnedBuffer<'_, N> {
-    fn as_ref(&self) -> &[u8] {
+impl<const N: usize> AsRef<[u8; N]> for OwnedBuffer<'_, N> {
+    fn as_ref(&self) -> &[u8; N] {
         // SAFETY: we are the sole owner of the buffer, so it's safe to access it
         unsafe { &*self.buffer.get() }
     }
 }
 #[allow(unsafe_code)]
-impl<const N: usize> AsMut<[u8]> for OwnedBuffer<'_, N> {
-    fn as_mut(&mut self) -> &mut [u8] {
+impl<const N: usize> AsMut<[u8; N]> for OwnedBuffer<'_, N> {
+    fn as_mut(&mut self) -> &mut [u8; N] {
         // SAFETY: we are the sole owner of the buffer, so it's safe to access it
         unsafe { &mut *self.buffer.get() }
     }
@@ -114,15 +123,22 @@ impl<const N: usize> Clone for SharedBuffer<'_, N> {
     }
 }
 
-impl<const N: usize> AsRef<[u8]> for SharedBuffer<'_, N> {
-    fn as_ref(&self) -> &[u8] {
+impl<const N: usize> AsRef<[u8; N]> for SharedBuffer<'_, N> {
+    fn as_ref(&self) -> &[u8; N] {
         self.buffer
     }
 }
 impl<const N: usize> Deref for SharedBuffer<'_, N> {
-    type Target = [u8];
+    type Target = [u8; N];
     fn deref(&self) -> &Self::Target {
         self.as_ref()
+    }
+}
+
+#[cfg(feature = "defmt")]
+impl<const N: usize> defmt::Format for SharedBuffer<'_, N> {
+    fn format(&self, f: defmt::Formatter) {
+        defmt::write!(f, "SharedBuffer<{}>", N)
     }
 }
 

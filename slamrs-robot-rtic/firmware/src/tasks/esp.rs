@@ -4,6 +4,7 @@ use futures::FutureExt;
 use library::{
     event::Event,
     parse_at::{EspMessage, ParsedMessage},
+    slamrs_message::RobotMessageBorrowed,
 };
 use rp_pico::hal::fugit::ExtU64;
 use rtic::Mutex;
@@ -59,8 +60,12 @@ pub async fn init_esp(mut cx: init_esp::Context<'_>) {
             value = cx.local.robot_message_receiver.recv().fuse() => {
                 if let Ok(value) = value {
                     info!("Sending: {:?}", value);
+
+                    // convert to the type we can serialize
+                    let message: &RobotMessageBorrowed = &(&value).into();
+
                     let mut buffer = [0u8;2048];
-                    match library::slamrs_message::bincode::encode_into_slice(value, &mut buffer, library::slamrs_message::bincode::config::standard()) {
+                    match library::slamrs_message::bincode::encode_into_slice(message, &mut buffer, library::slamrs_message::bincode::config::standard()) {
                         Ok(len) => {
                             let mut len_buffer = [0u8; 10];
                             let len_length = library::util::format_base_10(len as u32, &mut len_buffer).unwrap();

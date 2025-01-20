@@ -1,6 +1,6 @@
 use crate::{app::usb_irq, app::usb_sender, util::channel_send};
 use defmt::warn;
-use library::event::Event;
+use library::{event::Event, slamrs_message::RobotMessageBorrowed};
 use rtic::mutex_prelude::*;
 use usb_device::prelude::*;
 
@@ -43,6 +43,8 @@ pub async fn usb_sender(mut cx: usb_sender::Context<'_>) {
                     warn!("USB not active, dropping message");
                     continue;
                 }
+                // convert to the type we can serialize
+                let message: &RobotMessageBorrowed = &(&message).into();
 
                 let mut buffer = [0u8; 2048];
                 match library::slamrs_message::bincode::encode_into_slice(
