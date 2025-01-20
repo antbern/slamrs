@@ -10,6 +10,7 @@ slamrs-message = { path = "../../slamrs-message" }
 embedded-hal-nb = "1.0"
 nb = "1.1"
 defmt = { version = "0.3", optional = true }
+portable-atomic = { version = "1", features = ["critical-section"] }
 
 
 [features]
