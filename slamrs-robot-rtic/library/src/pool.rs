@@ -54,35 +54,35 @@ impl<'a, const N: usize> OwnedBuffer<'a, N> {
         }
     }
 }
-impl<'a, const N: usize> Drop for OwnedBuffer<'a, N> {
+impl<const N: usize> Drop for OwnedBuffer<'_, N> {
     fn drop(&mut self) {
         // release the buffer
         self.borrowed.sub(1, Ordering::Relaxed);
     }
 }
 
-impl<'a, const N: usize> Deref for OwnedBuffer<'a, N> {
+impl<const N: usize> Deref for OwnedBuffer<'_, N> {
     type Target = [u8];
     fn deref(&self) -> &Self::Target {
         self.as_ref()
     }
 }
 
-impl<'a, const N: usize> DerefMut for OwnedBuffer<'a, N> {
+impl<const N: usize> DerefMut for OwnedBuffer<'_, N> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.as_mut()
     }
 }
 
 #[allow(unsafe_code)]
-impl<'a, const N: usize> AsRef<[u8]> for OwnedBuffer<'a, N> {
+impl<const N: usize> AsRef<[u8]> for OwnedBuffer<'_, N> {
     fn as_ref(&self) -> &[u8] {
         // SAFETY: we are the sole owner of the buffer, so it's safe to access it
         unsafe { &*self.buffer.get() }
     }
 }
 #[allow(unsafe_code)]
-impl<'a, const N: usize> AsMut<[u8]> for OwnedBuffer<'a, N> {
+impl<const N: usize> AsMut<[u8]> for OwnedBuffer<'_, N> {
     fn as_mut(&mut self) -> &mut [u8] {
         // SAFETY: we are the sole owner of the buffer, so it's safe to access it
         unsafe { &mut *self.buffer.get() }
@@ -103,7 +103,7 @@ impl<const N: usize> Drop for SharedBuffer<'_, N> {
     }
 }
 
-impl<'a, const N: usize> Clone for SharedBuffer<'a, N> {
+impl<const N: usize> Clone for SharedBuffer<'_, N> {
     fn clone(&self) -> Self {
         // increase the borrowed count
         self.borrowed.add(1, Ordering::Relaxed);
@@ -114,12 +114,12 @@ impl<'a, const N: usize> Clone for SharedBuffer<'a, N> {
     }
 }
 
-impl<'a, const N: usize> AsRef<[u8]> for SharedBuffer<'a, N> {
+impl<const N: usize> AsRef<[u8]> for SharedBuffer<'_, N> {
     fn as_ref(&self) -> &[u8] {
         self.buffer
     }
 }
-impl<'a, const N: usize> Deref for SharedBuffer<'a, N> {
+impl<const N: usize> Deref for SharedBuffer<'_, N> {
     type Target = [u8];
     fn deref(&self) -> &Self::Target {
         self.as_ref()
