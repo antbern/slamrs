@@ -41,7 +41,6 @@ mod app {
     use library::event::Event;
     use library::neato::RunningParser;
     use library::parse_at::{AtParser, EspMessage};
-    use library::pool::BufferPool;
     use library::slamrs_message::bincode;
     use library::slamrs_message::CommandMessage;
     use rp_pico::hal::gpio::PullNone;
@@ -204,10 +203,6 @@ mod app {
     }
     /// The USB bus, only needed for initializing the USB device and will never be accessed again
     static mut USB_BUS: Option<UsbBusAllocator<hal::usb::UsbBus>> = None;
-
-    /// The pool of buffers used to send data received from the neato to other parts of the code.
-    /// Kind of like a static memory allocator.
-    pub static BUFFER_POOL: BufferPool<1980, 32> = BufferPool::new();
 
     #[init]
     fn init(mut ctx: init::Context) -> (Shared, Local) {
