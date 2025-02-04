@@ -27,7 +27,7 @@ mod app {
     use crate::encoder;
     use crate::message::RobotMessageInternal;
     use crate::motor::{Motor, MotorDriver};
-    use crate::tasks::esp::{init_esp, uart1_esp32};
+    use crate::tasks::esp::{dma3_esp, init_esp, uart1_esp32};
     use crate::tasks::heartbeat::{heartbeat, Color, LedStatus, Speed};
     use crate::tasks::motors::motor_control_loop;
     use crate::tasks::neato::{neato_motor_control, uart0_neato};
@@ -43,6 +43,7 @@ mod app {
     use library::parse_at::{AtParser, EspMessage};
     use library::slamrs_message::bincode;
     use library::slamrs_message::CommandMessage;
+    use rp_pico::hal::dma::SingleChannel;
     use rp_pico::hal::gpio::PullNone;
     use rp_pico::hal::{
         self, clocks,
@@ -133,7 +134,12 @@ mod app {
 
         // the uart reader part used in the IRQ hardware task
         uart1_rx: Reader<hal::pac::UART1, Uart1Pins>,
-        uart1_tx: Writer<hal::pac::UART1, Uart1Pins>,
+        uart1_tx: Option<Writer<hal::pac::UART1, Uart1Pins>>,
+
+        // DMA channel used when transfering to the ESP
+        esp_tx_dma: Option<hal::dma::Channel<hal::dma::CH3>>,
+        dma3_sender: rtic_sync::channel::Sender<'static, (), 1>,
+        dma3_receiver: rtic_sync::channel::Receiver<'static, (), 1>,
 
         // pins used to reset the ESP
         esp_mode: gpio::Pin<Gpio24, FunctionSioOutput, PullDown>,
@@ -379,6 +385,9 @@ mod app {
         let (esp_sender, esp_receiver) = rtic_sync::make_channel!(EspMessage, ESP_CHANNEL_CAPACITY);
         let (event_sender, event_receiver) =
             rtic_sync::make_channel!(Event, EVENT_CHANNEL_CAPACITY);
+        let (dma3_sender, dma3_receiver) = rtic_sync::make_channel!((), 1);
+        let mut esp_tx_dma = dma.ch3;
+        esp_tx_dma.enable_irq0();
 
         // create a channel for comminicating data packets
         let (data_sender, data_receiver) =
@@ -411,7 +420,9 @@ mod app {
                 led_rgb,
                 led,
                 uart1_rx: rx,
-                uart1_tx: tx,
+                uart1_tx: Some(tx),
+                dma3_sender,
+                dma3_receiver,
                 esp_mode,
                 esp_reset,
                 esp_sender,
@@ -434,6 +445,7 @@ mod app {
                 robot_message_sender_esp_neato: robot_message_sender,
                 motor_right,
                 motor_left,
+                esp_tx_dma: Some(esp_tx_dma),
             },
         )
     }
@@ -599,9 +611,11 @@ mod app {
                 esp_mode,
                 esp_reset,
                 uart1_tx,
+                dma3_receiver,
                 esp_receiver,
                 esp_event_sender,
                 robot_message_receiver,
+                esp_tx_dma,
             ],
         )]
         async fn init_esp(_: init_esp::Context);
@@ -617,6 +631,14 @@ mod app {
             ],
         )]
         fn uart1_esp32(cx: uart1_esp32::Context);
+
+        // Hardware task that fires whenever DMA3 is done
+        #[task(
+            binds = DMA_IRQ_0,
+            // shared = [&neato_downsampling],
+            local = [dma3_sender],
+        )]
+        fn dma3_esp(cx: dma3_esp::Context);
 
         // Hardware task that reads bytes from the USB and publishes messages!
         #[task(
