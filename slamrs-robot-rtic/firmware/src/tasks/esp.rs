@@ -1,4 +1,4 @@
-use defmt::{error, info, warn};
+use defmt::{debug, error, info, warn};
 use embedded_hal::digital::OutputPin;
 use futures::FutureExt;
 use library::{
@@ -6,16 +6,18 @@ use library::{
     parse_at::{EspMessage, ParsedMessage},
     slamrs_message::RobotMessageBorrowed,
 };
-use rp_pico::hal::fugit::ExtU64;
+use rp_pico::hal::{self, dma::SingleChannel, fugit::ExtU64};
 use rtic::Mutex;
 use rtic_monotonics::Monotonic;
 
 use crate::{
-    app::{init_esp, uart1_esp32, DATA_PACKET_SIZE},
+    app::{dma3_esp, init_esp, uart1_esp32, DATA_PACKET_SIZE},
     tasks::heartbeat::{Color, LedStatus, Speed},
     util::{channel_send, wait_for_message},
     Mono,
 };
+
+static mut DMA_BUFFER: [u8; 2048] = [0u8; 2048];
 
 /// Task that initializes and handles the ESP WIFI connection
 pub async fn init_esp(mut cx: init_esp::Context<'_>) {
@@ -32,15 +34,18 @@ pub async fn init_esp(mut cx: init_esp::Context<'_>) {
     cx.local.esp_reset.set_high().ok();
     Mono::delay(1.secs()).await;
 
+    // take out the values we need to own for DMA to work
+
+    let tx = cx.local.uart1_tx.as_ref().expect("should not be None");
     // read messages from the device and advance the inner state machine
 
     wait_for_message(cx.local.esp_receiver, EspMessage::Ready).await;
 
     // configure some stuff
-    cx.local.uart1_tx.write_full_blocking(b"AT+SYSMSG=0\r\n");
+    tx.write_full_blocking(b"AT+SYSMSG=0\r\n");
     wait_for_message(cx.local.esp_receiver, EspMessage::Ok).await;
 
-    cx.local.uart1_tx.write_full_blocking(b"AT+CWSTATE?\r\n");
+    tx.write_full_blocking(b"AT+CWSTATE?\r\n");
 
     // enum State {
     //     Ready,
@@ -65,27 +70,47 @@ pub async fn init_esp(mut cx: init_esp::Context<'_>) {
                     // convert to the type we can serialize
                     let message: &RobotMessageBorrowed = &(&value).into();
 
-                    let mut buffer = [0u8;2048];
-                    match library::slamrs_message::bincode::encode_into_slice(message, &mut buffer, library::slamrs_message::bincode::config::standard()) {
+                    #[expect(clippy::deref_addrof)]
+                    let buffer = unsafe { &mut *&raw mut DMA_BUFFER };
+                    match library::slamrs_message::bincode::encode_into_slice(message, buffer, library::slamrs_message::bincode::config::standard()) {
                         Ok(len) => {
                             let elapsed = Mono::now() - start;
-                            info!("Encoded message with length: {} in {} micros", len, elapsed.to_micros());
+                            debug!("Encoded message with length: {} in {} micros", len, elapsed.to_micros());
+
+                            // take the things we need to hold onto out
+                            let tx = cx.local.uart1_tx.take().expect("should not be None");
+                            let mut dma = cx.local.esp_tx_dma.take().expect("should not be None");
 
                             // send start command including ASCII formatted length
                             let mut len_str_buffer = [0u8; 10];
                             let len_str_length = library::util::format_base_10(len as u32, &mut len_str_buffer).unwrap();
-                            cx.local.uart1_tx.write_full_blocking(b"AT+CIPSEND=0,");
-                            cx.local.uart1_tx.write_full_blocking(&len_str_buffer[..len_str_length]);
-                            cx.local.uart1_tx.write_full_blocking(b"\r\n");
+                            tx.write_full_blocking(b"AT+CIPSEND=0,");
+                            tx.write_full_blocking(&len_str_buffer[..len_str_length]);
+                            tx.write_full_blocking(b"\r\n");
                             wait_for_message(cx.local.esp_receiver, EspMessage::Ok).await;
                             // wait_for_message(cx.local.esp_receiver, EspMessage::DataPrompt).await;
 
-                            // send payload (with a baud rate of 115200, sending 1992 bytes takes around 170ms - blocking!)
+                            // send payload (with a baud rate of 115200, sending 1992 bytes takes around 170ms - so we use the DMA to do it non-blocking)
                             let start = Mono::now();
-                            cx.local.uart1_tx.write_full_blocking(&buffer[..len]);
+
+                            // make sure irq is cleared and empty any existing items
+                            dma.check_irq0();
+                            while cx.local.esp_receiver.try_recv().is_ok() {}
+
+                            // start the DMA transfer
+                            let tx_transfer = hal::dma::single_buffer::Config::new(dma, &buffer[..len], tx).start();
+                            // wait for dma to finish, then we continue
+                            let _ = cx.local.dma3_receiver.recv().await;
+                            let (dma, _, tx) = tx_transfer.wait();
+
+
                             let elapsed = Mono::now() - start;
-                            info!("Writing data took: {} micros", elapsed.to_micros());
+                            debug!("Writing data took: {} micros", elapsed.to_micros());
                             wait_for_message(cx.local.esp_receiver, EspMessage::SendOk).await;
+
+                            // put them back again after using
+                            *cx.local.uart1_tx = Some(tx);
+                            *cx.local.esp_tx_dma = Some(dma)
 
                         }
                         Err(_e) => {
@@ -97,6 +122,7 @@ pub async fn init_esp(mut cx: init_esp::Context<'_>) {
             },
             value = cx.local.esp_receiver.recv().fuse() => {
                 if let Ok(m) = value {
+                    let tx = cx.local.uart1_tx.as_ref().expect("should not be None");
                     info!("Got message: {}", m);
                     match m {
                         EspMessage::GotIP => {
@@ -105,25 +131,22 @@ pub async fn init_esp(mut cx: init_esp::Context<'_>) {
                                 .lock(|s| *s = LedStatus::Blinking(Color::Cyan, Speed::Fast));
                             // state = State::WifiConnectedAndIp;
                             // enable mdns
-                            cx.local
-                                .uart1_tx
+                           tx
                                 .write_full_blocking(b"AT+MDNS=1,\"robot\",\"_tcp\",8080\r\n");
                             wait_for_message(cx.local.esp_receiver, EspMessage::Ok).await;
                             // start the server
 
                             info!("Enabling Multiple Connections");
-                            cx.local.uart1_tx.write_full_blocking(b"AT+CIPMUX=1\r\n");
+                            tx.write_full_blocking(b"AT+CIPMUX=1\r\n");
                             wait_for_message(cx.local.esp_receiver, EspMessage::Ok).await;
                             Mono::delay(1.secs()).await;
 
-                            cx.local
-                                .uart1_tx
+                            tx
                                 .write_full_blocking(b"AT+CIPSERVERMAXCONN=1\r\n");
                             wait_for_message(cx.local.esp_receiver, EspMessage::Ok).await;
 
                             info!("Starting server");
-                            cx.local
-                                .uart1_tx
+                            tx
                                 .write_full_blocking(b"AT+CIPSERVER=1,8080\r\n");
                             wait_for_message(cx.local.esp_receiver, EspMessage::Ok).await;
 
@@ -172,4 +195,20 @@ pub fn uart1_esp32(cx: uart1_esp32::Context<'_>) {
             );
         }
     });
+}
+
+/// Hardware task that fires on DMA_IRQ_0 to notify that the dma transfer is done
+pub fn dma3_esp(cx: dma3_esp::Context<'_>) {
+    channel_send(cx.local.dma3_sender, (), "dma3_irq_esp");
+
+    // SAFETY: we only clear the interrupt in the DMA controller
+    unsafe {
+        let dma = rp_pico::pac::DMA::steal();
+        use rp_pico::hal::dma::ChannelIndex;
+        dma.ints1()
+            .write(|w| w.bits(1 << rp_pico::hal::dma::CH3::id()));
+    };
+
+    // clear the interrupt to avoid firing again
+    rp_pico::pac::NVIC::unpend(rp_pico::pac::interrupt::DMA_IRQ_0);
 }
