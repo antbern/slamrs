@@ -20,7 +20,7 @@ rp2040_timer_monotonic!(Mono);
     device = rp_pico::hal::pac,
     // Replace the `FreeInterrupt1, ...` with free interrupt vectors if software tasks are used
     // You can usually find the names of the interrupt vectors in the some_hal::pac::interrupt enum.
-    dispatchers = [TIMER_IRQ_1],
+    dispatchers = [TIMER_IRQ_1, TIMER_IRQ_2],
     peripherals = true
 )]
 mod app {
@@ -622,6 +622,7 @@ mod app {
 
         // Hardware task that reads bytes from the UART an publishes messages!
         #[task(
+            priority = 2,
             binds = UART1_IRQ,
             local = [
                 uart1_rx,
@@ -635,7 +636,6 @@ mod app {
         // Hardware task that fires whenever DMA3 is done
         #[task(
             binds = DMA_IRQ_0,
-            // shared = [&neato_downsampling],
             local = [dma3_sender],
         )]
         fn dma3_esp(cx: dma3_esp::Context);
@@ -662,6 +662,7 @@ mod app {
         // Hardware task that reads bytes from the Neato UART
         #[task(
             binds = UART0_IRQ,
+            priority = 2,
             shared = [&neato_downsampling],
             local = [
                 uart0_rx_neato,
@@ -678,7 +679,7 @@ mod app {
         fn uart0_neato(cx: uart0_neato::Context);
 
         #[task(
-            priority = 1,
+            priority = 2,
             shared = [motor_controller],
             local = [
                 neato_motor,
