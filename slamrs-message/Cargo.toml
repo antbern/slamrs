@@ -11,4 +11,4 @@ std = ["bincode/std"]
 [dependencies]
 bincode = {version = "2.0.0-rc.3", default-features = false , features = ["derive"], git="https://github.com/bincode-org/bincode",rev = "aada4bb4cb457677a4b8e47572ae7ca8dd44927c"}
 
-defmt = { version = "0.3", optional = true }
+defmt = { version = "1.0", optional = true }
