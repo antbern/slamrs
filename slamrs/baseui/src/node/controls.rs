@@ -54,10 +54,10 @@ impl Node for ControlsNode {
         if self.keyboard_enabled {
             let (up, left, down, right) = ui.ctx().input(|i| {
                 (
-                    i.key_down(Key::W),
-                    i.key_down(Key::A),
-                    i.key_down(Key::S),
-                    i.key_down(Key::D),
+                    i.key_down(Key::W) || i.key_down(Key::ArrowUp),
+                    i.key_down(Key::A) || i.key_down(Key::ArrowLeft),
+                    i.key_down(Key::S) || i.key_down(Key::ArrowDown),
+                    i.key_down(Key::D) || i.key_down(Key::ArrowRight),
                 )
             });
 
