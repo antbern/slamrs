@@ -15,6 +15,10 @@ nodes:
   keyboard_enabled: true
   max_speed: 0.2
 
+- !Gamepad
+  topic_command: "robot/command"
+  max_speed: 0.2
+
 - !GridMapSlam
   # the Slam algo requires synced observations and odomety, which is also published by the simulator on a separate topic
   topic_observation_odometry: "robot/observation_odometry"

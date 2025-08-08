@@ -21,6 +21,11 @@ nodes:
   keyboard_enabled: true
   max_speed: 0.1
 
+- !Gamepad
+  topic_command: "robot/command"
+  max_speed: 0.2
+
+
 # - !IcpPointMapper
 #   topic_observation: "robot/observation"
 #   topic_pose: "robot/pose"

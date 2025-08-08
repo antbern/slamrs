@@ -8,7 +8,7 @@ use simulator::SimulatorNodeConfig;
 use slam::{EKFLandmarkSlamNodeConfig, GridMapSlamNodeConfig, IcpPointMapNodeConfig};
 
 use crate::node::{
-    controls::ControlsNodeConfig, frame_viz::FrameVizualizerNodeConfig,
+    controls::ControlsNodeConfig, frame_viz::FrameVizualizerNodeConfig, gamepad::GamepadNodeConfig,
     gaussian::GaussianNodeConfig, mouse_position::MousePositionNodeConfig,
     shape_rendering::ShapeRenderingNodeConfig, splitter::SplitterNodeConfig,
 };
@@ -33,6 +33,7 @@ pub struct Settings {
 pub enum NodeEnum {
     Simulator(SimulatorNodeConfig),
     Controls(ControlsNodeConfig),
+    Gamepad(GamepadNodeConfig),
     MousePosition(MousePositionNodeConfig),
     ShapeTest(ShapeRenderingNodeConfig),
     #[cfg(not(target_arch = "wasm32"))]
@@ -53,6 +54,7 @@ impl NodeEnum {
         match self {
             Simulator(c) => c.instantiate(pubsub),
             Controls(c) => c.instantiate(pubsub),
+            Gamepad(c) => c.instantiate(pubsub),
             MousePosition(c) => c.instantiate(pubsub),
             ShapeTest(c) => c.instantiate(pubsub),
             #[cfg(not(target_arch = "wasm32"))]
