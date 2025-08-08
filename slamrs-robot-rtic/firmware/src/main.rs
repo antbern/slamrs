@@ -17,7 +17,7 @@ use rtic_monotonics::rp2040::prelude::*;
 rp2040_timer_monotonic!(Mono);
 
 #[rtic::app(
-    device = rp_pico::hal::pac,
+    device = rp2040_hal::pac,
     // Replace the `FreeInterrupt1, ...` with free interrupt vectors if software tasks are used
     // You can usually find the names of the interrupt vectors in the some_hal::pac::interrupt enum.
     dispatchers = [TIMER_IRQ_1, TIMER_IRQ_2],
@@ -34,19 +34,16 @@ mod app {
     use crate::tasks::usb::{usb_irq, usb_sender};
     use crate::util::channel_send;
 
+    use rp2040_hal as hal;
+
     use core::sync::atomic::Ordering;
     use defmt::{error, info, warn};
     use embedded_hal::digital::OutputPin;
     use futures::FutureExt;
-    use library::event::Event;
-    use library::neato::RunningParser;
-    use library::parse_at::{AtParser, EspMessage};
-    use library::slamrs_message::bincode;
-    use library::slamrs_message::CommandMessage;
-    use rp_pico::hal::dma::SingleChannel;
-    use rp_pico::hal::gpio::PullNone;
-    use rp_pico::hal::{
-        self, clocks,
+    use hal::dma::SingleChannel;
+    use hal::gpio::PullNone;
+    use hal::{
+        clocks,
         dma::DMAExt,
         fugit::{ExtU64, RateExtU32},
         gpio::{self, bank0::*, FunctionSioOutput, PullDown},
@@ -55,7 +52,11 @@ mod app {
         watchdog::Watchdog,
         Clock,
     };
-    use rp_pico::XOSC_CRYSTAL_FREQ;
+    use library::event::Event;
+    use library::neato::RunningParser;
+    use library::parse_at::{AtParser, EspMessage};
+    use library::slamrs_message::bincode;
+    use library::slamrs_message::CommandMessage;
     use rtic_monotonics::Monotonic;
 
     use rtic_sync::portable_atomic::AtomicU8;
@@ -81,6 +82,9 @@ mod app {
     );
 
     type I2CBus = hal::I2C<hal::pac::I2C0, I2CPins>;
+
+    // Copied from rp_pico::XOSC_CRYSTAL_FREQ
+    const XOSC_CRYSTAL_FREQ: u32 = 12_000_000;
 
     const ESP_CHANNEL_CAPACITY: usize = 32;
     const EVENT_CHANNEL_CAPACITY: usize = 32;
@@ -215,7 +219,7 @@ mod app {
         // Soft-reset does not release the hardware spinlocks
         // Release them now to avoid a deadlock after debug or watchdog reset
         unsafe {
-            rp_pico::hal::sio::spinlock_reset();
+            hal::sio::spinlock_reset();
         }
 
         info!("init");

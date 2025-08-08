@@ -6,7 +6,10 @@ use library::{
     parse_at::{EspMessage, ParsedMessage},
     slamrs_message::RobotMessageBorrowed,
 };
-use rp_pico::hal::{self, dma::SingleChannel, fugit::ExtU64};
+
+use rp2040_hal as hal;
+
+use hal::{dma::SingleChannel, fugit::ExtU64};
 use rtic::Mutex;
 use rtic_monotonics::Monotonic;
 
@@ -203,12 +206,11 @@ pub fn dma3_esp(cx: dma3_esp::Context<'_>) {
 
     // SAFETY: we only clear the interrupt in the DMA controller
     unsafe {
-        let dma = rp_pico::pac::DMA::steal();
-        use rp_pico::hal::dma::ChannelIndex;
-        dma.ints1()
-            .write(|w| w.bits(1 << rp_pico::hal::dma::CH3::id()));
+        let dma = hal::pac::DMA::steal();
+        use hal::dma::ChannelIndex;
+        dma.ints1().write(|w| w.bits(1 << hal::dma::CH3::id()));
     };
 
     // clear the interrupt to avoid firing again
-    rp_pico::pac::NVIC::unpend(rp_pico::pac::interrupt::DMA_IRQ_0);
+    hal::pac::NVIC::unpend(hal::pac::interrupt::DMA_IRQ_0);
 }

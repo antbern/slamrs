@@ -1,5 +1,5 @@
 use crate::{app::heartbeat, Mono};
-use rp_pico::hal::fugit::ExtU64;
+use rp2040_hal::fugit::ExtU64;
 use rtic::Mutex;
 use rtic_monotonics::Monotonic;
 

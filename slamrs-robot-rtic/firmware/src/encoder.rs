@@ -1,8 +1,9 @@
 //! Module for handling rotary encoders.
 //! Basically a Rust port of https://github.com/adamgreen/QuadratureDecoder
 
-use rp_pico::hal::{
-    self,
+use rp2040_hal as hal;
+
+use hal::{
     dma::{single_buffer, ChannelIndex, WriteTarget},
     gpio::{
         bank0::{Gpio20, Gpio21, Gpio22, Gpio23},
