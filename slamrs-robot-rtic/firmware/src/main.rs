@@ -12,6 +12,14 @@ mod ws2812b;
 use defmt_rtt as _;
 use panic_probe as _;
 
+/// The linker will place this boot block at the start of our program image. We
+/// need this to help the ROM bootloader get our code up and running.
+/// The Boot loader for W25Q080 also supports the W25Q64JVSIQ chip we have.
+#[link_section = ".boot2"]
+#[no_mangle]
+#[used]
+pub static BOOT2_FIRMWARE: [u8; 256] = rp2040_boot2::BOOT_LOADER_W25Q080;
+
 use rtic_monotonics::rp2040::prelude::*;
 
 rp2040_timer_monotonic!(Mono);
