@@ -1,7 +1,7 @@
 use defmt::{error, warn};
 use futures::FutureExt;
 use library::parse_at::EspMessage;
-use rp_pico::hal::fugit::ExtU64;
+use rp2040_hal::fugit::ExtU64;
 use rtic_monotonics::Monotonic as _;
 use rtic_sync::channel::{Sender, TrySendError};
 

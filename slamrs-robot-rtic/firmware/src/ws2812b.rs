@@ -1,10 +1,8 @@
-use rp_pico::{
-    hal::{
-        fugit::HertzU32,
-        gpio::{bank0::Gpio11, FunctionPio1, Pin, PullDown},
-        pio::{Buffers, PIOExt, PinDir, Running, ShiftDirection, StateMachine, Tx, PIO, SM0},
-    },
+use rp2040_hal::{
+    fugit::HertzU32,
+    gpio::{bank0::Gpio11, FunctionPio1, Pin, PullDown},
     pac,
+    pio::{Buffers, PIOExt, PinDir, Running, ShiftDirection, StateMachine, Tx, PIO, SM0},
 };
 
 pub struct WS2812B {
@@ -61,7 +59,7 @@ impl WS2812B {
         let (div_int, div_frac) = pio_calculate_clkdiv_from_float(div);
 
         // configure the state machine
-        let (mut sm, _rx, tx) = rp_pico::hal::pio::PIOBuilder::from_installed_program(installed)
+        let (mut sm, _rx, tx) = rp2040_hal::pio::PIOBuilder::from_installed_program(installed)
             .side_set_pin_base(pin.id().num)
             .clock_divisor_fixed_point(div_int, div_frac)
             .out_shift_direction(ShiftDirection::Left)

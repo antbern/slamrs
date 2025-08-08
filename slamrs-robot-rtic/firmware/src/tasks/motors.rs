@@ -1,7 +1,7 @@
 use crate::{app::motor_control_loop, Mono};
 use defmt::warn;
 use fixed::{types::extra::U16, FixedI32};
-use rp_pico::hal::fugit::ExtU32;
+use rp2040_hal::fugit::ExtU32;
 use rtic::Mutex;
 use rtic_monotonics::Monotonic;
 

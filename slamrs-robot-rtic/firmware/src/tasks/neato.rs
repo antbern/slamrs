@@ -7,7 +7,7 @@ use crate::{
 use core::sync::atomic::{AtomicBool, AtomicU16, Ordering};
 use defmt::info;
 use library::pool::BufferPool;
-use rp_pico::hal::fugit::ExtU64;
+use rp2040_hal::fugit::ExtU64;
 use rtic::Mutex;
 use rtic_monotonics::Monotonic;
 
