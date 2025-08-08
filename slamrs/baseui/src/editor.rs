@@ -94,6 +94,7 @@ nodes:
             }
 
             if self.confirm_open {
+                // TODO: use Popup modal window here
                 egui::Window::new("Are you sure?").show(ui.ctx(), |ui| {
                     ui.label(
                     "Loading a preset will replace your current config. \nDo you want to continue?",
