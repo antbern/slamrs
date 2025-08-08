@@ -164,7 +164,7 @@ dependencies = [
  "getrandom 0.2.16",
  "graphics",
  "log",
- "nalgebra 0.33.2",
+ "nalgebra 0.34.0",
  "neato",
  "pubsub",
  "serde",
@@ -400,7 +400,7 @@ dependencies = [
  "approx",
  "eframe",
  "graphics",
- "nalgebra 0.33.2",
+ "nalgebra 0.34.0",
  "pubsub",
  "rand",
  "statrs",
@@ -1121,7 +1121,7 @@ name = "graphics"
 version = "0.1.0"
 dependencies = [
  "eframe",
- "nalgebra 0.33.2",
+ "nalgebra 0.34.0",
 ]
 
 [[package]]
@@ -1592,23 +1592,6 @@ dependencies = [
 
 [[package]]
 name = "nalgebra"
-version = "0.33.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "26aecdf64b707efd1310e3544d709c5c0ac61c13756046aaaba41be5c4f66a3b"
-dependencies = [
- "approx",
- "matrixmultiply",
- "nalgebra-macros 0.2.2",
- "num-complex",
- "num-rational",
- "num-traits",
- "serde",
- "simba 0.9.0",
- "typenum",
-]
-
-[[package]]
-name = "nalgebra"
 version = "0.34.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9cd59afb6639828b33677758314a4a1a745c15c02bc597095b851c8fd915cf49"
@@ -1631,9 +1614,11 @@ dependencies = [
  "glam 0.29.3",
  "glam 0.30.5",
  "matrixmultiply",
+ "nalgebra-macros 0.3.0",
  "num-complex",
  "num-rational",
  "num-traits",
+ "serde",
  "simba 0.9.0",
  "typenum",
 ]
@@ -1651,9 +1636,9 @@ dependencies = [
 
 [[package]]
 name = "nalgebra-macros"
-version = "0.2.2"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "254a5372af8fc138e36684761d3c0cdb758a4410e938babcff1c860ce14ddbfc"
+checksum = "973e7178a678cfd059ccec50887658d482ce16b0aa9da3888ddeab5cd5eb4889"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2596,7 +2581,7 @@ dependencies = [
  "common",
  "eframe",
  "graphics",
- "nalgebra 0.33.2",
+ "nalgebra 0.34.0",
  "pubsub",
  "rand",
  "serde",
@@ -2627,7 +2612,7 @@ dependencies = [
  "kd-tree",
  "log",
  "lstsq",
- "nalgebra 0.33.2",
+ "nalgebra 0.34.0",
  "pubsub",
  "rand",
  "serde",
