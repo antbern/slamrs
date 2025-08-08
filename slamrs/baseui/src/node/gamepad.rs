@@ -26,7 +26,6 @@ pub struct GamepadNodeConfig {
 impl NodeConfig for GamepadNodeConfig {
     fn instantiate(&self, pubsub: &mut pubsub::PubSub) -> Box<dyn Node> {
         let gilrs = Gilrs::new().expect("should be able to open Gilrs");
-        // start a background thread to poll for gamepad events
 
         Box::new(GamepadNode {
             pub_cmd: pubsub.publish(&self.topic_command),
@@ -65,7 +64,6 @@ impl Node for GamepadNode {
                         }
                         _ => {}
                     }
-                    log::info!("Event: {:?}", gp);
                 }
 
                 ui.label(
@@ -77,16 +75,33 @@ impl Node for GamepadNode {
                 );
             });
 
-        // TODO: convert x-y to left-right speed using trigonometry?
-        // use Y-value to decided the speed
-        let speed = self.last_y * self.target_speed;
+        // convert x-y to left-right speed using the angle
+        let r = (self.last_x.powi(2) + self.last_y.powi(2)).sqrt();
 
-        // use X-value to decide the direction: 1.0 means full turn right (+- the speed)
+        let cmd = if r > 0.0 {
+            let angle = self.last_y.atan2(self.last_x);
 
-        let cmd = Command {
-            speed_left: (1.0 + self.last_x * 2.0).min(1.0) * speed,
-            speed_right: (1.0 + self.last_x * -2.0).min(1.0) * speed,
+            // this is the maximum r for a given angle
+            let max_r = r / (self.last_x.abs().max(self.last_y.abs()));
+
+            // this is the actual throttle
+            let magnitude = r / max_r;
+
+            let turn_damping = 3.0; // increase for slower turns
+            let left = magnitude * (angle.sin() + angle.cos() / turn_damping);
+            let right = magnitude * (angle.sin() - angle.cos() / turn_damping);
+
+            Command {
+                speed_left: left * self.target_speed,
+                speed_right: right * self.target_speed,
+            }
+        } else {
+            Command {
+                speed_left: 0.0,
+                speed_right: 0.0,
+            }
         };
+
         if cmd != self.last_command {
             self.pub_cmd.publish(Arc::new(cmd));
             self.last_command = cmd;
