@@ -63,10 +63,18 @@ pub async fn init_esp(mut cx: init_esp::Context<'_>) {
     cx.shared
         .led_status
         .lock(|s| *s = LedStatus::Blinking(Color::Blue, Speed::Medium));
+
+    let mut is_connected = false;
+
     loop {
         futures::select_biased! {
             value = cx.local.robot_message_receiver.recv().fuse() => {
                 if let Ok(value) = value {
+                    if !is_connected {
+                        debug!("Not connected, dropping message");
+                        continue;
+                    }
+
                     info!("Sending: {:?}", value);
                     let start = Mono::now();
 
@@ -162,10 +170,12 @@ pub async fn init_esp(mut cx: init_esp::Context<'_>) {
                         }
                         EspMessage::ClientConnect => {
                             // state = State::ClientConnected;
+                            is_connected = true;
                             channel_send(cx.local.esp_event_sender, Event::Connected, "ESP");
                         }
                         EspMessage::ClientDisconnect => {
                             // state = State::Listening;
+                            is_connected = false;
                             channel_send(cx.local.esp_event_sender, Event::Disconnected, "ESP");
                         }
                         _ => {}
