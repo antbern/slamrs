@@ -30,7 +30,7 @@ eframe = { version = "0.33", default-features = false, features = [
 	"wayland",
 ] }
 
-nalgebra = {version = "0.34", features = ["serde-serialize"] }
+nalgebra = {version = "0.35", features = ["serde-serialize"] }
 anyhow = "1.0.102"
 log = "0.4"
 
