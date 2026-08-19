@@ -147,7 +147,7 @@ dependencies = [
  "gilrs",
  "graphics",
  "log",
- "nalgebra 0.34.2",
+ "nalgebra 0.35.0",
  "neato",
  "pubsub",
  "serde",
@@ -379,7 +379,7 @@ dependencies = [
  "approx",
  "eframe",
  "graphics",
- "nalgebra 0.34.2",
+ "nalgebra 0.35.0",
  "pubsub",
  "rand",
  "statrs",
@@ -1043,6 +1043,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f70749695b063ecbf6b62949ccccde2e733ec3ecbbd71d467dca4e5c6c97cca0"
 
 [[package]]
+name = "glam"
+version = "0.33.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "898f5a568a84989b6c0f8caa50a93074b97dbdc58fc6d9543157bb4562758933"
+
+[[package]]
 name = "glib-sys"
 version = "0.18.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1146,7 +1152,7 @@ name = "graphics"
 version = "0.1.0"
 dependencies = [
  "eframe",
- "nalgebra 0.34.2",
+ "nalgebra 0.35.0",
 ]
 
 [[package]]
@@ -1645,7 +1651,7 @@ dependencies = [
  "num-traits",
  "rand",
  "rand_distr",
- "simba",
+ "simba 0.9.0",
  "typenum",
 ]
 
@@ -1675,12 +1681,31 @@ dependencies = [
  "glam 0.31.1",
  "glam 0.32.1",
  "matrixmultiply",
+ "num-complex",
+ "num-rational",
+ "num-traits",
+ "simba 0.9.0",
+ "typenum",
+]
+
+[[package]]
+name = "nalgebra"
+version = "0.35.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "adc43a60c217b0c6ff46e47f26911015ad8d2e5a8be1af668c67e370d99a4346"
+dependencies = [
+ "approx",
+ "glam 0.30.5",
+ "glam 0.31.1",
+ "glam 0.32.1",
+ "glam 0.33.1",
+ "matrixmultiply",
  "nalgebra-macros",
  "num-complex",
  "num-rational",
  "num-traits",
  "serde",
- "simba",
+ "simba 0.10.0",
  "typenum",
 ]
 
@@ -2518,6 +2543,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "safe_arch"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1f7caad094bd561859bcd467734a720c3c1f5d1f338995351fefe2190c45efed"
+dependencies = [
+ "bytemuck",
+]
+
+[[package]]
 name = "same-file"
 version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2626,7 +2660,19 @@ dependencies = [
  "num-complex",
  "num-traits",
  "paste",
- "wide",
+ "wide 0.7.32",
+]
+
+[[package]]
+name = "simba"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8f45c644a9f3a386f9288625d9f0c1e999e1acf07a37df35d0516c7f199d9cb2"
+dependencies = [
+ "approx",
+ "num-complex",
+ "num-traits",
+ "wide 1.5.0",
 ]
 
 [[package]]
@@ -2642,7 +2688,7 @@ dependencies = [
  "common",
  "eframe",
  "graphics",
- "nalgebra 0.34.2",
+ "nalgebra 0.35.0",
  "pubsub",
  "rand",
  "serde",
@@ -2673,7 +2719,7 @@ dependencies = [
  "kd-tree",
  "log",
  "lstsq",
- "nalgebra 0.34.2",
+ "nalgebra 0.35.0",
  "pubsub",
  "rand",
  "serde",
@@ -3428,7 +3474,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "41b5576b9a81633f3e8df296ce0063042a73507636cbe956c61133dd7034ab22"
 dependencies = [
  "bytemuck",
- "safe_arch",
+ "safe_arch 0.7.4",
+]
+
+[[package]]
+name = "wide"
+version = "1.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dfdfe6a32973f2d1b268b8895845a8a96cac2f0191e72c27cc929036060dbf89"
+dependencies = [
+ "bytemuck",
+ "safe_arch 1.0.0",
 ]
 
 [[package]]
